@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Необходимо применить миграции после развертывания проекта.
 Для начала расширение [yii2-user](https://github.com/dektrium/yii2-user)
 ```
@@ -64,3 +65,7 @@ frontend
 vendor/                  contains dependent 3rd-party packages
 environments/            contains environment-based overrides
 ```
+=======
+# fresh-office
+Fresh office
+>>>>>>> 7424e6b36f4676b8c237db86ce6a747b675b2429

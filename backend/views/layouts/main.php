@@ -5,8 +5,6 @@
 
 use backend\assets\AppAsset;
 use yii\helpers\Html;
-use yii\bootstrap\Nav;
-use yii\bootstrap\NavBar;
 use yii\widgets\Breadcrumbs;
 use common\widgets\Alert;
 
@@ -27,45 +25,6 @@ rmrevin\yii\fontawesome\AssetBundle::register($this);
 </head>
 <body>
 <?php $this->beginBody() ?>
-<!--
-<?php
-NavBar::begin([
-    'brandLabel' => Yii::$app->name,
-    'brandUrl' => Yii::$app->homeUrl,
-    'options' => [
-        'class' => 'navbar navbar-default navbar-fixed-top',
-    ],
-]);
-$menuItems = [
-    ['label' => 'Home', 'url' => ['/']],
-];
-if (Yii::$app->user->isGuest) {
-    $menuItems[] = ['label' => 'Login', 'url' => ['/login']];
-} else {
-    $menuItems[] = '<li>'
-        . Html::beginForm(['/logout'], 'post')
-        . Html::submitButton(
-            'Logout (' . Yii::$app->user->identity->username . ')',
-            ['class' => 'btn btn-link logout']
-        )
-        . Html::endForm()
-        . '</li>';
-}
-echo Nav::widget([
-    'options' => ['class' => 'navbar-nav navbar-right'],
-    'items' => $menuItems,
-]);
-NavBar::end();
-?>
-
-
-<nav id="w0" class="navbar navbar-default navbar-fixed-top" role="navigation"><div class="container"><div class="navbar-header"><button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#w0-collapse"><span class="sr-only">Toggle navigation</span>
-<span class="icon-bar"></span>
-<span class="icon-bar"></span>
-<span class="icon-bar"></span></button><a class="navbar-brand" href="/">Fresh office</a></div><div id="w0-collapse" class="collapse navbar-collapse"><ul id="w1" class="navbar-nav navbar-right nav"><li><a href="/">Home</a></li>
-<li><form action="/logout" method="post">
-        <input type="hidden" name="_csrf-backend" value="LW8zdjEtTWpVO1skBV8.LRUtVjRycmAaZV94IngcD1JiLXg4ZR0kIg=="><button type="submit" class="btn btn-link logout">Logout (root)</button></form></li></ul></div></div></nav>
--->
 
 <nav class="navbar navbar-default navbar-fixed-top">
     <div class="container-fluid">
@@ -82,6 +41,17 @@ NavBar::end();
         <div id="navbar" class="navbar-collapse collapse">
             <ul class="nav navbar-nav navbar-right">
                 <li><?= Html::a('Документы', ['/documents']) ?></li>
+                <li class="dropdown">
+                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Справочники <span class="caret"></span></a>
+                    <ul class="dropdown-menu">
+                        <li><?= Html::a('Номенклатура', ['/products']) ?></li>
+                        <li><?= Html::a('Виды обращения', ['/handling-kinds']) ?></li>
+                        <!--
+                        <li role="separator" class="divider"></li>
+                        <li><a href="#">Separated link</a></li>
+                        -->
+                    </ul>
+                </li>
                 <li><?= Html::beginForm(['/logout'], 'post')
                     . Html::submitButton('<i class="fa fa-power-off" aria-hidden="true"></i> Выход (' . Yii::$app->user->identity->username . ')', ['class' => 'btn btn-link logout'])
                     . Html::endForm() ?></li>

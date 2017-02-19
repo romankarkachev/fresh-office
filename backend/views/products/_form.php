@@ -38,6 +38,8 @@ use yii\bootstrap\ActiveForm;
 
     <?= $form->field($model, 'fo_fkko')->textInput(['maxlength' => true]) ?>
 
+    <?= $form->field($model, 'author_id')->hiddenInput()->label(false) ?>
+
     <div class="form-group">
         <?= Html::submitButton($model->isNewRecord ? 'Create' : 'Update', ['class' => $model->isNewRecord ? 'btn btn-success' : 'btn btn-primary']) ?>
     </div>

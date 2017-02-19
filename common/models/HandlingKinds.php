@@ -10,9 +10,41 @@ use Yii;
  * @property integer $id
  * @property string $name
  * @property integer $is_active
+ *
+ * @property DocumentsHk[] $documentsHks
  */
 class HandlingKinds extends \yii\db\ActiveRecord
 {
+    /**
+     * Сбор.
+     */
+    const HK_GATHERING = 1;
+
+    /**
+     * Транспортирование.
+     */
+    const HK_TRANSPORTATION = 2;
+
+    /**
+     * Обработка.
+     */
+    const HK_PROCESSING = 3;
+
+    /**
+     * Утилизация.
+     */
+    const HK_UTILIZATION = 4;
+
+    /**
+     * Обезвреживание.
+     */
+    const HK_NEUTRALIZATION = 5;
+
+    /**
+     * Размещение.
+     */
+    const HK_PLACEMENT = 6;
+
     /**
      * @inheritdoc
      */
@@ -51,8 +83,16 @@ class HandlingKinds extends \yii\db\ActiveRecord
      */
     public function checkIfUsed()
     {
-        if ($this->getDocuments()->count() > 0) return true;
+        if ($this->getDocumentsHks()->count() > 0) return true;
 
         return false;
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDocumentsHks()
+    {
+        return $this->hasMany(DocumentsHk::className(), ['hk_id' => 'id']);
     }
 }

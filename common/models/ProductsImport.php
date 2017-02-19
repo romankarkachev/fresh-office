@@ -27,7 +27,7 @@ class ProductsImport extends Model
     {
         return [
             [['type'], 'integer'],
-            [['importFile'], 'file', 'skipOnEmpty' => false, 'extensions' => 'xls,xlsx'],
+            [['importFile'], 'file', 'skipOnEmpty' => false, 'extensions' => 'xls, xlsx'],
         ];
     }
 
@@ -111,7 +111,7 @@ class ProductsImport extends Model
      */
     public static function DangerClassRep($class)
     {
-        if (!is_numeric($class)) return $class;
+        if (!is_numeric($class)) return '';
 
         switch ($class) {
             case 1:

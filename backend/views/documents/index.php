@@ -4,19 +4,17 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 
 /* @var $this yii\web\View */
-/* @var $searchModel common\models\ProductsSearch */
+/* @var $searchModel common\models\DocumentsSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = 'Номенклатура | ' . Yii::$app->name;
-$this->params['breadcrumbs'][] = 'Номенклатура';
+$this->title = 'Документы | ' . Yii::$app->name;
+$this->params['breadcrumbs'][] = 'Документы';
 ?>
-<div class="products-list">
+<div class="documents-list">
     <?php // echo $this->render('_search', ['model' => $searchModel]); ?>
 
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
-
-        <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Импорт из Excel', ['import'], ['class' => 'btn btn-default pull-right']) ?>
 
     </p>
     <?= GridView::widget([
@@ -24,12 +22,12 @@ $this->params['breadcrumbs'][] = 'Номенклатура';
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            'name:ntext',
-            // 'unit',
-            // 'uw',
-            // 'dc',
-            'fkko',
-            // 'fo_fkko',
+            'id',
+            'doc_date:date',
+            'fo_project:ntext:Проект',
+            'fo_customer:ntext:Заказчик',
+            'fo_contract:ntext:Договор',
+            //'comment:ntext',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

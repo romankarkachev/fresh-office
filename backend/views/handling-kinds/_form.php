@@ -24,7 +24,6 @@ use yii\bootstrap\ActiveForm;
 
         <?php endif; ?>
     </div>
-
     <?php ActiveForm::end(); ?>
 
 </div>

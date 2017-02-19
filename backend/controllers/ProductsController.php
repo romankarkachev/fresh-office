@@ -8,6 +8,7 @@ use common\models\Products;
 use common\models\ProductsSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 use yii\web\UploadedFile;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -26,7 +27,7 @@ class ProductsController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete'],
+                'only' => ['index', 'create', 'update', 'delete', 'list-nf'],
                 'rules' => [
                     [
                         'allow' => true,
@@ -73,6 +74,7 @@ class ProductsController extends Controller
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
             return $this->redirect(['/products']);
         } else {
+            $model->author_id = Yii::$app->user->id;
             return $this->render('create', [
                 'model' => $model,
             ]);
@@ -125,6 +127,28 @@ class ProductsController extends Controller
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
+    }
+
+    /**
+     * Функция выполняет поиск номенклатуры по части наименования, переданной в параметрах.
+     * @param string $q
+     * @return array|\yii\db\ActiveRecord[]
+     */
+    public function actionListNf($q, $counter = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $query = Products::find()->select([
+            'id',
+            'text' => 'name',
+            'fkko',
+            'unit',
+            $counter . ' AS `counter`',
+        ])
+            ->limit(100)
+            ->andFilterWhere(['like', 'name', $q]);
+
+        return ['results' => $query->asArray()->all()];
     }
 
     /**

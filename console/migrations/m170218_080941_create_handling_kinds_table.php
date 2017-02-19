@@ -24,26 +24,32 @@ class m170218_080941_create_handling_kinds_table extends Migration
         ], $tableOptions);
 
         $this->insert('handling_kinds', [
+            'id' => 1,
             'name' => 'Сбор',
         ]);
 
         $this->insert('handling_kinds', [
+            'id' => 2,
             'name' => 'Транспортирование',
         ]);
 
         $this->insert('handling_kinds', [
+            'id' => 3,
             'name' => 'Обработка',
         ]);
 
         $this->insert('handling_kinds', [
+            'id' => 4,
             'name' => 'Утилизация',
         ]);
 
         $this->insert('handling_kinds', [
+            'id' => 5,
             'name' => 'Обезвреживание',
         ]);
 
         $this->insert('handling_kinds', [
+            'id' => 6,
             'name' => 'Размещение',
         ]);
     }

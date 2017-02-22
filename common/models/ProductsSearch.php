@@ -13,6 +13,12 @@ use common\models\Products;
 class ProductsSearch extends Products
 {
     /**
+     * Поле для поиска по нескольким полям.
+     * @var
+     */
+    public $searchField;
+
+    /**
      * @inheritdoc
      */
     public function rules()
@@ -20,6 +26,18 @@ class ProductsSearch extends Products
         return [
             [['id', 'created_at', 'is_deleted', 'author_id', 'type', 'fkko', 'fo_id'], 'integer'],
             [['name', 'unit', 'uw', 'dc', 'fkko_date', 'fo_name', 'fo_fkko'], 'safe'],
+            // для отбора
+            [['searchField'], 'safe'],
+        ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function attributeLabels()
+    {
+        return [
+            'searchField' => 'Универсальный поиск',
         ];
     }
 
@@ -69,12 +87,17 @@ class ProductsSearch extends Products
             'fo_id' => $this->fo_id,
         ]);
 
-        $query->andFilterWhere(['like', 'name', $this->name])
-            ->andFilterWhere(['like', 'unit', $this->unit])
-            ->andFilterWhere(['like', 'uw', $this->uw])
-            ->andFilterWhere(['like', 'dc', $this->dc])
-            ->andFilterWhere(['like', 'fo_name', $this->fo_name])
-            ->andFilterWhere(['like', 'fo_fkko', $this->fo_fkko]);
+        $query->orFilterWhere(['like', 'name', $this->searchField])
+            ->orFilterWhere(['like', 'fkko', $this->searchField])
+            ->orFilterWhere(['fo_id' => $this->searchField])
+            ->orFilterWhere(['id' => $this->searchField]);
+
+//        $query->andFilterWhere(['like', 'name', $this->name])
+//            ->andFilterWhere(['like', 'unit', $this->unit])
+//            ->andFilterWhere(['like', 'uw', $this->uw])
+//            ->andFilterWhere(['like', 'dc', $this->dc])
+//            ->andFilterWhere(['like', 'fo_name', $this->fo_name])
+//            ->andFilterWhere(['like', 'fo_fkko', $this->fo_fkko]);
 
         return $dataProvider;
     }

@@ -46,10 +46,8 @@ rmrevin\yii\fontawesome\AssetBundle::register($this);
                     <ul class="dropdown-menu">
                         <li><?= Html::a('Номенклатура', ['/products']) ?></li>
                         <li><?= Html::a('Виды обращения', ['/handling-kinds']) ?></li>
-                        <!--
                         <li role="separator" class="divider"></li>
-                        <li><a href="#">Separated link</a></li>
-                        -->
+                        <li><?= Html::a('Исключения номенклатуры', ['/products-excludes']) ?></li>
                     </ul>
                 </li>
                 <li><?= Html::beginForm(['/logout'], 'post')

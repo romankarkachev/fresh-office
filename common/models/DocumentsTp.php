@@ -14,6 +14,8 @@ use yii\db\ActiveRecord;
  * @property integer $doc_id
  * @property integer $product_id
  * @property string $quantity
+ * @property string $dc
+ * @property integer $is_printable
  *
  * @property string $productName
  * @property Products $product
@@ -37,11 +39,12 @@ class DocumentsTp extends \yii\db\ActiveRecord
     {
         return [
             [['author_id', 'doc_id', 'product_id'], 'required'],
-            [['created_at', 'author_id', 'doc_id', 'product_id'], 'integer'],
+            [['created_at', 'author_id', 'doc_id', 'product_id', 'is_printable'], 'integer'],
             [['quantity'], 'number'],
-            [['product_id'], 'exist', 'skipOnError' => true, 'targetClass' => Products::className(), 'targetAttribute' => ['product_id' => 'id']],
+            [['dc'], 'string', 'max' => 10],
             [['author_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['author_id' => 'id']],
             [['doc_id'], 'exist', 'skipOnError' => true, 'targetClass' => Documents::className(), 'targetAttribute' => ['doc_id' => 'id']],
+            [['product_id'], 'exist', 'skipOnError' => true, 'targetClass' => Products::className(), 'targetAttribute' => ['product_id' => 'id']],
         ];
     }
 
@@ -57,6 +60,8 @@ class DocumentsTp extends \yii\db\ActiveRecord
             'doc_id' => 'Документ',
             'product_id' => 'Номенклатура',
             'quantity' => 'Количество',
+            'dc' => 'Класс опасности',
+            'is_printable' => 'Выводить на печать',
         ];
     }
 

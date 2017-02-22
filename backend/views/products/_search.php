@@ -1,53 +1,36 @@
 <?php
 
 use yii\helpers\Html;
-use yii\widgets\ActiveForm;
+use yii\bootstrap\ActiveForm;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\ProductsSearch */
-/* @var $form yii\widgets\ActiveForm */
+/* @var $form yii\bootstrap\ActiveForm */
+/* @var $searchApplied bool */
 ?>
 
 <div class="products-search">
-
     <?php $form = ActiveForm::begin([
-        'action' => ['index'],
+        'action' => ['/products'],
         'method' => 'get',
+        'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
     ]); ?>
 
-    <?= $form->field($model, 'id') ?>
+    <div class="panel panel-info">
+        <div class="panel-heading">Форма отбора</div>
+        <div class="panel-body">
+            <div class="form-group">
+                <?= $form->field($model, 'searchField')->textInput(['placeholder' => 'Введите часть наименования, код ФККО, код Fresh Office или ID']) ?>
 
-    <?= $form->field($model, 'name') ?>
+            </div>
+            <div class="form-group">
+                <?= Html::submitButton('Найти', ['class' => 'btn btn-primary']) ?>
 
-    <?= $form->field($model, 'created_at') ?>
+                <?= Html::a('Сброс', ['/products'], ['class' => 'btn btn-default']) ?>
 
-    <?= $form->field($model, 'is_deleted') ?>
+            </div>
+        </div>
+        <?php ActiveForm::end(); ?>
 
-    <?= $form->field($model, 'author_id') ?>
-
-    <?php // echo $form->field($model, 'type') ?>
-
-    <?php // echo $form->field($model, 'unit') ?>
-
-    <?php // echo $form->field($model, 'uw') ?>
-
-    <?php // echo $form->field($model, 'dc') ?>
-
-    <?php // echo $form->field($model, 'fkko') ?>
-
-    <?php // echo $form->field($model, 'fkko_date') ?>
-
-    <?php // echo $form->field($model, 'fo_id') ?>
-
-    <?php // echo $form->field($model, 'fo_name') ?>
-
-    <?php // echo $form->field($model, 'fo_fkko') ?>
-
-    <div class="form-group">
-        <?= Html::submitButton('Search', ['class' => 'btn btn-primary']) ?>
-        <?= Html::resetButton('Reset', ['class' => 'btn btn-default']) ?>
     </div>
-
-    <?php ActiveForm::end(); ?>
-
 </div>

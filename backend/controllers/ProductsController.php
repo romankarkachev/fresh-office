@@ -140,13 +140,15 @@ class ProductsController extends Controller
 
         $query = Products::find()->select([
             'id',
-            'text' => 'name',
+            'text' => 'CONCAT(`name`, IF(`fkko` IS NULL, "", CONCAT(" (", `fkko`, ")")))',
             'fkko',
             'unit',
+            'dc',
             $counter . ' AS `counter`',
         ])
             ->limit(100)
-            ->andFilterWhere(['like', 'name', $q]);
+            ->orFilterWhere(['like', 'name', $q])
+            ->orFilterWhere(['like', 'fkko', $q]);
 
         return ['results' => $query->asArray()->all()];
     }
@@ -200,18 +202,13 @@ class ProductsController extends Controller
                         }
 
                         // преобразуем наименование в человеческий вид
-                        $name = trim($row['name']);
-                        $name = str_replace(chr(194).chr(160), '', $name);
-                        $name = str_replace('   ', ' ', $name);
-                        $name = str_replace('  ', ' ', $name);
-                        //$name = mb_strtolower($name);
-                        //$name = ProductsImport::ucFirstRu($name);
+                        $name = ProductsImport::cleanName($row['name']);
 
                         // проверка на существование
                         if (in_array($name, $exists_nom)) {
                             $errors_import[] = 'Обнаружен дубликат: ' . $name . '. Пропущен.';
                             $row_number++;
-                            //continue;
+                            continue;
                         }
 
                         // пустые наименования и бессмысленные пропускаем
@@ -224,10 +221,10 @@ class ProductsController extends Controller
                         $new_record->type = $model->type;
                         $new_record->author_id = Yii::$app->user->id;
                         $new_record->is_deleted = 0;
+                        $new_record->fo_id = trim($row['id']);
+                        $new_record->fo_name = trim($row['name']);
                         if ($new_record->type == ProductsImport::PRODUCT_TYPE_WASTE) {
-                            $new_record->fo_id = trim($row['id']);
                             $new_record->fkko_date = trim($row['date']);
-                            $new_record->fo_name = trim($row['name']);
 
                             $new_record->fo_fkko = trim($row['fkko']);
                             $fkko = $row['fkko'];

@@ -31,8 +31,11 @@ $this->params['breadcrumbs'][] = 'Документы';
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{update} {delete}',
+                'template' => '{export} {update} {delete}',
                 'buttons' => [
+                    'export' => function ($url, $model) {
+                        return Html::a('<i class="fa fa-file-word-o"></i>', ['/documents/export', 'doc_id' => $model->id], ['title' => Yii::t('yii', 'Экспорт в Microsoft Word'), 'class' => 'btn btn-xs btn-default']);
+                    },
                     'update' => function ($url, $model) {
                         return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-xs btn-default']);
                     },
@@ -40,7 +43,7 @@ $this->params['breadcrumbs'][] = 'Документы';
                         return Html::a('<i class="fa fa-trash-o"></i>', $url, ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
                     }
                 ],
-                'options' => ['width' => '80'],
+                'options' => ['width' => '95'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],

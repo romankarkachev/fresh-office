@@ -4,13 +4,13 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 
 /* @var $this yii\web\View */
-/* @var $searchModel common\models\HandlingKindsSearch */
+/* @var $searchModel common\models\ProductsExcludesSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = 'Виды обращения с отходами | ' . Yii::$app->name;
-$this->params['breadcrumbs'][] = 'Виды обращения';
+$this->title = 'Исключения из номенклатуры | ' . Yii::$app->name;
+$this->params['breadcrumbs'][] = 'Исключения из номенклатуры';
 ?>
-<div class="handling-kinds-list">
+<div class="products-excludes-list">
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 

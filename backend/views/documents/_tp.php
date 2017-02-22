@@ -1,15 +1,11 @@
 <?php
 
-use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\bootstrap\ActiveForm;
 use yii\web\JsExpression;
 use kartik\select2\Select2;
-use common\models\DocumentsTp;
 
 /* @var $this yii\web\View */
-/* @var $form ActiveForm */
 /* @var $model common\models\DocumentsTp */
 /* @var $document common\models\Documents */
 /* @var $counter integer */
@@ -32,7 +28,8 @@ if (!isset($count)) $count = 0;
                     'name' => 'Documents[tp]['.$counter.'][product_id]',
                     'value' => $model->product_id,
                     'initValueText' => $model->productName,
-                    //'theme' => Select2::THEME_BOOTSTRAP,
+                    'theme' => Select2::THEME_BOOTSTRAP,
+                    'size' => Select2::SMALL,
                     'language' => 'ru',
                     'options' => [
                         'id' => 'documentstp-product_id-'.$counter,
@@ -54,6 +51,7 @@ if (!isset($count)) $count = 0;
 if (!result.id) {return result.text;}
 if (result.fkko != "") $("#documentstp-fkko-" + result.counter).val(result.fkko);
 if (result.unit != "") $("#documentstp-unit-" + result.counter).val(result.unit);
+if (result.dc != "") $("#documentstp-dc-" + result.counter).val(result.dc);
 
 return result.text;
 }'),
@@ -66,7 +64,7 @@ return result.text;
         <div class="col-md-2">
             <div class="form-group field-documents-fkko">
                 <label class="control-label" for="documents-fkko">ФККО</label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][fkko]', $model->product->fkko, ['class' => 'form-control', 'readonly' => true, 'id' => 'documentstp-fkko-'.$counter]) ?>
+                <?= Html::input('text', 'Documents[tp]['.$counter.'][fkko]', $model->product->fkko, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-fkko-'.$counter]) ?>
 
                 <p class="help-block help-block-error"></p>
             </div>
@@ -74,7 +72,15 @@ return result.text;
         <div class="col-md-1">
             <div class="form-group field-documents-unit">
                 <label class="control-label" for="documents-unit">Ед. изм.</label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][unit]', $model->product->unit, ['class' => 'form-control', 'readonly' => true, 'id' => 'documentstp-unit-'.$counter]) ?>
+                <?= Html::input('text', 'Documents[tp]['.$counter.'][unit]', $model->product->unit, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-unit-'.$counter]) ?>
+
+                <p class="help-block help-block-error"></p>
+            </div>
+        </div>
+        <div class="col-md-1">
+            <div class="form-group field-documents-dc">
+                <label class="control-label" for="documents-dc">Класс опасн.</label>
+                <?= Html::input('text', 'Documents[tp]['.$counter.'][dc]', $model->dc, ['class' => 'form-control input-sm', 'id' => 'documentstp-dc-'.$counter]) ?>
 
                 <p class="help-block help-block-error"></p>
             </div>
@@ -82,27 +88,16 @@ return result.text;
         <div class="col-md-1">
             <div class="form-group field-documents-quantity required">
                 <label class="control-label" for="documents-quantity"><?= $model->attributeLabels()['quantity'] ?></label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][quantity]', $model->quantity, ['class' => 'form-control']) ?>
+                <?= Html::input('text', 'Documents[tp]['.$counter.'][quantity]', $model->quantity, ['class' => 'form-control input-sm']) ?>
 
                 <p class="help-block help-block-error"></p>
             </div>
         </div>
-        <?php if ($counter == 0): ?>
-        <div class="col-md-2">
-            <label class="control-label" for="btn-add-row">&nbsp;</label>
-            <div class="form-group">
-                <?= Html::a('<i class="fa fa-plus" aria-hidden="true"></i> Добавить строку', '#', ['id' => 'btn-add-row', 'class' => 'btn btn-default', 'data-count' => $count]) ?>
-
-            </div>
-        </div>
-        <?php endif; ?>
-        <?php if ($counter > 0): ?>
-        <div class="col-md-2">
+        <div class="col-md-1">
             <label class="control-label" for="<?= 'btn-delete-row-'.$counter ?>">&nbsp;</label>
             <div class="form-group">
                 <?= Html::a('<i class="fa fa-minus" aria-hidden="true"></i>', '#', $delete_options) ?>
 
             </div>
         </div>
-        <?php endif; ?>
     </div>

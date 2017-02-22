@@ -27,7 +27,7 @@ class ProductsImport extends Model
     {
         return [
             [['type'], 'integer'],
-            [['importFile'], 'file', 'skipOnEmpty' => false, 'extensions' => 'xls, xlsx'],
+            [['importFile'], 'file', 'skipOnEmpty' => false, 'extensions' => 'xls,xlsx'],
         ];
     }
 
@@ -72,7 +72,7 @@ class ProductsImport extends Model
 
     /**
      * Получает на вход дату в формате dd.mm.yyyy, отдает в формате yyyy-mm-dd.
-     * @param $src_date string
+     * @param string $src_date
      * @return string
      */
     public static function transformDate($src_date)
@@ -94,7 +94,7 @@ class ProductsImport extends Model
     /**
      * Делает первую букву в слове заглавной. Работает с мультибайтовыми кодировками.
      * Uppercase first letter. Working with multi-byte encodings.
-     * @param $str
+     * @param string $str
      * @param string $encoding
      * @return string
      */
@@ -106,12 +106,12 @@ class ProductsImport extends Model
 
     /**
      * Переводит цифру в параметрах в римскую (до семи).
-     * @param $class integer
+     * @param integer $class
      * @return string
      */
     public static function DangerClassRep($class)
     {
-        if (!is_numeric($class)) return '';
+        if (!is_numeric($class)) return $class;
 
         switch ($class) {
             case 1:
@@ -131,6 +131,22 @@ class ProductsImport extends Model
         }
 
         return '';
+    }
+
+    /**
+     * Очищает от мусора наименование, переданное в параметрах.
+     * @param string $dirty_name
+     * @return string
+     */
+    public static function cleanName($dirty_name)
+    {
+        $name = trim($dirty_name);
+        $name = str_replace(chr(194).chr(160), '', $name);
+        $name = str_replace('   ', ' ', $name);
+        $name = str_replace('  ', ' ', $name);
+        //$name = mb_strtolower($name);
+        //$name = ProductsImport::ucFirstRu($name);
+        return $name;
     }
 
     /**

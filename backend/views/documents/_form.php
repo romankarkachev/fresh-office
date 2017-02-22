@@ -3,13 +3,18 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
+use yii\web\JsExpression;
 use kartik\datecontrol\DateControl;
+use kartik\select2\Select2;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Documents */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $tprows common\models\DocumentsTp[] */
-/* @var $hks common\models\DocumentsHk[] */
+/* @var $hkrows common\models\DocumentsHk[] */
+/* @var $hks common\models\HandlingKinds[] */
+
+$project_label = $model->attributeLabels()['fo_project'] . ' <span id="project-tp-preloader" class="collapse"><i class="fa fa-cog fa-spin text-warning"></i></span>';
 ?>
 
 <div class="documents-form">
@@ -20,6 +25,10 @@ use kartik\datecontrol\DateControl;
     <?php endif; ?>
 
     <div class="row">
+        <div class="col-md-2">
+            <?= $form->field($model, 'doc_num')->textInput(['maxlength' => true, 'placeholder' => 'Введите номер акта']) ?>
+
+        </div>
         <div class="col-md-3">
             <?= $form->field($model, 'doc_date')->widget(DateControl::className(), [
                 'value' => $model->doc_date,
@@ -37,15 +46,63 @@ use kartik\datecontrol\DateControl;
 
         </div>
         <div class="col-md-3">
-            <?= $form->field($model, 'fo_project')->textInput(['maxlength' => true, 'placeholder' => 'Введите ID проекта']) ?>
+            <?= $form->field($model, 'fo_project')->widget(Select2::className(), [
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'language' => 'ru',
+                'options' => ['placeholder' => 'Введите наименование'],
+                'pluginOptions' => [
+                    'minimumInputLength' => 1,
+                    'language' => 'ru',
+                    'ajax' => [
+                        'url' => Url::to(['documents/api-get-project-data']),
+                        'delay' => 500,
+                        'dataType' => 'json',
+                        'data' => new JsExpression('function(params) { return {project_id:params.term}; }')
+                    ],
+                    'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
+                    'templateResult' => new JsExpression('function(result) { return result.text; }'),
+                    'templateSelection' => new JsExpression('function (result) {
+if (!result.customer_id) {return result.text;}
+
+// подставим идентификатор контрагента в соответствующее поле
+if (result.customer_id != "") $("#documents-fo_customer").val(result.customer_id);
+
+return result.text;
+}'),
+                ],
+                'pluginEvents' => [
+                    'select2:select' => 'function() {
+// заполним табличную часть позициями из проекта
+counter = parseInt($("#btn-add-row").attr("data-count"));
+$("#project-tp-preloader").show();
+$.get("/documents/api-get-project-table-part?doc_id=1&project_id=" + $(this).val() + "&counter=" + counter, function(data) {
+    if (data != false) {
+        if (data.results != "") {
+            if (counter == -1)
+                $("#block-tp").after(data.results);
+            else
+                $("#dtp-row-" + counter).after(data.results);
+        };
+
+        for (var i = counter; i < data.counter; i++) {
+            //alert("Ебенит id " + i);
+            $("#documents-product_id-" + (i+1)).select2({theme: "default", width: "100%"});
+        }
+        $("#btn-add-row").attr("data-count", data.counter);
+    }
+    $("#project-tp-preloader").hide();
+});
+}',
+                ]
+            ])->label($project_label) ?>
 
         </div>
-        <div class="col-md-3">
-            <?= $form->field($model, 'fo_customer')->textInput(['maxlength' => true, 'placeholder' => 'Введите ID заказчика']) ?>
+        <div class="col-md-2">
+            <?= $form->field($model, 'fo_customer')->textInput(['maxlength' => true, 'placeholder' => 'Введите ID заказчика'])->label('ID заказчика') ?>
 
         </div>
-        <div class="col-md-3">
-            <?= $form->field($model, 'fo_contract')->textInput(['maxlength' => true, 'placeholder' => 'Введите ID договора']) ?>
+        <div class="col-md-2">
+            <?= $form->field($model, 'fo_contract')->textInput(['maxlength' => true, 'placeholder' => 'Введите ID договора'])->label('ID договора') ?>
 
         </div>
     </div>
@@ -56,15 +113,29 @@ use kartik\datecontrol\DateControl;
     <?= $form->field($model, 'author_id')->hiddenInput()->label(false) ?>
 
     <?php if (!$model->isNewRecord): ?>
-    <div class="page-header"><h3>Табличная часть</h3></div>
+    <?php $count = count($tprows)-1; ?>
+    <div id="block-tp" class="page-header"><h3>Табличная часть <?= Html::a('<i class="fa fa-plus" aria-hidden="true"></i> Добавить строку', '#', ['id' => 'btn-add-row', 'class' => 'btn btn-default', 'data-count' => $count]) ?></h3></div>
+    <?= $form->field($model, 'tp', ['template' => "{error}"])->staticControl() ?>
+
+    <?php foreach ($tprows as $index => $tpr): ?>
+    <?= $this->render('_tp', ['form' => $form, 'document' => $model, 'model' => $tpr, 'counter' => $index, 'count' => $count]) ?>
+    <?php endforeach; ?>
+
+    <?php endif; ?>
+    <?php if (!$model->isNewRecord): ?>
+    <div class="page-header"><h3>Виды обращения с отходами</h3></div>
     <?php
-        $count = count($tprows)-1;
-        foreach ($tprows as $index => $tpr)
-            echo $this->render('_tp', ['form' => $form, 'document' => $model, 'model' => $tpr, 'counter' => $index, 'count' => $count]);
+        foreach ($hks as $index => $hk)
+            echo '
+        <div class="checkbox">
+            <label>
+                ' . Html::input('checkbox', 'Documents[hks][' . $index . '][hk_id]', $hk->id, ['checked' => in_array($hk->id, $hkrows, false)]) . $hk->name . '
+            </label>
+        </div>';
     ?>
-    <p class="text-warning"><strong>Внимание!</strong> Экспорт применяется только для уже сохраненных данных. Если отображающиеся данные не сохранены, они не будут экспортированы.</p>
     <?php endif; ?>
 
+    <p class="text-warning"><strong>Внимание!</strong> Экспорт применяется только для уже сохраненных данных. Если отображающиеся данные не сохранены, они не будут экспортированы.</p>
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Документы', ['/documents'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
@@ -90,7 +161,10 @@ function btnAddRowOnClick() {
     counter = parseInt($(this).attr("data-count"));
     next_counter = counter+1;
     $.get("$url_add_row?counter=" + counter, function(data) {
-        $("#dtp-row-" + counter).after(data);
+        if (counter == -1)
+            $("#block-tp").after(data);
+        else
+            $("#dtp-row-" + counter).after(data);
         $("#documents-product_id-" + next_counter).select2({theme: "default", width: "100%"});
     });
 
@@ -103,7 +177,7 @@ function btnAddRowOnClick() {
 // Обработчик щелчка по кнопке Удалить строку
 //
 function btnDeleteRowClick(event) {
-    var message = "Удаление автомобиля из табличной части производится безвозвратно. Продолжить?";
+    var message = "Удаление строки из табличной части производится сразу и безвозвратно. Продолжить?";
     var id = $(this).attr("data-id");
     var counter = $(this).attr("data-counter");
 
@@ -124,11 +198,10 @@ function btnDeleteRowClick(event) {
             success: function(result) {
                 if (result == true) {
                     $("#dtp-row-" + counter).remove();
-                    // более не уменьшаем счетчик количества строк
                 }
             }
         });
-    
+
     return false;
 } // btnDeleteRowClick()
 

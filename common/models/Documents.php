@@ -14,8 +14,8 @@ use dektrium\user\models\Profile;
  * @property integer $author_id
  * @property string $doc_num
  * @property string $doc_date
- * @property string $fo_project
- * @property string $fo_customer
+ * @property integer $fo_project
+ * @property integer $fo_customer
  * @property string $fo_contract
  * @property string $comment
  *
@@ -55,10 +55,11 @@ class Documents extends \yii\db\ActiveRecord
     {
         return [
             [['author_id'], 'required'],
-            [['created_at', 'author_id', 'fo_project', 'fo_customer', 'fo_contract'], 'integer'],
+            [['created_at', 'author_id', 'fo_project', 'fo_customer'], 'integer'],
             [['doc_date', 'hks'], 'safe'],
             [['comment'], 'string'],
             [['doc_num'], 'string', 'max' => 20],
+            [['fo_contract'], 'string', 'max' => 100],
             [['author_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['author_id' => 'id']],
             // собственные правила валидации
             ['tp', 'validateTablePart'],
@@ -78,7 +79,7 @@ class Documents extends \yii\db\ActiveRecord
             'doc_date' => 'Дата документа',
             'fo_project' => 'ID проекта во Fresh Office',
             'fo_customer' => 'ID заказчика во Fresh Office',
-            'fo_contract' => 'ID договора во Fresh Office',
+            'fo_contract' => 'Договор из Fresh Office',
             'comment' => 'Примечание',
         ];
     }
@@ -117,39 +118,48 @@ class Documents extends \yii\db\ActiveRecord
     }
 
     /**
-     * Выполняет GET-запрос с базовой аутентификацией для получения данных по API FreshOffice.
-     * @param string $entity
-     * @param string $select
-     * @param string $filter
-     * @param string $expand
+     * Выполняет выборку данных проектов с идентификатором, переданным в параметрах.
+     * @param integer $project_id идентификатор проекта в MS SQL
      * @return mixed
      */
-    public static function makeGetRequestToApi($entity, $select = null, $filter = null, $expand = null)
+    public static function makeDirectSQL_ProjectData($project_id)
     {
-        $api_id = 1311;
-        $api_password = 'peGzgff0wMPElm5osVy8vCWgCXzpr5Ir';
-        $api_url = 'https://api.myfreshcloud.com/' . $entity . '/';
-        $auth_key = base64_encode($api_id.':'.$api_password);
+        $query_text = '
+SELECT
+    LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY,
+    LIST_PROJECT_COMPANY.ID_COMPANY,
+    DATE_CREATE_PROGECT,
+    ADD_numb_dogovor AS contract_basic, ADD_date_finish AS contract_date,
+    COMPANY.COMPANY_NAME AS company_name
+FROM LIST_PROJECT_COMPANY
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY
+WHERE ID_LIST_PROJECT_COMPANY = ' . $project_id;
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
 
-        $data = [];
-        if ($filter != null) $data['$filter'] = $filter;
-        if ($select != null) $data['$select'] = $select;
-        if (sizeof($data)) {
-            $api_url .= '?'.http_build_query($data);
-        }
+    /**
+     * Выполняет выборку данных табличной части проекта с идентификатором, переданным в параметрах.
+     * @param integer $project_id идентификатор проекта в MS SQL
+     * @return mixed
+     */
+    public static function makeDirectSQL_ProjectTablePart($project_id)
+    {
+        // устаревший запрос, он берет данные табличной части из проекта, а не из документа Счет
+        // SELECT
+        //     ID_TOVAR, DISCRIPTION_TOVAT AS DESCRIPTION_TOVAR, KOLVO
+        // FROM LIST_TOVAR_PROJECT
+        // WHERE ID_LIST_PROJECT_COMPANY = 
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $api_url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Content-Type: application/json',
-            'Authorization: Basic '.$auth_key,
-        ]);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        return $response;
+        // запрос табличных частей документов с типом 16 (Счет)
+        $query_text = '
+SELECT LIST_TOVAR_DOC.ID_TOVAR, LIST_TOVAR_DOC.TOVAR_DOC AS DESCRIPTION_TOVAR, LIST_TOVAR_DOC.KOL_VO AS KOLVO, LIST_TOVAR_DOC.ED_IZM_TOVAR
+FROM CBaseCRM_Fresh_7x.dbo.LIST_TOVAR_DOC
+WHERE LIST_TOVAR_DOC.ID_DOC IN (
+    SELECT TOP 1 ID_DOC FROM LIST_DOCUMENTS
+    WHERE LIST_DOCUMENTS.ID_LIST_PROJECT_COMPANY = '  . $project_id . ' AND LIST_DOCUMENTS.ID_TIP_DOC = 16
+    ORDER BY LIST_DOCUMENTS.DATA_DOC DESC
+)';
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
     }
 
     /**

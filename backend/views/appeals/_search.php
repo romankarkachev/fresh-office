@@ -4,14 +4,15 @@ use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\UserSearch */
+/* @var $model common\models\AppealsSearch */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $searchApplied bool */
 ?>
 
-<div class="users-search">
+<div class="appeals-search">
+
     <?php $form = ActiveForm::begin([
-        'action' => ['/users'],
+        'action' => ['/appeals'],
         'method' => 'get',
         'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
     ]); ?>
@@ -19,18 +20,19 @@ use yii\bootstrap\ActiveForm;
     <div class="panel panel-info">
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
-            <div class="form-group">
-                <?= $form->field($model, 'searchEntire')->textInput(['placeholder' => 'Введите значение для поиска']) ?>
-
+            <div class="row">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'id') ?>
+                </div>
             </div>
             <div class="form-group">
-                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-primary']) ?>
+                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info']) ?>
 
-                <?= Html::a('Сброс', ['/users'], ['class' => 'btn btn-default']) ?>
+                <?= Html::a('Отключить отбор', ['/appeals'], ['class' => 'btn btn-default']) ?>
 
             </div>
         </div>
+    </div>
     <?php ActiveForm::end(); ?>
 
-    </div>
 </div>

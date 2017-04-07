@@ -4,18 +4,18 @@ return [
     'modules' => [
         'user' => [
             'class' => 'dektrium\user\Module',
-            'admins' => ['administrator'],
+            'admins' => ['root'],
             'enableRegistration' => false,
             'enableConfirmation' => false,
             'enablePasswordRecovery' => false,
             'enableFlashMessages' => false,
-//            'modelMap' => [
-//                'User' => 'common\models\User',
-//                'UserSearch' => 'common\models\UserSearch',
-//                'Profile' => 'common\models\Profile',
-//            ],
+            'modelMap' => [
+                'User' => 'common\models\User',
+                'UserSearch' => 'common\models\UserSearch',
+                ///'Profile' => 'common\models\Profile',
+            ],
             'controllerMap' => [
-                //'admin' => 'backend\controllers\UsersController',
+                'admin' => 'backend\controllers\UsersController',
                 //'settings' => 'backend\controllers\SettingsController',
                 'security' => 'backend\controllers\SecurityController',
             ],

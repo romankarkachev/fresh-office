@@ -24,7 +24,7 @@ $this->params['breadcrumbs'][] = 'Импорт';
             </p>
             <p><strong>Обратите также внимание</strong>, что файл импорта, который Вы предоставляете, должен содержать только один лист в книге. В противном случае импорт не может быть выполнен.</p>
             <p>
-                Файл импорта должен содержать следующие поля (порядок может быть любой): <strong>Номер заявки *</strong> (num), <strong>Дата заявки *</strong> в формате YYYY-mm-dd (date), <strong>Тип перевозки *</strong> (tt), <strong>Тип маршрута *</strong> (rt), <strong>Город загрузки *</strong> (addr1), Город перегрузки (addr3 <strong>! внимание (цифра 3) !</strong>), Город выгрузки (addr2), <strong>Клиент *</strong> (ca), <strong>Сумма *</strong> (amount), <strong>Источник обращения *</strong> (as), <strong>Статус заявки *</strong> (os), <strong>Менеджер *</strong> (manager), <strong>Форма оплаты *</strong> (pm), Дата загрузки в формате YYYY-mm-dd (date_load), Дата выгрузки в формате YYYY-mm-dd (date_unload), Агент (agent), Вознаграждение агента (ar), Комментарий (comment), Автомобили (autos) например Новый|Mazda|CX-9;С пробегом|Audi|A7|2014|3450000, Причина отказа (reject).
+                Файл импорта должен содержать следующие поля (порядок может быть любой): <strong>Номер *</strong> (id), <strong>Дата *</strong> (date), <strong>Код ФККО-2014 *</strong> (fkko), <strong>Наименование *</strong> (name).
             </p>
         </div>
     </div>
@@ -40,6 +40,7 @@ $this->params['breadcrumbs'][] = 'Импорт';
                 'data' => ProductsImport::arrayMapTypesForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
+                'hideSearch' => true,
             ]) ?>
 
         </div>

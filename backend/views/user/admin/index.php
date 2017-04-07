@@ -35,21 +35,13 @@ $this->params['content-additional'] = 'Создание, удаление пол
 
 <?= GridView::widget([
     'dataProvider' 	=> $dataProvider,
-    'options' => ['class' => 'hpanel'],
-    'layout' => '<div class="panel-body">
-            <div class="table-responsive">{items}</div>
-        </div>
-        <div class="panel-footer">{summary}</div><div style="height: 50px;"><div class="pull-right">{pager}</div></div>',
-    'tableOptions' => [
-        'class' => 'table table-striped table-hover'
-    ],
+    'layout' => '{items}{pager}',
+    'tableOptions' => ['class' => 'table table-striped table-hover'],
     'columns' => [
         'username',
         'email:email',
         'profileName',
-        'profilePhone',
         'roleName',
-        'officeName',
         [
             'header' => Yii::t('user', 'Block status'),
             'value' => function ($model) {

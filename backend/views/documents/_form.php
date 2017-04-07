@@ -54,7 +54,7 @@ $project_label = $model->attributeLabels()['fo_project'] . ' <span id="project-t
                     'minimumInputLength' => 1,
                     'language' => 'ru',
                     'ajax' => [
-                        'url' => Url::to(['documents/api-get-project-data']),
+                        'url' => Url::to(['documents/direct-sql-get-project-data']),
                         'delay' => 500,
                         'dataType' => 'json',
                         'data' => new JsExpression('function(params) { return {project_id:params.term}; }')
@@ -67,6 +67,9 @@ if (!result.customer_id) {return result.text;}
 // подставим идентификатор контрагента в соответствующее поле
 if (result.customer_id != "") $("#documents-fo_customer").val(result.customer_id);
 
+// заполним договор
+if (result.contract != "") $("#documents-fo_contract").val(result.contract);
+
 return result.text;
 }'),
                 ],
@@ -75,7 +78,7 @@ return result.text;
 // заполним табличную часть позициями из проекта
 counter = parseInt($("#btn-add-row").attr("data-count"));
 $("#project-tp-preloader").show();
-$.get("/documents/api-get-project-table-part?doc_id=1&project_id=" + $(this).val() + "&counter=" + counter, function(data) {
+$.get("/documents/direct-sql-get-project-table-part?doc_id=1&project_id=" + $(this).val() + "&counter=" + counter, function(data) {
     if (data != false) {
         if (data.results != "") {
             if (counter == -1)
@@ -85,7 +88,6 @@ $.get("/documents/api-get-project-table-part?doc_id=1&project_id=" + $(this).val
         };
 
         for (var i = counter; i < data.counter; i++) {
-            //alert("Ебенит id " + i);
             $("#documents-product_id-" + (i+1)).select2({theme: "default", width: "100%"});
         }
         $("#btn-add-row").attr("data-count", data.counter);
@@ -102,7 +104,7 @@ $.get("/documents/api-get-project-table-part?doc_id=1&project_id=" + $(this).val
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'fo_contract')->textInput(['maxlength' => true, 'placeholder' => 'Введите ID договора'])->label('ID договора') ?>
+            <?= $form->field($model, 'fo_contract')->textInput(['maxlength' => true, 'placeholder' => 'Введите договор'])->label('Договор') ?>
 
         </div>
     </div>

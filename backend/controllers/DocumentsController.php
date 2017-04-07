@@ -2,17 +2,16 @@
 
 namespace backend\controllers;
 
-use common\models\HandlingKinds;
-use common\models\Products;
-use common\models\ProductsExcludes;
-use common\models\ProductsImport;
 use Yii;
 use common\models\Documents;
 use common\models\DocumentsSearch;
 use common\models\DocumentsHk;
 use common\models\DocumentsTp;
-use common\components\DocXGen;
-use yii\bootstrap\ActiveForm;
+use common\models\HandlingKinds;
+use common\models\Products;
+use common\models\ProductsExcludes;
+use common\models\ProductsImport;
+use common\models\FreshOfficeAPI;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -36,7 +35,7 @@ class DocumentsController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root'],
+                        'roles' => ['root', 'role_documents'],
                     ],
                 ],
             ],
@@ -164,6 +163,9 @@ class DocumentsController extends Controller
      */
     public function actionDelete($id)
     {
+        DocumentsTp::deleteAll(['doc_id' => $id]);
+        DocumentsHk::deleteAll(['doc_id' => $id]);
+
         $this->findModel($id)->delete();
 
         return $this->redirect(['/documents']);
@@ -217,6 +219,103 @@ class DocumentsController extends Controller
     }
 
     /**
+     * Выполняет запрос данных проекта через подключение к SQL-серверу к базе данных FreshOffice.
+     * @param $project_id
+     * @return array
+     */
+    public function actionDirectSqlGetProjectData($project_id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $fo_project = Documents::makeDirectSQL_ProjectData($project_id);
+        if (count($fo_project) > 0) {
+            $fo_project = $fo_project[0];
+            $project_date = date('d.m.Y', strtotime($fo_project['DATE_CREATE_PROGECT']));
+
+            return [
+                'results' => [
+                    [
+                        'id' => $project_id,
+                        'text' => 'Проект № ' . $project_id . ' от ' . $project_date . ' (' . $fo_project['company_name'] . ')',
+                        'customer_id' => $fo_project['ID_COMPANY'],
+                        'contract' => ($fo_project['contract_basic'] == null || $fo_project['contract_basic'] == '' ? '' : $fo_project['contract_basic'] . ($fo_project['contract_date'] == null ? '' : ' (до ' . Yii::$app->formatter->asDate($fo_project['contract_date'], 'php:d.m.Y') . ')')),
+                    ]
+                ]
+            ];
+        }
+        else if (isset($fo_project['error']))
+            return [
+                'results' => []
+            ];
+    }
+
+    /**
+     * Выполняет запрос данных табличной части проекта через подключение к SQL-серверу к базе данных FreshOffice.
+     * @param $project_id
+     * @return string
+     */
+    public function actionDirectSqlGetProjectTablePart($doc_id, $project_id, $counter)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $fo_projects = Documents::makeDirectSQL_ProjectTablePart($project_id);
+        if (count($fo_projects) > 0) {
+            // сделаем выборку слов-исключений
+            $excludes = ProductsExcludes::find()->select('name')->asArray()->column();
+
+            $result = '';
+            foreach ($fo_projects as $project) {
+                $fo_name = trim($project['DESCRIPTION_TOVAR']);
+
+                // проверим, не встречаются ли слова-исключения в наименовании текущего товара
+                foreach ($excludes as $index => $exclude) {
+                    if (mb_stripos($fo_name, $exclude) !== false)
+                        // если встречаются, то такой товар вообще не будем загружать в документ
+                        continue 2;
+                }
+
+                $model = new DocumentsTp();
+                $product = null;
+                // идентификация по коду Fresh Office
+                $fo_id = trim($project['ID_TOVAR']);
+                if ($fo_id != '') $product = Products::find()->where(['fo_id' => $fo_id])->one();
+                // если не будет обнаружен, попытаемся идентифицировать по наименованию
+                if ($product == null) $product = Products::find()->where(['fo_name' => $fo_name])->one();
+                if ($product == null) {
+                    // если не идентифицирован ни по коду, ни по наименованию, то создадим
+                    $product = new Products();
+                    $product->author_id = Yii::$app->user->id;
+                    $product->name = ProductsImport::cleanName($project['DESCRIPTION_TOVAR']);
+                    $product->fo_name = trim($project['DESCRIPTION_TOVAR']);
+                    // если не удастся сохранить, то пропустим такую позицию
+                    if (!$product->save()) continue;
+                }
+                $model->product_id = $product->id;
+                $model->dc = $product->dc;
+                $model->quantity = floatval($project['KOLVO']);
+
+                $result .= $this->renderAjax('_tp', [
+                    'document' => new Documents(),
+                    'model' => $model,
+                    'counter' => $counter + 1,
+                ]);
+
+                $counter++;
+            }
+
+            return [
+                'results' => $result,
+                'counter' => $counter,
+            ];
+        }
+        else
+            // товаров нет, бывает
+            return [
+                'results' => []
+            ];
+    }
+
+    /**
      * Выполняет запрос данных проекта через API FreshOffice.
      * Возвращает массив проектов, соответствующих значению в параметрах.
      * @param $project_id
@@ -226,10 +325,10 @@ class DocumentsController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $fo_project = json_decode(Documents::makeGetRequestToApi('project(' . $project_id . ')', 'id_list_project_company,id_company,date_create_project'), true);
+        $fo_project = json_decode(FreshOfficeAPI::makeGetRequestToApi('project(' . $project_id . ')', 'id_list_project_company,id_company,date_create_project'), true);
         if (isset($fo_project['d'])) {
             $fo_project = $fo_project['d'];
-            $company = json_decode(Documents::makeGetRequestToApi('companies(' . $fo_project['id_company'] . ')', 'id,name'), true);
+            $company = json_decode(FreshOfficeAPI::makeGetRequestToApi('companies(' . $fo_project['id_company'] . ')', 'id,name'), true);
             $date = new \DateTime($fo_project['date_create_project']);
             $project_date = $date->format('d.m.Y');
 
@@ -260,8 +359,7 @@ class DocumentsController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $fo_projects = json_decode(Documents::makeGetRequestToApi('tovar_project', null, 'id_list_project_company eq ' . $project_id), true);
-        //var_dump($fo_projects); return;
+        $fo_projects = json_decode(FreshOfficeAPI::makeGetRequestToApi('tovar_project', null, 'id_list_project_company eq ' . $project_id), true);
         if (isset($fo_projects['d'])) {
             $fo_projects = $fo_projects['d']['results'];
             if (count($fo_projects) == 0)
@@ -275,7 +373,6 @@ class DocumentsController extends Controller
 
             $result = '';
             foreach ($fo_projects as $project) {
-                //var_dump($project); continue;
                 $fo_name = trim($project['discription_tovar']);
 
                 // проверим, не встречаются ли слова-исключения в наименовании текущего товара
@@ -329,31 +426,34 @@ class DocumentsController extends Controller
      * Формирует документ Microsoft Word из шаблона, заполняя в нем необходимые данные.
      * Отдает файл на скачивание.
      * @param $doc_id integer
+     * @throws NotFoundHttpException если перед скачиванием файла не окажется на месте
      * @return mixed
      */
     public function actionExport($doc_id)
     {
         $document = Documents::findOne($doc_id);
-        if ($document == null) return $this->redirect(['/documents/update', 'id' => $doc_id]);
+        if ($document == null) return $this->redirect(['/documents']);
 
         // папка с шаблонами
-        $tmpldir = realpath(__DIR__.'/../../uploads/export-templates');
+        $tmpldir = Yii::getAlias('@uploads-export-templates-fs');
 
         // папка для выгрузки
-        $path = __DIR__.'/../../uploads/documents';
+        $path = Yii::getAlias('@uploads-documents-fs');
         if (!file_exists($path) && !is_dir($path)) mkdir($path, 0755);
-        $exportdir = realpath($path);
+        //$exportdir = realpath($path);
 
         // количество строк табличной части
         $tp_count = $document->documentsTpsCount;
         if ($tp_count == 0) $tp_count = ''; else $tp_count = '_' . $tp_count;
 
         // полный путь к шаблону
-        $f = $tmpldir.'/template' . $tp_count . '.docx';
+        $f = $tmpldir.'template' . $tp_count . '.docx';
 
         // полный путь к выгружаемому файлу
-        $rn = $document->fo_project.'_'.$document->fo_customer.'.docx';
-        $r = $exportdir.'/'.$rn;
+        $rn = $document->fo_project . '_' . $document->fo_customer . '.docx';
+        $r = $path . $rn; // для сохранения на диске
+        $ffp = Yii::getAlias('@uploads-documents-fs') . $rn; // full file path, для отдачи пользователю
+        $ffp = str_replace('\\', '/', $ffp);
 
         // массив с данными для замены
         $array_subst = [];
@@ -383,24 +483,13 @@ class DocumentsController extends Controller
                 $array_subst['%HK_' . $i . '%'] = '';
         }
 
-        DocXGen::docxTemplate($f, $array_subst, $r);
-        return Yii::$app->response->sendFile($r, $rn);
-        //%DOC_NUM%
-        //%DOC_DATE%
-        //%PROJECT_ID%
-        //%CONTRACT_ID%
+        $docx_gen = new \DocXGen;
+        $docx_gen->docxTemplate($f, $array_subst, $r);
 
-        //%TP_NUM%
-        //%TP_NAME%
-        //%TP_DC%
-        //%TP_UNIT%
-        //%TP_QUANTITY%
+        if (preg_match('/^[a-z0-9]+\.[a-z0-9]+$/i', $rn) !== 0 || !is_file("$ffp")) {
+            throw new NotFoundHttpException('Запрошенный файл не существует.');
+        }
 
-        //%HK_GATHERING%
-        //%HK_TRANSPORTATION%
-        //%HK_PROCESSING%
-        //%HK_UTILIZATION%
-        //%HK_NEUTRALIZATION%
-        //%HK_PLACEMENT%
+        return Yii::$app->response->sendFile($ffp, $rn);
     }
 }

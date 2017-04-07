@@ -3,9 +3,11 @@
 /* @var $this \yii\web\View */
 /* @var $content string */
 
-use backend\assets\AppAsset;
 use yii\helpers\Html;
 use yii\widgets\Breadcrumbs;
+use yii\bootstrap\Nav;
+use yii\bootstrap\NavBar;
+use backend\assets\AppAsset;
 use common\widgets\Alert;
 
 AppAsset::register($this);
@@ -26,37 +28,61 @@ rmrevin\yii\fontawesome\AssetBundle::register($this);
 <body>
 <?php $this->beginBody() ?>
 
-<nav class="navbar navbar-default navbar-fixed-top">
-    <div class="container-fluid">
-        <div class="navbar-header">
-            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
-                <span class="sr-only">Toggle navigation</span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-                <span class="icon-bar"></span>
-            </button>
-            <?= Html::a(Yii::$app->name, '/', ['class' => 'navbar-brand']) ?>
-
-        </div>
-        <div id="navbar" class="navbar-collapse collapse">
-            <ul class="nav navbar-nav navbar-right">
-                <li><?= Html::a('Документы', ['/documents']) ?></li>
-                <li class="dropdown">
-                    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Справочники <span class="caret"></span></a>
-                    <ul class="dropdown-menu">
-                        <li><?= Html::a('Номенклатура', ['/products']) ?></li>
-                        <li><?= Html::a('Виды обращения', ['/handling-kinds']) ?></li>
-                        <li role="separator" class="divider"></li>
-                        <li><?= Html::a('Исключения номенклатуры', ['/products-excludes']) ?></li>
-                    </ul>
-                </li>
-                <li><?= Html::beginForm(['/logout'], 'post')
-                    . Html::submitButton('<i class="fa fa-power-off" aria-hidden="true"></i> Выход (' . Yii::$app->user->identity->username . ')', ['class' => 'btn btn-link logout'])
-                    . Html::endForm() ?></li>
-            </ul>
-        </div>
-    </div>
-</nav>
+<?php
+NavBar::begin([
+    'brandLabel' => Yii::$app->name,
+    'brandUrl' => '/',
+    'options' => ['class' => 'navbar navbar-default navbar-fixed-top'],
+    'innerContainerOptions' => ['class' => 'container-fluid'],
+]);
+$items = [];
+if (Yii::$app->user->can('root'))
+    $items = [
+        ['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
+        ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i>', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
+        [
+            'label' => 'Справочники',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-cubes text-info"></i> Номенклатура', 'url' => ['/products']],
+                ['label' => '<i class="fa fa-recycle text-info"></i> Виды обращения', 'url' => ['/handling-kinds']],
+                ['label' => '<i class="fa fa-remove text-info"></i> Исключения номенклатуры', 'url' => ['/products-excludes']],
+                ['label' => '<i class="fa fa-user-circle-o text-info"></i> Ответственные лица', 'url' => ['/responsible']],
+                '<li class="divider"></li>',
+                ['label' => '<i class="fa fa-users text-info"></i> Пользователи', 'url' => ['/users']],
+            ],
+        ],
+        [
+            'label' => 'Отчеты',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/eins']],
+            ],
+        ],
+    ];
+elseif (Yii::$app->user->can('role_documents'))
+    $items = [
+        ['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
+    ];
+elseif (Yii::$app->user->can('role_report1'))
+    $items = [
+        ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/eins']],
+    ];
+$items[] = '<li>'
+    . Html::beginForm(['/logout'], 'post')
+    . Html::submitButton(
+        '<i class="fa fa-power-off" aria-hidden="true"></i> Выход (' . Yii::$app->user->identity->username . ')',
+        ['class' => 'btn btn-link logout']
+    )
+    . Html::endForm()
+    . '</li>';
+echo Nav::widget([
+    'options' => ['class' => 'nav navbar-nav navbar-right'],
+    'items' => $items,
+    'encodeLabels' => false,
+]);
+NavBar::end();
+?>
 
 <div class="container-fluid main">
     <?= Breadcrumbs::widget([

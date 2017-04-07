@@ -1,189 +1,148 @@
 <?php
+
 namespace common\models;
 
+use dektrium\user\models\Profile;
 use Yii;
-use yii\base\NotSupportedException;
-use yii\behaviors\TimestampBehavior;
-use yii\db\ActiveRecord;
-use yii\web\IdentityInterface;
+use dektrium\user\helpers\Password;
+use dektrium\user\models\User as BaseUser;
 
 /**
- * User model
- *
- * @property integer $id
- * @property string $username
- * @property string $password_hash
- * @property string $password_reset_token
- * @property string $email
- * @property string $auth_key
- * @property integer $status
- * @property integer $created_at
- * @property integer $updated_at
- * @property string $password write-only password
+ * @property Profile $profile
  */
-class User extends ActiveRecord implements IdentityInterface
+class User extends BaseUser
 {
-    const STATUS_DELETED = 0;
-    const STATUS_ACTIVE = 10;
-
-
     /**
-     * @inheritdoc
+     * Имя.
+     * @var string
      */
-    public static function tableName()
-    {
-        return '{{%user}}';
-    }
+    public $name;
 
     /**
-     * @inheritdoc
+     * Роль.
+     * @var string
      */
-    public function behaviors()
-    {
-        return [
-            TimestampBehavior::className(),
-        ];
-    }
+    public $role_id;
+
+    /**
+     * Подтверждение пароля.
+     * @var string
+     */
+    public $password_confirm;
+
+    /**
+     * ФИО пользователя (для вложенного запроса и сортировки).
+     */
+    public $profileName;
+
+    /**
+     * Описание роли пользователя (для вложенного запроса и сортировки).
+     * @var string
+     */
+    public $roleName;
 
     /**
      * @inheritdoc
+     * @return \common\models\User
      */
     public function rules()
     {
-        return [
-            ['status', 'default', 'value' => self::STATUS_ACTIVE],
-            ['status', 'in', 'range' => [self::STATUS_ACTIVE, self::STATUS_DELETED]],
-        ];
+        $rules = parent::rules();
+
+        $rules[] = [['name', 'role_id'], 'required', 'on' => 'create'];
+        $rules[] = [['username', 'email'], 'required', 'on' => 'update'];
+        $rules[] = [['role_id'], 'string'];
+        $rules['password_confirm'] = ['password', 'string', 'min' => 6];
+        $rules[] = ['password_confirm', 'required', 'on' => 'create'];
+        $rules[] = ['password_confirm', 'compare', 'skipOnEmpty' => false, 'compareAttribute' => 'password', 'message' => 'Пароли не совпадают', 'on' => 'create'];
+        $rules[] = [['name'], 'string', 'max' => 255];
+
+        return $rules;
     }
 
     /**
      * @inheritdoc
      */
-    public static function findIdentity($id)
+    public function attributeLabels()
     {
-        return static::findOne(['id' => $id, 'status' => self::STATUS_ACTIVE]);
+        $result = parent::attributeLabels();
+
+        $result['email'] = 'E-mail';
+        $result['name'] = 'ФИО';
+        $result['role_id'] = 'Роль';
+        $result['password_confirm'] = 'Подтверждение пароля';
+        // для сортировки
+        $result['profileName'] = 'ФИО';
+        $result['roleName'] = 'Роль';
+
+        return $result;
     }
 
     /**
-     * @inheritdoc
-     */
-    public static function findIdentityByAccessToken($token, $type = null)
-    {
-        throw new NotSupportedException('"findIdentityByAccessToken" is not implemented.');
-    }
-
-    /**
-     * Finds user by username
+     * Creates new user account. It generates password if it is not provided by user.
      *
-     * @param string $username
-     * @return static|null
+     * @return bool
      */
-    public static function findByUsername($username)
+    public function create()
     {
-        return static::findOne(['username' => $username, 'status' => self::STATUS_ACTIVE]);
-    }
-
-    /**
-     * Finds user by password reset token
-     *
-     * @param string $token password reset token
-     * @return static|null
-     */
-    public static function findByPasswordResetToken($token)
-    {
-        if (!static::isPasswordResetTokenValid($token)) {
-            return null;
+        if ($this->getIsNewRecord() == false) {
+            throw new \RuntimeException('Calling "' . __CLASS__ . '::' . __METHOD__ . '" on existing user');
         }
 
-        return static::findOne([
-            'password_reset_token' => $token,
-            'status' => self::STATUS_ACTIVE,
-        ]);
-    }
+        $this->confirmed_at = time();
+        $this->password = $this->password == null ? Password::generate(8) : $this->password;
+        $password = $this->password;
 
-    /**
-     * Finds out if password reset token is valid
-     *
-     * @param string $token password reset token
-     * @return boolean
-     */
-    public static function isPasswordResetTokenValid($token)
-    {
-        if (empty($token)) {
+        $this->trigger(self::BEFORE_CREATE);
+
+        if (!$this->save()) {
             return false;
         }
 
-        $timestamp = (int) substr($token, strrpos($token, '_') + 1);
-        $expire = Yii::$app->params['user.passwordResetTokenExpire'];
-        return $timestamp + $expire >= time();
+        $this->trigger(self::AFTER_CREATE);
+
+        // задание роли
+        $role = Yii::$app->authManager->getRole($this->role_id);
+        Yii::$app->authManager->assign($role, $this->getId());
+
+        // заполнение профиля
+        $this->profile->name = $this->name;
+        $this->profile->save();
+
+        return true;
     }
 
     /**
-     * @inheritdoc
+     * @return \yii\db\ActiveQuery
      */
-    public function getId()
+    public function getProfile()
     {
-        return $this->getPrimaryKey();
+        return $this->hasOne(Profile::className(), ['user_id' => 'id']);
     }
 
     /**
-     * @inheritdoc
+     * Возвращает ФИО пользователя.
+     * @return string
      */
-    public function getAuthKey()
+    public function getProfileName()
     {
-        return $this->auth_key;
+        return $this->profile == null ? '' : $this->profile->name;
     }
 
     /**
-     * @inheritdoc
+     * @return \yii\db\ActiveQuery
      */
-    public function validateAuthKey($authKey)
+    public function getUserRoles()
     {
-        return $this->getAuthKey() === $authKey;
+        return $this->hasMany(AuthAssignment::className(), ['user_id' => 'id']);
     }
 
     /**
-     * Validates password
-     *
-     * @param string $password password to validate
-     * @return boolean if password provided is valid for current user
+     * @return \yii\db\ActiveQuery
      */
-    public function validatePassword($password)
+    public function getRole()
     {
-        return Yii::$app->security->validatePassword($password, $this->password_hash);
-    }
-
-    /**
-     * Generates password hash from password and sets it to the model
-     *
-     * @param string $password
-     */
-    public function setPassword($password)
-    {
-        $this->password_hash = Yii::$app->security->generatePasswordHash($password);
-    }
-
-    /**
-     * Generates "remember me" authentication key
-     */
-    public function generateAuthKey()
-    {
-        $this->auth_key = Yii::$app->security->generateRandomString();
-    }
-
-    /**
-     * Generates new password reset token
-     */
-    public function generatePasswordResetToken()
-    {
-        $this->password_reset_token = Yii::$app->security->generateRandomString() . '_' . time();
-    }
-
-    /**
-     * Removes password reset token
-     */
-    public function removePasswordResetToken()
-    {
-        $this->password_reset_token = null;
+        return $this->hasOne(AuthItem::className(), ['name' => 'item_name'])
+            ->via('userRoles');
     }
 }

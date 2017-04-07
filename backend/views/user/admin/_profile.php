@@ -23,20 +23,7 @@ use common\models\Offices;
     ],
 ]); ?>
 
-<?= $form->field($profile, 'surname') ?>
-
 <?= $form->field($profile, 'name') ?>
-
-<?= $form->field($profile, 'patronymic') ?>
-
-<?= $form->field($profile, 'phone') ?>
-
-<?= $form->field($profile, 'office_id')->widget(Select2::className(), [
-    'data' => Offices::arrayMapForSelect2(),
-    'theme' => Select2::THEME_BOOTSTRAP,
-    'options' => ['placeholder' => '- выберите -'],
-    'hideSearch' => true,
-]) ?>
 
 <div class="form-group">
     <div class="col-lg-offset-3 col-lg-9">

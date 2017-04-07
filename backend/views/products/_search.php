@@ -24,7 +24,7 @@ use yii\bootstrap\ActiveForm;
 
             </div>
             <div class="form-group">
-                <?= Html::submitButton('Найти', ['class' => 'btn btn-primary']) ?>
+                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-primary']) ?>
 
                 <?= Html::a('Сброс', ['/products'], ['class' => 'btn btn-default']) ?>
 

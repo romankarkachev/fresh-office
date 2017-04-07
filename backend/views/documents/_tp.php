@@ -7,12 +7,11 @@ use kartik\select2\Select2;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\DocumentsTp */
-/* @var $document common\models\Documents */
 /* @var $counter integer */
 /* @var $count integer */
 
 // если производится создание новой заявки, то просто удаление строки
-if ($document->isNewRecord) $delete_options = ['id' => 'btn-delete-row-'.$counter, 'class' => 'btn btn-danger btn-xs', 'data-counter' => $counter, 'title' => 'Удалить эту строку'];
+if ($model->isNewRecord) $delete_options = ['id' => 'btn-delete-row-'.$counter, 'class' => 'btn btn-danger btn-xs', 'data-counter' => $counter, 'title' => 'Удалить эту строку'];
 // если происходит редактирование существующей завки, то кнопка дополняется подтверждением удаления и идентификатором удаляемой записи
 else $delete_options = ['id' => 'btn-delete-row-'.$counter, 'class' => 'btn btn-danger btn-xs', 'data-counter' => $counter, 'data-id' => $model->id, 'title' => 'Удалить эту строку'];
 
@@ -64,7 +63,7 @@ return result.text;
         <div class="col-md-2">
             <div class="form-group field-documents-fkko">
                 <label class="control-label" for="documents-fkko">ФККО</label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][fkko]', $model->product->fkko, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-fkko-'.$counter]) ?>
+                <?= Html::input('text', 'Documents[tp]['.$counter.'][fkko]', $model->product != null ? $model->product->fkko : null, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-fkko-'.$counter]) ?>
 
                 <p class="help-block help-block-error"></p>
             </div>
@@ -72,7 +71,7 @@ return result.text;
         <div class="col-md-1">
             <div class="form-group field-documents-unit">
                 <label class="control-label" for="documents-unit">Ед. изм.</label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][unit]', $model->product->unit, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-unit-'.$counter]) ?>
+                <?= Html::input('text', 'Documents[tp]['.$counter.'][unit]', $model->product ? $model->product->unit : null, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-unit-'.$counter]) ?>
 
                 <p class="help-block help-block-error"></p>
             </div>

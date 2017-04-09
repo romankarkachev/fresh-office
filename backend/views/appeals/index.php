@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\grid\GridView;
+use common\models\Appeals;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\AppealsSearch */
@@ -24,17 +25,48 @@ $this->params['breadcrumbs'][] = 'Обращения';
         'dataProvider' => $dataProvider,
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
+        'rowOptions' => function ($model, $key, $index, $grid) {
+            /* @var $model \common\models\Appeals */
+            switch ($model->state_id) {
+                case Appeals::APPEAL_STATE_CLOSED:
+                    return ['class' => 'text-muted'];
+                    break;
+                case Appeals::APPEAL_STATE_REJECT:
+                    return ['class' => 'danger'];
+                    break;
+                case Appeals::APPEAL_STATE_SUCCESS:
+                    return ['class' => 'success'];
+                    break;
+            }
+        },
         'columns' => [
             [
                 'attribute' => 'created_at',
                 'label' => 'Создано',
-                'format' => 'date',
+                'format' => ['datetime', 'dd.MM.YYYY HH:mm'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
-                'options' => ['width' => '90'],
+                'options' => ['width' => '130'],
             ],
             'fo_company_name',
-            'caStateName',
+            [
+                'attribute' => 'appealSourceName',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+                'options' => ['width' => '200'],
+            ],
+            [
+                'attribute' => 'caStateName',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+                'options' => ['width' => '120'],
+            ],
+            [
+                'attribute' => 'appealStateName',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+                'options' => ['width' => '170'],
+            ],
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

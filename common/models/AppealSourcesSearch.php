@@ -5,12 +5,12 @@ namespace common\models;
 use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use common\models\Responsible;
+use common\models\AppealSources;
 
 /**
- * ResponsibleSearch represents the model behind the search form about `common\models\Responsible`.
+ * AppealSourcesSearch represents the model behind the search form about `common\models\AppealSources`.
  */
-class ResponsibleSearch extends Responsible
+class AppealSourcesSearch extends AppealSources
 {
     /**
      * @inheritdoc
@@ -18,8 +18,8 @@ class ResponsibleSearch extends Responsible
     public function rules()
     {
         return [
-            [['id', 'required_id', 'substitute_id'], 'integer'],
-            [['required_name', 'substitute_name'], 'safe'],
+            [['id'], 'integer'],
+            [['name'], 'safe'],
         ];
     }
 
@@ -41,7 +41,7 @@ class ResponsibleSearch extends Responsible
      */
     public function search($params)
     {
-        $query = Responsible::find();
+        $query = AppealSources::find();
 
         // add conditions that should always apply here
 
@@ -60,12 +60,9 @@ class ResponsibleSearch extends Responsible
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
-            'required_id' => $this->required_id,
-            'substitute_id' => $this->substitute_id,
         ]);
 
-        $query->andFilterWhere(['like', 'required_name', $this->required_name])
-            ->andFilterWhere(['like', 'substitute_name', $this->substitute_name]);
+        $query->andFilterWhere(['like', 'name', $this->name]);
 
         return $dataProvider;
     }

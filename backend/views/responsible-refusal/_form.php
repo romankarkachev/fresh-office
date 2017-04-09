@@ -6,24 +6,16 @@ use kartik\select2\Select2;
 use common\models\Appeals;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\Responsible */
+/* @var $model common\models\ResponsibleRefusal */
 /* @var $form yii\bootstrap\ActiveForm */
 ?>
 
-<div class="responsible-form">
+<div class="responsible-refusal-form">
     <?php $form = ActiveForm::begin(); ?>
 
     <div class="row">
-        <div class="col-md-6">
-            <?= $form->field($model, 'required_id')->widget(Select2::className(), [
-                'data' => Appeals::arrayMapOfManagersForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-            ]) ?>
-
-        </div>
-        <div class="col-md-6">
-            <?= $form->field($model, 'substitute_id')->widget(Select2::className(), [
+        <div class="col-md-3">
+            <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
                 'data' => Appeals::arrayMapOfManagersForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -32,7 +24,7 @@ use common\models\Appeals;
         </div>
     </div>
     <div class="form-group">
-        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Ответственные лица', ['/responsible'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
+        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Ответственные лица', ['/responsible-refusal'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
         <?php if ($model->isNewRecord): ?>
             <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>

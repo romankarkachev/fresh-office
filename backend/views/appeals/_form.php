@@ -13,25 +13,39 @@ use yii\bootstrap\ActiveForm;
     <?php $form = ActiveForm::begin(); ?>
 
     <div class="row">
-        <div class="col-md-6">
+        <div class="col-md-5">
             <div class="panel panel-success">
                 <div class="panel-heading">Форма обращения</div>
                 <div class="panel-body">
                     <p><strong>Создано</strong>: <?= Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y в H:i') ?></p>
-                    <?= $form->field($model, 'form_username')->textInput(['disabled' => true]) ?>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <?= $form->field($model, 'form_company')->textInput(['disabled' => true]) ?>
 
+                        </div>
+                        <div class="col-md-6">
+                            <?= $form->field($model, 'form_username')->textInput(['disabled' => true]) ?>
+
+                        </div>
+                    </div>
                     <?= $form->field($model, 'form_region')->textInput(['disabled' => true]) ?>
 
-                    <?= $form->field($model, 'form_phone')->textInput(['disabled' => true]) ?>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <?= $form->field($model, 'form_phone')->textInput(['disabled' => true]) ?>
 
-                    <?= $form->field($model, 'form_email')->textInput(['disabled' => true]) ?>
+                        </div>
+                        <div class="col-md-6">
+                            <?= $form->field($model, 'form_email')->textInput(['disabled' => true]) ?>
 
+                        </div>
+                    </div>
                     <?= $form->field($model, 'form_message')->textarea(['rows' => 6, 'disabled' => true]) ?>
 
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        <div class="col-md-7">
             <p><?= Html::button('Идентифицировать контрагента', ['id' => 'btn-identify-ca', 'class' => 'btn btn-default', 'title' => 'Попытаться идентифицировать контрагента', 'data-model-id' => $model->id, 'data-loading-text' => '<i class="fa fa-cog fa-spin fa-lg text-info"></i> Поиск по базе данных...', 'autocomplete' => 'off']) ?></p>
             <div id="block-ca"><?= $this->render('_ca', ['model' => $model, 'form' => $form]) ?></div>
         </div>
@@ -55,7 +69,7 @@ function btnIdentifyOnClick() {
     var \$btn = $(this);
 
     // делаем кнопку обычной
-    \$btn.removeClass("btn-danger").removeClass("btn-success").addClass("btn-default");
+    \$btn.removeClass().addClass("btn btn-default");
 
     // включаем индикацию на кнопке (preloader)
     \$btn.button("loading");
@@ -63,24 +77,19 @@ function btnIdentifyOnClick() {
     // фиксируем идентификатор обращения
     appeal_id = \$btn.attr("data-model-id");
 
-    $("#block-ca").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-success"></i><span class="sr-only">Подождите...</span></p>');
     $("#block-ca").load("$url_id_ca?id=" + appeal_id, function( response, status, xhr ) {
+        \$btn.button("reset");
         if (status == "error") {
-            \$btn.button("reset");
-            \$btn.removeClass("btn-success").removeClass("btn-default").addClass("btn-danger");
+            \$btn.removeClass().addClass("btn btn-danger");
             $("#block-ca").html("Невозможно загрузить данные. Ошибка " + xhr.status + ": " + xhr.statusText + ".");
             return;
         }
 
         if ($("#appeals-fo_id_company").val() != "") {
             // идентификация прошла успешно
-            \$btn.removeClass("btn-danger").removeClass("btn-default").addClass("btn-success");
-            $("#appeals-ca_state_id").prop("disabled", false);
-            $("#appeals-fo_id_manager").prop("disabled", false);
+            \$btn.removeClass().addClass("btn btn-success");
         }
     });
-    
-    \$btn.button("reset");
 
     return false;
 } // btnIdentifyOnClick()
@@ -100,12 +109,14 @@ function tableMultipleRowOnClick() {
     $("#lbl-state-name").text($(this).attr("data-stateName"));
     // ответственный
     $("#appeals-fo_id_manager").val($(this).attr("data-managerId")).trigger("change");
-    $("#appeals-fo_id_manager").prop("disabled", false);
 
     $("#table-multiple").remove();
     $("#block-ca-hidden").show("fast");
 
-    $("#btn-identify-ca").removeClass("btn-danger").removeClass("btn-default").addClass("btn-success");
+    $("#btn-identify-ca").removeClass().addClass("btn btn-success");
+
+    // скроллим кверху
+    $("html, body").animate({scrollTop: 0}, 1000);
 
     return false;
 } // tableMultipleRowOnClick()

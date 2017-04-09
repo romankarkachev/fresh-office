@@ -12,6 +12,8 @@ use yii\helpers\ArrayHelper;
  *
  * @property integer $id
  * @property integer $created_at
+ * @property integer $state_id
+ * @property string $form_company
  * @property string $form_username
  * @property string $form_region
  * @property string $form_phone
@@ -20,18 +22,42 @@ use yii\helpers\ArrayHelper;
  * @property integer $fo_id_company
  * @property string $fo_company_name
  * @property integer $ca_state_id
+ * @property integer $as_id
+ * @property string $request_referrer
+ * @property string $request_user_agent
+ * @property string $request_user_ip
+ *
+ * @property string $appealStateName
+ * @property string $caStateName
+ * @property string $asName
+ *
+ * @property AppealSources $as
  */
 class Appeals extends \yii\db\ActiveRecord
 {
     /**
-     * Новый клиент.
+     * Статусы клиентов.
      */
-    const CA_STATE_NEW = 0;
+    const CA_STATE_NEW = 0; // Новый (контрагент вообще отсутствует)
+    const CA_STATE_ACTUAL = 1; // Действующий (есть записи в разделе Финансы, находится в ЦОД или ВИП)
+    const CA_STATE_AMBIGUOUS = 2; // Неоднозначный (в результате выборки несколько подходящих записей)
+    const CA_STATE_REPEATED = 3; // Повторно (с этим клиентом уже работали)
+    const CA_STATE_DUPLICATE = 4; // Дубль (клиент, находящийся в разработке, обращается с другого ресурса)
 
     /**
-     * Действующий клиент
+     * Статусы обращений.
      */
-    const CA_STATE_ACTUAL = 1;
+    const APPEAL_STATE_NEW = 1; // Новое
+    const APPEAL_STATE_RESPONSIBLE = 2; // Выбор ответственного
+    const APPEAL_STATE_PAYMENT = 3; // Ожидает оплаты
+    const APPEAL_STATE_CLOSED = 4; // Закрыто
+    const APPEAL_STATE_SUCCESS = 5; // Конверсия
+    const APPEAL_STATE_REJECT = 6; // Отказ
+
+    /**
+     * Шаблон текста сообщения при передаче контрагента другому менеджеру.
+     */
+    const TEMPLATE_MESSAGE_BODY_DELEGATING_COUNTERAGENT = 'Вам передана компания: %COMPANY_NAME%.';
 
     /**
      * Ответственный по контрагенту.
@@ -53,9 +79,13 @@ class Appeals extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['created_at', 'fo_id_company', 'ca_state_id'], 'integer'],
+            [['created_at', 'state_id', 'fo_id_company', 'ca_state_id', 'as_id'], 'integer'],
             [['form_message'], 'string'],
+            [['form_company'], 'string', 'max' => 50],
             [['form_username', 'form_region', 'form_phone', 'form_email', 'fo_company_name'], 'string', 'max' => 150],
+            [['request_referrer', 'request_user_agent'], 'string', 'max' => 255],
+            [['request_user_ip'], 'string', 'max' => 30],
+            [['as_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppealSources::className(), 'targetAttribute' => ['as_id' => 'id']],
         ];
     }
 
@@ -67,7 +97,9 @@ class Appeals extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'created_at' => 'Дата и время создания',
-            // поля формы (5):
+            'state_id' => 'Статус обращения',
+            // поля формы (6):
+            'form_company' => 'Компания',
             'form_username' => 'Имя',
             'form_region' => 'Регион',
             'form_phone' => 'Телефон',
@@ -76,7 +108,14 @@ class Appeals extends \yii\db\ActiveRecord
             'fo_id_company' => 'Контрагент из Fresh Office',
             'fo_company_name' => 'Контрагент', // Наименование контрагента из Fresh Office
             'fo_id_manager' => 'Ответственный', // поле виртуальное, в базе не хранится
-            'ca_state_id' => 'Статус контрагента', // 0 - новый, 1 - действующий (определяется по наличию оплаты)
+            'ca_state_id' => 'Статус контрагента',
+            'as_id' => 'Источник обращения',
+            'request_referrer' => 'Поле post-запроса Referer',
+            'request_user_agent' => 'Поле post-запроса userAgent',
+            'request_user_ip' => 'IP отправителя',
+            // для сортировки
+            'appealSourceName' => 'Источник обращения',
+            'appealStateName' => 'Статус обращения',
             'caStateName' => 'Статус клиента',
         ];
     }
@@ -121,6 +160,52 @@ class Appeals extends \yii\db\ActiveRecord
                 'id' => self::CA_STATE_ACTUAL,
                 'name' => 'Действующий',
             ],
+            [
+                'id' => self::CA_STATE_AMBIGUOUS,
+                'name' => 'Неоднозначный',
+            ],
+            [
+                'id' => self::CA_STATE_REPEATED,
+                'name' => 'Повторно',
+            ],
+            [
+                'id' => self::CA_STATE_DUPLICATE,
+                'name' => 'Дубль',
+            ],
+        ];
+    }
+
+    /**
+     * Возвращает в виде массива разновидности статусов обращений.
+     * @return array
+     */
+    public static function fetchAppealStates()
+    {
+        return [
+            [
+                'id' => self::APPEAL_STATE_NEW,
+                'name' => 'Новое',
+            ],
+            [
+                'id' => self::APPEAL_STATE_RESPONSIBLE,
+                'name' => 'Выбор ответственного',
+            ],
+            [
+                'id' => self::APPEAL_STATE_PAYMENT,
+                'name' => 'Ожидает оплаты',
+            ],
+            [
+                'id' => self::APPEAL_STATE_CLOSED,
+                'name' => 'Закрыто',
+            ],
+            [
+                'id' => self::APPEAL_STATE_SUCCESS,
+                'name' => 'Конверсия',
+            ],
+            [
+                'id' => self::APPEAL_STATE_REJECT,
+                'name' => 'Отказ',
+            ],
         ];
     }
 
@@ -150,9 +235,11 @@ class Appeals extends \yii\db\ActiveRecord
      */
     public function tryToIdentifyCounteragent()
     {
-        // идентификация по наименованию
-        $query_text = '
-SELECT TOP 1 COMPANY.ID_COMPANY AS caId, COMPANY_NAME AS caName,
+        // идентификация по наименованию (если задано)
+        $company = trim($this->form_company);
+        if ($company != '') {
+            $query_text = '
+SELECT DISTINCT COMPANY.ID_COMPANY AS caId, COMPANY_NAME AS caName,
              MANAGERS.ID_MANAGER AS managerId, MANAGERS.MANAGER_NAME AS managerName,
              ISNULL(COUNT_FINANCE, 0) AS financeCount,
              (CASE WHEN COUNT_FINANCE = 0 THEN ' . self::CA_STATE_NEW . ' ELSE ' . self::CA_STATE_ACTUAL . ' END) AS stateId
@@ -161,25 +248,28 @@ LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
 LEFT JOIN (
 	SELECT ID_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE
 	FROM LIST_MANYS
-	WHERE ID_SUB_PRIZNAK_MANY = ' . Report1::FO_PAYMENT_SIGN_UTILIZATION . ' AND ID_NAPR = 1
+	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
 	GROUP BY ID_COMPANY
 ) AS FINANCES ON FINANCES.ID_COMPANY = COMPANY.ID_COMPANY
-WHERE COMPANY_NAME LIKE \'%' . trim($this->form_username) . '%\'';
-        // пока что так, потому что если имя задано Виктория, находит контрагента с таким наименованием, а это неверно
-        //$result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
-        //if (count($result) > 0) return $result;
+WHERE COMPANY_NAME LIKE \'%' . $company . '%\' AND COMPANY_NAME IS NOT NULL
+ORDER BY COMPANY_NAME';
+            // пока что так, потому что если имя задано Виктория, находит контрагента с таким наименованием, а это неверно
+            //$result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+            //if (count($result) > 0) return $result;
+        }
 
-        // идентификация по номеру телефона
+        // идентификация по номеру телефона (если задан)
         // в номере телефона убираются восьмерка в начале или семерка при достаточном количестве символов
-        $phone_ready = $this->form_phone;
-        $phone_ready = preg_replace("/[^0-9]/", '', $phone_ready);
-        if (strlen($phone_ready) == 11)
-            if ($phone_ready[0] == 7 || $phone_ready[0] == 8)
-                $phone_ready = substr($phone_ready, 1);
-        $query_text = '
-SELECT LIST_TELEPHONES.ID_COMPANY AS caId, COMPANY.COMPANY_NAME AS caName,
+        if (trim($this->form_phone) != '') {
+            $phone_ready = $this->form_phone;
+            $phone_ready = preg_replace("/[^0-9]/", '', $phone_ready);
+            if (strlen($phone_ready) == 11)
+                if ($phone_ready[0] == 7 || $phone_ready[0] == 8)
+                    $phone_ready = substr($phone_ready, 1);
+            $query_text = '
+SELECT DISTINCT LIST_TELEPHONES.ID_COMPANY AS caId, COMPANY.COMPANY_NAME AS caName,
              MANAGERS.ID_MANAGER AS managerId, MANAGERS.MANAGER_NAME AS managerName,
-             TELEPHONE,
+             STUFF((SELECT \', \' + TELEPHONE FROM LIST_TELEPHONES LT WHERE LT.ID_COMPANY = LIST_TELEPHONES.ID_COMPANY FOR XML PATH(\'\')), 1, 1, \'\') AS contact,
              ISNULL(COUNT_FINANCE, 0) AS financeCount,
              (CASE WHEN ISNULL(COUNT_FINANCE, 0) = 0 THEN ' . self::CA_STATE_NEW . ' ELSE ' . self::CA_STATE_ACTUAL . ' END) AS stateId
 FROM CBaseCRM_Fresh_7x.dbo.LIST_TELEPHONES
@@ -188,18 +278,22 @@ LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
 LEFT JOIN (
 	SELECT ID_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE
 	FROM LIST_MANYS
-	WHERE ID_SUB_PRIZNAK_MANY = ' . Report1::FO_PAYMENT_SIGN_UTILIZATION . ' AND ID_NAPR = 1
+	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
 	GROUP BY ID_COMPANY
 ) AS FINANCES ON FINANCES.ID_COMPANY = LIST_TELEPHONES.ID_COMPANY
-WHERE TELEPHONE LIKE \'%' . $phone_ready . '%\'';
-        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
-        if (count($result) > 0) return $result;
+WHERE TELEPHONE LIKE \'%' . $phone_ready . '%\' AND COMPANY_NAME IS NOT NULL
+ORDER BY COMPANY_NAME';
+            $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+            if (count($result) > 0) return $result;
+        }
 
-        // идентификация по email
-        $query_text = '
-SELECT COMPANY.ID_COMPANY AS caId, COMPANY.COMPANY_NAME AS caName,
+        // идентификация по email (если задан)
+        $email = trim($this->form_email);
+        if ($email != '') {
+            $query_text = '
+SELECT DISTINCT COMPANY.ID_COMPANY AS caId, COMPANY.COMPANY_NAME AS caName,
              MANAGERS.ID_MANAGER AS managerId, MANAGERS.MANAGER_NAME AS managerName,
-             email,
+             STUFF((SELECT \', \' + email FROM LIST_EMAIL_CLIENT LEC WHERE LEC.ID_COMPANY = LIST_EMAIL_CLIENT.ID_COMPANY FOR XML PATH(\'\')), 1, 1, \'\') AS contact,
              ISNULL(COUNT_FINANCE, 0) AS financeCount,
              (CASE WHEN ISNULL(COUNT_FINANCE, 0) = 0 THEN ' . self::CA_STATE_NEW . ' ELSE ' . self::CA_STATE_ACTUAL . ' END) AS stateId
 FROM CBaseCRM_Fresh_7x.dbo.LIST_EMAIL_CLIENT
@@ -208,30 +302,29 @@ LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
 LEFT JOIN (
 	SELECT ID_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE
 	FROM LIST_MANYS
-	WHERE ID_SUB_PRIZNAK_MANY = ' . Report1::FO_PAYMENT_SIGN_UTILIZATION . ' AND ID_NAPR = 1
+	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
 	GROUP BY ID_COMPANY
 ) AS FINANCES ON FINANCES.ID_COMPANY = LIST_EMAIL_CLIENT.ID_COMPANY
-WHERE email LIKE \'%' . trim($this->form_email) . '%\'';
-        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
-        if (count($result) > 0) return $result;
+WHERE email LIKE \'%' . $email . '%\' AND COMPANY_NAME IS NOT NULL
+ORDER BY COMPANY_NAME';
+            $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+            if (count($result) > 0) return $result;
+        }
 
         // ничего найти не удалось
         return [];
     }
 
     /**
-     * Выполняет передачу контрагента от одного менеджера к другому.
-     * При этом выполняется соответствующий update-запрос к базе данных SQL.
-     * @param $ca_id integer идентификатор контрагента, который передается
-     * @param $manager_id integer идентификатор менеджера-получателя контрагента
+     * Заполняет данные по успешно идентифицированному контрагенту на основании значений из переданного параметра.
+     * @param $dbRow array массив значений, которые будут назначены
      */
-    public static function delegateCounteragent($ca_id, $manager_id)
+    public function fillUpIdentifiedCounteragentsFields($dbRow)
     {
-        Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.COMPANY', [
-            'ID_MANAGER' => $manager_id,
-        ], [
-            'ID_COMPANY' => intval($ca_id),
-        ])->execute();
+        $this->fo_id_company = $dbRow['caId'];
+        $this->fo_company_name = $dbRow['caName'];
+        $this->fo_id_manager = $dbRow['managerId'];
+        $this->ca_state_id = $dbRow['stateId'];
     }
 
     /**
@@ -240,7 +333,7 @@ WHERE email LIKE \'%' . trim($this->form_email) . '%\'';
      * @param $receiver_id integer идентификатор получателя
      * @param $message string текст сообщения
      */
-    public static function createNewMessageForManager($sender_id, $receiver_id, $message)
+    public static function directSQL_createNewMessageForManager($sender_id, $receiver_id, $message)
     {
         Yii::$app->db_mssql->createCommand()->insert('CBaseCRM_Fresh_7x.dbo.LIST_NOTEPAD_TXT', [
             'ID_MANAGER' => $receiver_id,
@@ -252,6 +345,273 @@ WHERE email LIKE \'%' . trim($this->form_email) . '%\'';
             'ID_PRIZNAK_NOTEPAD_MESSAGE' => FreshOfficeAPI::MESSAGES_STATUS_НЕПРОЧИТАНО,
             'ID_LIST_PROJECT_COMPANY' => 0,
         ])->execute();
+    }
+
+    /**
+     * Выполняет создание сообщения для менеджера через API Fresh Office.
+     * @param $sender_id integer идентификатор менеджера-отправителя сообщения
+     * @param $receiver_id integer идентификатор менеджера-получателя сообщения
+     * @param $message string текст сообщения, которое будет отправлено менеджеру
+     * @return array|integer|bool
+     */
+    public function foapi_createNewMessageForManager($sender_id, $receiver_id, $message)
+    {
+        $params = [
+            'user_id' => $receiver_id,
+            //'user_id' => 38, // temporary1, для тестов
+            'sender_id' => $sender_id,
+            'text' => $message,
+            // если не заполнять, то заполняется автоматически
+            //'created' => '2017-04-07T16:25:00', // date('Y-m-d\TH:i:s.u', time())
+            'type_id' => FreshOfficeAPI::MESSAGES_TYPE_СООБЩЕНИЕ,
+            'status_id' => FreshOfficeAPI::MESSAGES_STATUS_НЕПРОЧИТАНО,
+        ];
+
+        // дата не проставляется автоматически - глюк API Fresh office
+        $response = FreshOfficeAPI::makePostRequestToApi('messages', $params);
+        // проанализируем результат, который возвращает API Fresh Office
+        $decoded_response = json_decode($response, true);
+        if (isset($decoded_response['error'])) {
+            $inner_message = '';
+            if (isset($decoded_response['error']['innererror']))
+                $inner_message = ' ' . $decoded_response['error']['innererror']['message'];
+            // возникла ошибка при выполнении
+            return 'При создании сообщения возникла ошибка: ' . $decoded_response['error']['message']['value'] . $inner_message;
+        }
+        elseif (isset($decoded_response['d']))
+            // фиксируем идентификатор сообщения, которое было успешно создано
+            return $decoded_response['d']['id'];
+
+        return false;
+    }
+
+    /**
+     * Выполняет создание задачи для менеджера через API Fresh Office.
+     * @param $ca_id integer идентификатор контрагента, который привязывается к задаче
+     * @param $receiver_id integer идентификатор менеджера-исполнителя задачи
+     * @param $note string текст задачи
+     * @return array|integer|bool
+     */
+    public static function foapi_createNewTaskForManager($ca_id, $receiver_id, $note)
+    {
+        // для начала необходимо выполнить проверку: не требуется ли замена ответственного на реального человека
+        $rs = ResponsibleSubstitutes::find()->select('required_id,substitute_id')->asArray()->all();
+        if (count($rs) > 0) {
+            // выборка ответственных для подмены успешно выполнена, есть записи
+            $key = array_search($receiver_id, array_column($rs, 'required_id'));
+            // проверим, не входит ли переданный ответственный в список подменяемых и заменим на реального, если входит
+            if (false !== $key) $receiver_id = intval($rs[$key]['substitute_id']);
+        };
+
+        $params = [
+            'company_id' => $ca_id,
+            'user_id' => $receiver_id,
+            //'user_id' => 38, // temporary1
+            'category_id' => FreshOfficeAPI::TASK_CATEGORY_СТАНДАРТНАЯ,
+            'status_id' => FreshOfficeAPI::TASKS_STATUS_ЗАПЛАНИРОВАН,
+            'type_id' => FreshOfficeAPI::TASK_TYPE_НАПОМИНАНИЕ,
+            'date_from' => date('Y-m-d\TH:i:s.u', time()),
+            'date_till' => date('Y-m-d\TH:i:s.u', mktime(0, 0, 0, date("m")  , date("d")+1, date("Y"))),
+            'note' => $note,
+        ];
+
+        $response = FreshOfficeAPI::makePostRequestToApi('tasks', $params);
+        // проанализируем результат, который возвращает API Fresh Office
+        $decoded_response = json_decode($response, true);
+        if (isset($decoded_response['error'])) {
+            $inner_message = '';
+            if (isset($decoded_response['error']['innererror']))
+                $inner_message = ' ' . $decoded_response['error']['innererror']['message'];
+            // возникла ошибка при выполнении
+            return 'При создании задачи возникла ошибка: ' . $decoded_response['error']['message']['value'] . $inner_message;
+        }
+        elseif (isset($decoded_response['d']))
+            // фиксируем идентификатор задачи, которая была успешно создана
+            return $decoded_response['d']['id'];
+
+        return false;
+    }
+
+    /**
+     * Выполняет создание нового контрагента через API Fresh Office.
+     * @param $appeal Appeals обращение
+     * @param $responsible_id integer идентификатор назначаемого ответственного
+     * @return array|integer|bool
+     */
+    public static function foapi_createNewCounteragent($appeal, $responsible_id)
+    {
+        $contacts = [
+            'first_name' => $appeal->form_username,
+            'last_name' => $appeal->form_username,
+            'post' => 'Представитель',
+            'status_id' => FreshOfficeAPI::CONTACT_PERSON_STATE_РАБОТАЕТ,
+        ];
+
+        // дополним контакты номером телефона, если он задан
+        if ($appeal->form_phone != null && $appeal->form_phone != '')
+            $contacts['phones'][] = [
+                'phone' => $appeal->form_phone,
+            ];
+
+        // дополним контакты электронным ящиком, если он задан
+        if ($appeal->form_email != null && $appeal->form_email != '')
+            $contacts['emails'][] = [
+                'email' => $appeal->form_email,
+            ];
+
+        $params = [
+            'name' => $appeal->form_company,
+            'person' => FreshOfficeAPI::COMPANY_TYPE_ЮРЛИЦО,
+            'type_id' => FreshOfficeAPI::COMPANY_STATE_НОВАЯ_КОМПАНИЯ,
+            'group_id' => FreshOfficeAPI::COMPANY_GROUP_ОТДЕЛ_ВХОДЯЩИХ_ЗАЯВОК,
+            'user_id' => $responsible_id,
+            //'user_id' => 38, // temporary1
+            'created' => date('Y-m-d\TH:i:s.u', time()),
+            'created_by' => 'Веб-приложение',
+        ];
+        $params['requisites_legal'][] = [
+            'short_name' => $appeal->form_company,
+            'full_name' => $appeal->form_company,
+        ];
+        $params['contacts'][] = $contacts;
+        $params['tasks'][] = [
+            'user_id' => $responsible_id,
+            //'user_id' => 38, // temporary1
+            'category_id' => FreshOfficeAPI::TASK_CATEGORY_СТАНДАРТНАЯ,
+            'status_id' => FreshOfficeAPI::TASKS_STATUS_ЗАПЛАНИРОВАН,
+            'type_id' => FreshOfficeAPI::TASK_TYPE_ВХОДЯЩИЙ,
+            'date_from' => date('Y-m-d\TH:i:s.u', time()),
+            'date_till' => date('Y-m-d\TH:i:s.u', mktime(0, 0, 0, date("m")  , date("d")+1, date("Y"))),
+            'note' => $appeal->form_message,
+        ];
+
+        //var_dump(json_encode($params));
+        $response = FreshOfficeAPI::makePostRequestToApi('companies', $params);
+        //var_dump($response);
+        // проанализируем результат, который возвращает API Fresh Office
+        $decoded_response = json_decode($response, true);
+        if (isset($decoded_response['error'])) {
+            $inner_message = '';
+            if (isset($decoded_response['error']['innererror']))
+                $inner_message = ' ' . $decoded_response['error']['innererror']['message'];
+            // возникла ошибка при выполнении
+            return 'При создании контрагента возникла ошибка: ' . $decoded_response['error']['message']['value'] . $inner_message;
+        }
+        elseif (isset($decoded_response['d']))
+            // фиксируем идентификатор контрагента, который был успешно создан
+            return $decoded_response['d']['id'];
+
+        return false;
+    }
+
+    /**
+     * Выполняет создание контрагента и задачи ответственному менеджеру.
+     * @param $appeal Appeals обращение
+     * @param $receiver_id integer идентификатор менеджера-получателя контрагента
+     * @return array|bool
+     */
+    public static function createCounteragent($appeal, $receiver_id)
+    {
+        $errors = [];
+
+        $foapi_result = self::foapi_createNewCounteragent($appeal, $receiver_id);
+        if ($foapi_result !== false)
+            if (!is_numeric($foapi_result))
+                $errors[] = $foapi_result;
+            else {
+                // вот здесь идентификатор созданной задачи
+                // это означает успех
+                $appeal->fo_id_company = $foapi_result;
+                $appeal->fo_company_name = $appeal->form_company;
+                $appeal->fo_id_manager = $receiver_id;
+            }
+        else
+            $errors[] = 'Не удалось создать контрагента по неизвестной причине';
+
+        // если есть ошибки, возвращаем их
+        if (count($errors) > 0) return $errors;
+
+        // если ошибок нет, изменим статус обращения на "Ожидает оплаты"
+        $appeal->ca_state_id = self::CA_STATE_NEW;
+        $appeal->state_id = self::APPEAL_STATE_PAYMENT;
+        if (!$appeal->save()) return ['Не удалось изменить статус обращения!'];
+
+        // если абсолютно все действия выполнены, возвращаем успех
+        return true;
+    }
+
+    /**
+     * Выполняет передачу контрагента от одного менеджера к другому.
+     * При этом выполняется соответствующий update-запрос к базе данных SQL.
+     * Также выполняется создание сообщения пользователю, которому передан менеджер.
+     * И создается задача новому менеджеру в статусе Напоминание о том, что ему передан контрагент.
+     * @param $appeal Appeals обращение
+     * @param $ca_id integer идентификатор контрагента, который передается
+     * @param $sender_id integer идентификатор старого менеджера контрагента
+     * @param $receiver_id integer идентификатор менеджера-получателя контрагента
+     * @param $message string текст сообщения, которое будет отправлено новому менеджеру
+     * @return array|bool
+     */
+    public static function delegateCounteragent($appeal, $ca_id, $sender_id, $receiver_id, $message)
+    {
+        $errors = [];
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // ПЕРЕДАЧА КОНТРАГЕНТА ДРУГОМУ МЕНЕДЖЕРУ
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.COMPANY', [
+            'ID_MANAGER' => $receiver_id,
+        ], [
+            'ID_COMPANY' => intval($ca_id),
+        ])->execute();
+//        ])->getRawSql();
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // СОЗДАНИЕ СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЮ
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // отключено по желанию заказчика
+        // чтобы включить, раскомментировать:
+        //$foapi_result = self::foapi_createNewMessageForManager($sender_id, $receiver_id, $message);
+        // чтобы включить, удалить строку (последнее действие, больше ничего не надо):
+        $foapi_result = 0;
+        if ($foapi_result !== false)
+            if (!is_numeric($foapi_result))
+                $errors[] = $foapi_result;
+            else
+                // вот здесь идентификатор созданного сообщения
+                // это означает успех
+                ;
+        else
+            $errors[] = 'Не удалось создать сообщение по неизвестной причине';
+        unset($foapi_result);
+
+        // второй вариант отправки сообщения
+        // создание напрямую в базу (требуются права на запись в базу):
+        //self::createNewMessageForManager($sender_id, $receiver_id, $message);
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // СОЗДАНИЕ ЗАДАЧИ ПОЛЬЗОВАТЕЛЮ
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        $foapi_result = self::foapi_createNewTaskForManager($ca_id, $receiver_id, $appeal->form_message);
+        if ($foapi_result !== false)
+            if (!is_numeric($foapi_result))
+                $errors[] = $foapi_result;
+            else
+                // вот здесь идентификатор созданной задачи
+                // это означает успех
+                ;
+        else
+            $errors[] = 'Не удалось создать задачу по неизвестной причине';
+
+        // если есть ошибки, возвращаем их
+        if (count($errors) > 0) return $errors;
+
+        // если ошибок нет, изменим статус обращения на "Ожидает оплаты"
+        $appeal->state_id = self::APPEAL_STATE_PAYMENT;
+        if (!$appeal->save()) return ['Не удалось изменить статус обращения!'];
+
+        // если абсолютно все действия выполнены, возвращаем успех
+        return true;
     }
 
     /**
@@ -283,6 +643,24 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
     }
 
     /**
+     * Возвращает наименование статуса обращения.
+     * @return string
+     */
+    public function getAppealStateName()
+    {
+        if (null === $this->state_id) {
+            return '<не определен>';
+        }
+
+        $sourceTable = self::fetchAppealStates();
+        $key = array_search($this->state_id, array_column($sourceTable, 'id'));
+        if (false !== $key)
+            return $sourceTable[$key]['name'];
+        else
+            return '';
+    }
+
+    /**
      * Возвращает наименование статуса клиента.
      * @param $state_id integer|null идентификатор статуса, для которого нужно определить наименование
      * @return string
@@ -304,5 +682,22 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
             return $sourceTable[$key]['name'];
         else
             return '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getAs()
+    {
+        return $this->hasOne(AppealSources::className(), ['id' => 'as_id']);
+    }
+
+    /**
+     * Возвращает наименование источника обращения.
+     * @return string
+     */
+    public function getAppealSourceName()
+    {
+        return $this->as == null ? '' : $this->as->name;
     }
 }

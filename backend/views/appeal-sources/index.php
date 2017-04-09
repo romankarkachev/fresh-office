@@ -4,13 +4,13 @@ use yii\helpers\Html;
 use yii\grid\GridView;
 
 /* @var $this yii\web\View */
-/* @var $searchModel common\models\ResponsibleSearch */
+/* @var $searchModel common\models\AppealSourcesSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$this->title = 'Ответственные лица | ' . Yii::$app->name;
-$this->params['breadcrumbs'][] = 'Ответственные лица';
+$this->title = 'Источники обращения | ' . Yii::$app->name;
+$this->params['breadcrumbs'][] = 'Источники обращения';
 ?>
-<div class="responsible-list">
+<div class="appeal-sources-list">
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
@@ -20,8 +20,7 @@ $this->params['breadcrumbs'][] = 'Ответственные лица';
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            'required_name',
-            'substitute_name',
+            'name',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

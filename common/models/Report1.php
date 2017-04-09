@@ -13,22 +13,21 @@ use yii\helpers\ArrayHelper;
 class Report1 extends Model
 {
     /**
-     * Признак оплаты "Утилизация".
+     * Идентификатор контрагента.
+     * @var integer
      */
-    const FO_PAYMENT_SIGN_UTILIZATION = 1;
+    public $id;
 
     /**
-     * Признак оплаты "Транспорт".
+     * Дата первого платежа.
+     * @var string
      */
-    const FO_PAYMENT_SIGN_TRANSPORT = 2;
-
-    public $id;
     public $first_payment;
 
     /**
      * Дата, финансовые документы менее которой будут использованы при отборе.
      * По-умолчанию - год назад от текущей даты и ранее.
-     * @var date
+     * @var string
      */
     public $searchPeriod;
 
@@ -116,7 +115,7 @@ class Report1 extends Model
         // период - год назад от текущей даты в формате yyyy-mm-dd
         if (!isset($this->searchPeriod)) $this->searchPeriod = date('Y-m-d', strtotime(date('Y-m-d').' -1 year'));
         // признак оплаты - Утилизация
-        if (!isset($this->searchPaymentSign)) $this->searchPaymentSign = Report1::FO_PAYMENT_SIGN_UTILIZATION;
+        if (!isset($this->searchPaymentSign)) $this->searchPaymentSign = FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ;
         // условие для суммы оборотов - меньше или равно
         if (!isset($this->searchSumCondition)) $this->searchSumCondition = '<=';
         // оборот с клиентом - не менее 30 млн
@@ -134,7 +133,7 @@ LEFT JOIN (
 	GROUP BY ID_COMPANY
 ) AS FINANCES ON FINANCES.ID_COMPANY = COMPANY.ID_COMPANY
 LEFT JOIN (
-	SELECT ID_COMPANY, SUM(CASE WHEN ID_NAPR = 2 THEN -SUM_RUB ELSE SUM_RUB END) AS TURNOVER
+	SELECT ID_COMPANY, SUM(CASE WHEN ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_РАСХОД . ' THEN -SUM_RUB ELSE SUM_RUB END) AS TURNOVER
 	FROM LIST_MANYS
 	WHERE ID_SUB_PRIZNAK_MANY = ' . $this->searchPaymentSign . '
 	GROUP BY ID_COMPANY

@@ -4,11 +4,11 @@ use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\ResponsibleSearch */
+/* @var $model common\models\ResponsibleSubstitutesSearch */
 /* @var $form yii\widgets\ActiveForm */
 ?>
 
-<div class="responsible-search">
+<div class="responsible-substitutes-search">
 
     <?php $form = ActiveForm::begin([
         'action' => ['index'],

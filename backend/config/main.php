@@ -43,6 +43,7 @@ return [
             'class' => 'yii\i18n\Formatter',
             'locale' => 'ru_RU',
             'defaultTimeZone' => 'Europe/Moscow',
+            'timeZone' => 'Europe/Moscow',
             'currencyCode' => 'RUR',
             'dateFormat' => 'php:d.m.Y',
             'datetimeFormat' => 'php:d.m.Y H:i:s',

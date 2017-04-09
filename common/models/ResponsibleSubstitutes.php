@@ -5,7 +5,7 @@ namespace common\models;
 use Yii;
 
 /**
- * This is the model class for table "responsible".
+ * This is the model class for table "responsible_substitutes".
  *
  * @property integer $id
  * @property integer $required_id
@@ -13,14 +13,14 @@ use Yii;
  * @property integer $substitute_id
  * @property string $substitute_name
  */
-class Responsible extends \yii\db\ActiveRecord
+class ResponsibleSubstitutes extends \yii\db\ActiveRecord
 {
     /**
      * @inheritdoc
      */
     public static function tableName()
     {
-        return 'responsible';
+        return 'responsible_substitutes';
     }
 
     /**

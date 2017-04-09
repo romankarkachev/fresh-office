@@ -3,17 +3,16 @@
 namespace backend\controllers;
 
 use Yii;
-use common\models\Responsible;
-use common\models\ResponsibleSearch;
+use common\models\AppealSources;
+use common\models\AppealSourcesSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
-use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
 /**
- * ResponsibleController implements the CRUD actions for Responsible model.
+ * AppealSourcesController implements the CRUD actions for AppealSources model.
  */
-class ResponsibleController extends Controller
+class AppealSourcesController extends Controller
 {
     /**
      * @inheritdoc
@@ -21,16 +20,6 @@ class ResponsibleController extends Controller
     public function behaviors()
     {
         return [
-            'access' => [
-                'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete'],
-                'rules' => [
-                    [
-                        'allow' => true,
-                        'roles' => ['root'],
-                    ],
-                ],
-            ],
             'verbs' => [
                 'class' => VerbFilter::className(),
                 'actions' => [
@@ -41,34 +30,43 @@ class ResponsibleController extends Controller
     }
 
     /**
-     * Lists all Responsible models.
+     * Lists all AppealSources models.
      * @return mixed
      */
     public function actionIndex()
     {
-        $searchModel = new ResponsibleSearch();
+        $searchModel = new AppealSourcesSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
-
-        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
-            'searchApplied' => $searchApplied,
         ]);
     }
 
     /**
-     * Creates a new Responsible model.
-     * If creation is successful, the browser will be redirected to the 'index' page.
+     * Displays a single AppealSources model.
+     * @param integer $id
+     * @return mixed
+     */
+    public function actionView($id)
+    {
+        return $this->render('view', [
+            'model' => $this->findModel($id),
+        ]);
+    }
+
+    /**
+     * Creates a new AppealSources model.
+     * If creation is successful, the browser will be redirected to the 'view' page.
      * @return mixed
      */
     public function actionCreate()
     {
-        $model = new Responsible();
+        $model = new AppealSources();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/responsible']);
+            return $this->redirect(['view', 'id' => $model->id]);
         } else {
             return $this->render('create', [
                 'model' => $model,
@@ -77,8 +75,8 @@ class ResponsibleController extends Controller
     }
 
     /**
-     * Updates an existing Responsible model.
-     * If update is successful, the browser will be redirected to the 'index' page.
+     * Updates an existing AppealSources model.
+     * If update is successful, the browser will be redirected to the 'view' page.
      * @param integer $id
      * @return mixed
      */
@@ -87,7 +85,7 @@ class ResponsibleController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/responsible']);
+            return $this->redirect(['view', 'id' => $model->id]);
         } else {
             return $this->render('update', [
                 'model' => $model,
@@ -96,7 +94,7 @@ class ResponsibleController extends Controller
     }
 
     /**
-     * Deletes an existing Responsible model.
+     * Deletes an existing AppealSources model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
@@ -105,22 +103,22 @@ class ResponsibleController extends Controller
     {
         $this->findModel($id)->delete();
 
-        return $this->redirect(['/responsible']);
+        return $this->redirect(['index']);
     }
 
     /**
-     * Finds the Responsible model based on its primary key value.
+     * Finds the AppealSources model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param integer $id
-     * @return Responsible the loaded model
+     * @return AppealSources the loaded model
      * @throws NotFoundHttpException if the model cannot be found
      */
     protected function findModel($id)
     {
-        if (($model = Responsible::findOne($id)) !== null) {
+        if (($model = AppealSources::findOne($id)) !== null) {
             return $model;
         } else {
-            throw new NotFoundHttpException('Запрошенная страница не существует.');
+            throw new NotFoundHttpException('The requested page does not exist.');
         }
     }
 }

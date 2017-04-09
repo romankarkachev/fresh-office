@@ -35,6 +35,7 @@ if (isset($matches)) {
             <tr>
                 <th>ID</th>
                 <th>Наименование</th>
+                <th>Совпадение</th>
             </tr>
         </thead>
         <tbody>';
@@ -50,6 +51,7 @@ if (isset($matches)) {
                     'stateName' => $model->getCaStateName($match['stateId']),
                     'managerId' => $match['managerId'],
                 ]]) . '</td>
+                <td>' . $match['contact'] . '</td>
             </tr>
 ';
     }
@@ -81,13 +83,13 @@ if (isset($matches)) {
             </div>
         </div>
     </div>
+    <div id="block-fo_id_manager_notif" class="form-group"></div>
     <div class="row">
         <div class="col-md-5">
             <?= $form->field($model, 'fo_id_manager')->widget(Select2::className(), [
                 'data' => Appeals::arrayMapOfManagersForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
-                'disabled' => $model->fo_id_company === null,
                 'pluginEvents' => [
                     'select2:select' => new JsExpression('function() {
         ca_id = $("#appeals-fo_id_company").val();
@@ -96,7 +98,11 @@ if (isset($matches)) {
         ManagerOnChange(appeal_id, ca_id, receiver_id);
     }'),
                     'select2:selecting' => new JsExpression('function() {
-        return confirm("При изменении ответственного лица ему будет передан выбранный контрагент, а также назначена задача с текстом обращения из заявки. Продолжить?");
+        ca_id = $("#appeals-fo_id_company").val();
+        if (ca_id == "")
+            return confirm("Контрагент не идентифицирован, будет создан новый, а выбранному ответственному будет отправлена задача. Продолжить?");
+        else
+            return confirm("При изменении ответственного лица ему будет передан выбранный контрагент, а также назначена задача с текстом обращения из заявки. Продолжить?");
     }'),
                 ]
             ]) ?>
@@ -107,18 +113,45 @@ if (isset($matches)) {
 <?php
 $url_delegate_counteragent = Url::to(['/appeals/delegate-counteragent']);
 $this->registerJs(<<<JS
-// Функция выполняет создание сообщения для пользователя в CRM о том, что ему был передан контрагент.
+// Функция возвращает html-код уведомления, сформированного из переданных параметров.
 //
-function createNewMessageForManager(appeal_id, ca_id, receiver_id) {
-    $.post("$url_delegate_counteragent", {appeal_id: appeal_id, ca_id: ca_id, receiver_id: receiver_id}, function() {
-        alert("finished");
+function drawAlert(type, icon, body) {
+    return '<div id="block-fo_id_manager_alert" class="alert alert-' + type + '" role="alert">' +
+'            <span class="glyphicon glyphicon-' + icon + '" aria-hidden="true"></span> ' + body +
+'        </div>';
+} // drawAlert()
+
+// Функция выполняет передачу контрагента другому менеджеру,
+// создание сообщения для пользователя в CRM о том, что ему был передан контрагент,
+// а также создание задачи новому менеджеру с текстом обращения.
+//
+function delegateCounteragent(appeal_id, ca_id, receiver_id) {
+    $("#block-fo_id_manager_notif").html('<p><i class="fa fa-cog fa-spin fa-2x text-muted"></i><span class="sr-only">Подождите...</span></p>');
+    $.post("$url_delegate_counteragent", {appeal_id: appeal_id, ca_id: ca_id, receiver_id: receiver_id}, function(data) {
+        operation_pending = "Передача";
+        operation_done = "выполнена";
+        if (ca_id == "") {
+            operation_pending = "Создание";
+            operation_done = "выполнено";
+        }
+        if ($.isArray(data)) {
+            text_errors = "<strong>" + operation_pending + " контрагента не " + operation_done + "!</strong>";
+            $.each(data, function(key, value) {
+                text_errors += "<p>" + value + "</p>";
+            });
+            $("#block-fo_id_manager_notif").html(drawAlert("danger", "exclamation-sign", text_errors));
+        }
+        else if (data == true)
+            $("#block-fo_id_manager_notif").html(drawAlert("success", "ok-circle", operation_pending + " контрагента " + operation_done + " успешно!"));
+        else if (data == false)
+            $("#block-fo_id_manager_notif").html(drawAlert("danger", "question-sign", "Обращение не обнаружено. " + operation_pending + " контрагента не " + operation_done + "!"));
     });
-} // createNewMessageForManager()
+} // delegateCounteragent()
 
 // Функция выполняет создание задачи для нового ответственного, а также передачу ему контрагента.
 //
 function ManagerOnChange() {
-    createNewMessageForManager(appeal_id, ca_id, receiver_id);
+    delegateCounteragent(appeal_id, ca_id, receiver_id);
 } // ManagerOnChange()
 JS
 , \yii\web\View::POS_READY);

@@ -10,6 +10,18 @@ use yii\base\Model;
 class FreshOfficeAPI extends Model
 {
     /**
+     * Признаки оплаты.
+     */
+    const FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ = 1;
+    const FINANCES_PAYMENT_SIGN_ТРАНСПОРТ = 2;
+
+    /**
+     * Направления движения.
+     */
+    const FINANCES_DIRECTION_ПРИХОД = 1;
+    const FINANCES_DIRECTION_РАСХОД = 2;
+
+    /**
      * Типы сообщений.
      */
     const MESSAGES_TYPE_СООБЩЕНИЕ = 1;
@@ -43,9 +55,30 @@ class FreshOfficeAPI extends Model
     const TASK_TYPE_ВСТРЕЧА = 2;
     const TASK_TYPE_НАПОМИНАНИЕ = 3;
 
-    CONST API_ID = 1335;
-    CONST API_PASSWORD = 'g73tP8-Jx9puTLsnX_AjRa2RnRC8iCbq';
-    CONST API_URL = 'https://api.myfreshcloud.com/';
+    /**
+     * Типы контрагентов.
+     */
+    const COMPANY_TYPE_ЮРЛИЦО = 1;
+    const COMPANY_TYPE_ФИЗЛИЦО = 1;
+
+    /**
+     * Статусы клиентов.
+     */
+    const COMPANY_STATE_НОВАЯ_КОМПАНИЯ = 1;
+
+    /**
+     * Группа контрагента.
+     */
+    const COMPANY_GROUP_ОТДЕЛ_ВХОДЯЩИХ_ЗАЯВОК = 10;
+
+    /**
+     * Статус контактного лица.
+     */
+    const CONTACT_PERSON_STATE_РАБОТАЕТ = 1;
+
+    const API_ID = 1335;
+    const API_PASSWORD = 'g73tP8-Jx9puTLsnX_AjRa2RnRC8iCbq';
+    const API_URL = 'https://api.myfreshcloud.com/';
 
     /**
      * Выполняет GET-запрос с базовой аутентификацией для получения данных по API FreshOffice.

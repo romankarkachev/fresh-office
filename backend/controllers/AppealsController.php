@@ -2,13 +2,15 @@
 
 namespace backend\controllers;
 
+use common\models\FreshOfficeAPI;
 use Yii;
 use common\models\Appeals;
 use common\models\AppealsSearch;
-use common\models\FreshOfficeAPI;
+use common\models\ResponsibleRefusal;
 use yii\bootstrap\ActiveForm;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
@@ -144,7 +146,7 @@ class AppealsController extends Controller
             $matches = $model->tryToIdentifyCounteragent();
             $params = [
                 'model' => $model,
-                // если указывать не здесь form, в самой форме, то все рухнет и не будет работать
+                // если указывать form не здесь, а в самой форме, то все рухнет и не будет работать
                 'form' => $form = ActiveForm::begin(),
             ];
 
@@ -154,16 +156,29 @@ class AppealsController extends Controller
             $model->ca_state_id = null;
 
             if (count($matches) > 0) {
-                if (count($matches) == 1) {
-                    $result = $matches[0];
-                    $model->fo_id_company = $result['caId'];
-                    $model->fo_company_name = $result['caName'];
-                    $model->fo_id_manager = $result['managerId'];
-                    $model->ca_state_id = $result['stateId'];
-                }
-                else
+                if (count($matches) == 1)
+                    // контрагент идентифицирован однозначно
+                    $model->fillUpIdentifiedCounteragentsFields($matches[0]);
+                else {
                     // другие совпадения, если результатов несколько
+                    // проставим уточненные статусы клиентов
+                    // выборка ответственных-отказников
+                    $responsibleRefusal = ResponsibleRefusal::find()->select('responsible_id')->asArray()->column();
+                    if (count($responsibleRefusal) > 0)
+                        foreach ($matches as $index => $match)
+                            if (in_array($match['managerId'], $responsibleRefusal)) {
+                                // если ответственный в списке отказников - значит клиент просто повторно обращается
+                                $matches[$index]['stateId'] = Appeals::CA_STATE_REPEATED;
+                                $matches[$index]['stateName'] = $model->getCaStateName($match['stateId']);
+                            }
+                            else {
+                                // если ответственного нет в списке отказников, значит клиент дублирует заявку
+                                $matches[$index]['stateId'] = Appeals::CA_STATE_DUPLICATE;
+                                $matches[$index]['stateName'] = $model->getCaStateName($match['stateId']);
+                            }
+
                     $params['matches'] = $matches;
+                }
             }
 
             return $this->renderAjax('_ca', $params);
@@ -185,48 +200,40 @@ class AppealsController extends Controller
             $appeal = Appeals::findOne($appeal_id);
             if ($appeal === null) return false;
 
-            $query_text = '
+            if ($ca_id == null) {
+                // необходимо создать новую карточку контрагента и назначить его выбранному ответственному
+                $result = Appeals::createCounteragent($appeal, $receiver_id);
+                if ($result === true)
+                    return $this->redirect(['/appeals']);
+                else {
+                    Yii::$app->response->format = Response::FORMAT_JSON;
+                    return $result;
+                }
+            }
+            else {
+                Yii::$app->response->format = Response::FORMAT_JSON;
+
+                // просто передаем контрагента новому ответственному
+                $query_text = '
 SELECT COMPANY.COMPANY_NAME, COMPANY.ID_MANAGER
 FROM CBaseCRM_Fresh_7x.dbo.COMPANY
 WHERE COMPANY.ID_COMPANY = ' . $ca_id;
-            $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
-            if (count($result) > 0) {
-                // СОЗДАНИЕ СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЮ
-                $sender_id = $result[0]['ID_MANAGER'];
-                $message = 'Вам передана компания: ' . $result[0]['COMPANY_NAME'] . '.';
-                $params = [
-                    'user_id' => $receiver_id,
-                    'sender_id' => $sender_id,
-                    'text' => $message,
-                    // если не заполнять, то заполняется автоматически
-                    //'created' => '2017-04-07T16:25:00', // date('Y-m-d\TH:i:s.u', time())
-                    'type_id' => FreshOfficeAPI::MESSAGES_TYPE_СООБЩЕНИЕ,
-                    'status_id' => FreshOfficeAPI::MESSAGES_STATUS_НЕПРОЧИТАНО,
-                ];
-
-                // дата не проставляется автоматически - глюк API Fresh office
-                //FreshOfficeAPI::makePostRequestToApi('messages', $params);
-                // создание напрямую в базу (требуются права на запись в базу):
-                //Appeals::createNewMessageForManager($sender_id, $receiver_id, $message);
-                unset($params);
-
-                // СОЗДАНИЕ ЗАДАЧИ ПОЛЬЗОВАТЕЛЮ
-                $params = [
-                    'company_id' => $ca_id,
-                    'user_id' => $receiver_id,
-                    //'user_id' => 38, // temporary1
-                    'category_id' => FreshOfficeAPI::TASK_CATEGORY_СТАНДАРТНАЯ,
-                    'status_id' => FreshOfficeAPI::TASKS_STATUS_ЗАПЛАНИРОВАН,
-                    'type_id' => FreshOfficeAPI::TASK_TYPE_НАПОМИНАНИЕ,
-                    'date_from' => date('Y-m-d\TH:i:s.u', time()),
-                    'date_till' => date('Y-m-d\TH:i:s.u', mktime(0, 0, 0, date("m")  , date("d")+1, date("Y"))),
-                    'note' => $appeal->form_message,
-                ];
-
-                //FreshOfficeAPI::makePostRequestToApi('tasks', $params);
-
-                // ПЕРЕДАЧА КОНТРАГЕНТА ДРУГОМУ МЕНЕДЖЕРУ
-                Appeals::delegateCounteragent($ca_id, $receiver_id);
+                $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+                if (count($result) > 0) {
+                    $sender_id = $result[0]['ID_MANAGER'];
+                    return Appeals::delegateCounteragent(
+                    // обращение
+                        $appeal,
+                        // контрагент
+                        $ca_id,
+                        // новый менеджер
+                        $sender_id,
+                        // старый менеджер
+                        $receiver_id,
+                        // текст сообщения
+                        str_replace('%COMPANY_NAME%', $result[0]['COMPANY_NAME'], Appeals::TEMPLATE_MESSAGE_BODY_DELEGATING_COUNTERAGENT)
+                    );
+                }
             }
         }
     }

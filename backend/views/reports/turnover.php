@@ -2,11 +2,9 @@
 
 use yii\helpers\Html;
 use yii\grid\GridView;
-use yii\widgets\Pjax;
-use common\components\TotalsDataColumn;
 
 /* @var $this yii\web\View */
-/* @var $searchModel common\models\Report1 */
+/* @var $searchModel common\models\ReportTurnover */
 /* @var $dataProvider yii\data\ArrayDataProvider */
 /* @var $searchApplied bool */
 /* @var $queryString string */
@@ -14,16 +12,16 @@ use common\components\TotalsDataColumn;
 $this->title = 'Отчет по клиентам за период | '.Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Отчет по клиентам за период';
 ?>
-<div class="reports-eins">
-    <?= $this->render('_search_eins', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
-
+<div class="reports-turnover">
     <p class="text-muted text-justify">Примечания. Чтобы изменить условия выборки, нажмите кнопку &laquo;Отбор&raquo;. При этом выдвинется форма с полями условий. В поле &laquo;Дата&raquo; необходимо поставить ту дату, менее которой будет сделана выборка. Например, при выборе 01.01.2017 будут отобраны те контрагенты, которые первый раз заплатили 01 января 2017 г. или ранее. После выбора даты необходимо делать паузу в 2 секунды (особенность виджета). Чтобы показать все записи без разбивки на страницы, оставьте поле &laquo;Записей&raquo; пустым.</p>
     <p class="text-muted text-justify">Чтобы сортировать, необходимо щелкнуть по заголовку столбца.</p>
     <p class="text-muted text-justify">Обратите внимание, что выгрузка в Excel производится с теми же параметрами отбора и с той сортировкой, которая применяется.</p>
+    <?= $this->render('_search_turnover', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
+
     <p>
         <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
 
-        <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Экспорт в Excel', '/reports/eins?export=true' . $queryString, ['class' => 'btn btn-default pull-right']) ?>
+        <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Экспорт в Excel', '/reports/turnover?export=true' . $queryString, ['class' => 'btn btn-default pull-right']) ?>
 
     </p>
 
@@ -58,7 +56,7 @@ $this->params['breadcrumbs'][] = 'Отчет по клиентам за пери
             ],
             'name',
             [
-                'attribute' => 'reliable',
+                'attribute' => 'responsible',
                 'options' => ['width' => '200'],
             ],
             [

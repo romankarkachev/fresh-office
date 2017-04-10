@@ -57,7 +57,7 @@ class ResponsibleSubstitutes extends \yii\db\ActiveRecord
     {
         if (parent::beforeSave($insert)) {
             // выборка менеджеров из SQL-базы данных
-            $managers = Appeals::fetchManagers();
+            $managers = DirectMSSQLQueries::fetchManagers();
 
             // заполним наименование искомого ответственного
             $key = array_search($this->required_id, array_column($managers, 'id'));

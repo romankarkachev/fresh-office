@@ -8,16 +8,10 @@ use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
 
 /**
- * Report1 represents the model behind the search form about `common\models\Documents`.
+ * ReportTurnover - это отчет по оборотам клиентов.
  */
-class Report1 extends Model
+class ReportTurnover extends Model
 {
-    /**
-     * Идентификатор контрагента.
-     * @var integer
-     */
-    public $id;
-
     /**
      * Дата первого платежа.
      * @var string
@@ -66,7 +60,7 @@ class Report1 extends Model
         return [
             [['id', 'searchPaymentSign', 'searchPerPage'], 'integer'],
             [['turnover', 'searchSumLimit'], 'number'],
-            [['name', 'reliable'], 'string'],
+            [['name', 'responsible'], 'string'],
             [['first_payment', 'searchPeriod', 'searchSumCondition'], 'safe'],
         ];
     }
@@ -79,7 +73,7 @@ class Report1 extends Model
         return [
             'id' => 'ID',
             'name' => 'Наименование',
-            'reliable' => 'Ответственный',
+            'responsible' => 'Ответственный',
             'first_payment' => 'Первая оплата',
             'turnover' => 'Оборот',
             // для сортировки
@@ -105,7 +99,7 @@ class Report1 extends Model
      *
      * @param array $params
      *
-     * @return \yii\data\ActiveDataProvider
+     * @return \yii\data\ArrayDataProvider
      */
     public function search($params)
     {
@@ -124,7 +118,7 @@ class Report1 extends Model
         if (!isset($this->searchPerPage)) $this->searchPerPage = false;
 
         $query_text = '
-SELECT COMPANY.ID_COMPANY AS id, COMPANY_NAME AS name, MANAGERS.MANAGER_NAME AS reliable, FINANCES.DATE_MANY AS first_payment, LEAVINGS.TURNOVER AS turnover
+SELECT COMPANY.ID_COMPANY AS id, COMPANY_NAME AS name, MANAGERS.MANAGER_NAME AS responsible, FINANCES.DATE_MANY AS first_payment, LEAVINGS.TURNOVER AS turnover
 FROM COMPANY
 LEFT JOIN (
 	SELECT ID_COMPANY, MIN(DATE_MANY) AS DATE_MANY
@@ -144,8 +138,9 @@ WHERE DATE_MANY <= CONVERT(datetime, \'' . $this->searchPeriod . '\', 120) AND t
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
 
         $dataProvider = new ArrayDataProvider([
-            'modelClass' => 'common\models\Report1',
+            'modelClass' => 'common\models\ReportTurnover',
             'allModels' => $result,
+            'key' => 'id', // поле, которое заменяет primary key
             'pagination' => [
                 'pageSize' => $this->searchPerPage,
             ],
@@ -154,7 +149,7 @@ WHERE DATE_MANY <= CONVERT(datetime, \'' . $this->searchPeriod . '\', 120) AND t
                 'attributes' => [
                     'id',
                     'name',
-                    'reliable',
+                    'responsible',
                     'first_payment',
                     'turnover',
                 ],

@@ -4,7 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\JsExpression;
 use kartik\select2\Select2;
-use common\models\Appeals;
+use common\models\DirectMSSQLQueries;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Appeals */
@@ -87,7 +87,7 @@ if (isset($matches)) {
     <div class="row">
         <div class="col-md-5">
             <?= $form->field($model, 'fo_id_manager')->widget(Select2::className(), [
-                'data' => Appeals::arrayMapOfManagersForSelect2(),
+                'data' => DirectMSSQLQueries::arrayMapOfManagersForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
                 'pluginEvents' => [

@@ -4,17 +4,17 @@ use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
-use common\models\Report1;
+use common\models\ReportTurnover;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\Report1 */
+/* @var $model common\models\ReportTurnover */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $searchApplied bool */
 ?>
 
-<div class="eins-search">
+<div class="turnover-search">
     <?php $form = ActiveForm::begin([
-        'action' => ['/reports/eins'],
+        'action' => ['/reports/turnover'],
         'method' => 'get',
         'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
     ]); ?>
@@ -46,7 +46,7 @@ use common\models\Report1;
                 <?php if (Yii::$app->user->can('root')): ?>
                 <div class="col-md-2">
                     <?= $form->field($model, 'searchPaymentSign')->widget(Select2::className(), [
-                        'data' => Report1::arrayMapOfPaymentSignsForSelect2(),
+                        'data' => ReportTurnover::arrayMapOfPaymentSignsForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                     ]) ?>
@@ -55,7 +55,7 @@ use common\models\Report1;
                 <?php endif; ?>
                 <div class="col-md-1">
                     <?= $form->field($model, 'searchSumCondition')->widget(Select2::className(), [
-                        'data' => Report1::arrayMapOfSumConditionsForSelect2(),
+                        'data' => ReportTurnover::arrayMapOfSumConditionsForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                     ]) ?>
@@ -73,7 +73,7 @@ use common\models\Report1;
             <div class="form-group">
                 <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info']) ?>
 
-                <?= Html::a('Отключить отбор', ['/reports/eins'], ['class' => 'btn btn-default']) ?>
+                <?= Html::a('Отключить отбор', ['/reports/turnover'], ['class' => 'btn btn-default']) ?>
 
             </div>
         </div>

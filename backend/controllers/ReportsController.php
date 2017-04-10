@@ -4,10 +4,12 @@ namespace backend\controllers;
 
 use Yii;
 use yii\web\Controller;
-use yii\filters\VerbFilter;
+use yii\web\Response;
 use yii\filters\AccessControl;
 use moonland\phpexcel\Excel;
-use common\models\Report1;
+use common\models\ReportTurnover;
+use common\models\ReportNofinances;
+use common\models\DirectMSSQLQueries;
 
 /**
  * Reports controller
@@ -24,16 +26,10 @@ class ReportsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['eins'],
+                        'actions' => ['turnover', 'nofinances'],
                         'allow' => true,
                         'roles' => ['root', 'role_report1'],
                     ],
-                ],
-            ],
-            'verbs' => [
-                'class' => VerbFilter::className(),
-                'actions' => [
-                    //'logout' => ['post'],
                 ],
             ],
         ];
@@ -45,9 +41,9 @@ class ReportsController extends Controller
      * ID_NAPR - направление движения (1 - приход, 2 - расход)
      * @return string
      */
-    public function actionEins()
+    public function actionTurnover()
     {
-        $searchModel = new Report1();
+        $searchModel = new ReportTurnover();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
@@ -55,11 +51,11 @@ class ReportsController extends Controller
         if (Yii::$app->request->get('export') != null) {
             if ($dataProvider->getTotalCount() == 0) {
                 Yii::$app->getSession()->setFlash('error', 'Нет данных для экспорта.');
-                $this->redirect(['/reports/eins']);
+                $this->redirect(['/reports/turnover']);
                 return false;
             }
 
-            $model = new Report1();
+            $model = new ReportTurnover();
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Отчет по клиентам (сформирован '.date('Y-m-d').').xlsx',
@@ -74,8 +70,8 @@ class ReportsController extends Controller
                         'header' => $model->attributeLabels()['name'],
                     ],
                     [
-                        'attribute' => 'reliable',
-                        'header' => $model->attributeLabels()['reliable'],
+                        'attribute' => 'responsible',
+                        'header' => $model->attributeLabels()['responsible'],
                     ],
                     [
                         'attribute' => 'turnover',
@@ -89,12 +85,42 @@ class ReportsController extends Controller
             $queryString = '';
             if (Yii::$app->request->queryString != '') $queryString = '&'.Yii::$app->request->queryString;
 
-            return $this->render('eins', [
+            return $this->render('turnover', [
                 'searchModel' => $searchModel,
                 'dataProvider' => $dataProvider,
                 'searchApplied' => $searchApplied,
                 'queryString' => $queryString,
             ]);
         }
+    }
+
+    /**
+     * Отображает отчет по клиентам без оборотов.
+     * Если тип запроса POST, то выполняется обработка, отчет не выводится.
+     */
+    public function actionNofinances()
+    {
+        if (Yii::$app->request->isPost) {
+            // если пришел POST-запрос, значит выполняется обработка
+            Yii::$app->response->format = Response::FORMAT_JSON;
+
+            $ca_ids = Yii::$app->request->post('ca_ids');
+            $manager_id = Yii::$app->request->post('manager_id');
+            // все параметры обязательны
+            if ($ca_ids == null || $manager_id == null) return false;
+
+            return DirectMSSQLQueries::changeResponsible($ca_ids, $manager_id);
+        }
+
+        $searchModel = new ReportNofinances();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('nofinances', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'searchApplied' => $searchApplied,
+        ]);
     }
 }

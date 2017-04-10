@@ -58,7 +58,8 @@ if (Yii::$app->user->can('root'))
             'label' => 'Отчеты',
             'url' => '#',
             'items' => [
-                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/eins']],
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по оборотам клиентов', 'url' => ['/reports/turnover']],
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оборотов', 'url' => ['/reports/nofinances']],
             ],
         ],
     ];
@@ -68,7 +69,7 @@ elseif (Yii::$app->user->can('role_documents'))
     ];
 elseif (Yii::$app->user->can('role_report1'))
     $items = [
-        ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/eins']],
+        ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
     ];
 $items[] = '<li>'
     . Html::beginForm(['/logout'], 'post')

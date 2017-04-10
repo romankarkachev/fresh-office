@@ -4,7 +4,6 @@ namespace common\models;
 
 use Yii;
 use yii\db\ActiveRecord;
-use yii\db\Expression;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -136,16 +135,6 @@ class Appeals extends \yii\db\ActiveRecord
     }
 
     /**
-     * Возвращает в виде массива менеджеров CRM.
-     * @return array
-     */
-    public static function fetchManagers()
-    {
-        $query_text = 'SELECT ID_MANAGER AS id, MANAGER_NAME AS name FROM CBaseCRM_Fresh_7x.dbo.MANAGERS ORDER BY name';
-        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
-    }
-
-    /**
      * Возвращает в виде массива разновидности статусов клиентов.
      * @return array
      */
@@ -154,7 +143,7 @@ class Appeals extends \yii\db\ActiveRecord
         return [
             [
                 'id' => self::CA_STATE_NEW,
-                'name' => 'Новый',
+                'name' => 'Входящий',
             ],
             [
                 'id' => self::CA_STATE_ACTUAL,
@@ -217,16 +206,6 @@ class Appeals extends \yii\db\ActiveRecord
     public static function arrayMapOfCaStatesForSelect2()
     {
         return ArrayHelper::map(self::fetchCaStates() , 'id', 'name');
-    }
-
-    /**
-     * Делает выборку менеджеров и возвращает в виде массива.
-     * Применяется для вывода в виджетах Select2.
-     * @return array
-     */
-    public static function arrayMapOfManagersForSelect2()
-    {
-        return ArrayHelper::map(self::fetchManagers() , 'id', 'name');
     }
 
     /**
@@ -325,26 +304,6 @@ ORDER BY COMPANY_NAME';
         $this->fo_company_name = $dbRow['caName'];
         $this->fo_id_manager = $dbRow['managerId'];
         $this->ca_state_id = $dbRow['stateId'];
-    }
-
-    /**
-     * Выполняет создание записи в базе данных SQL в таблице Сообщения.
-     * @param $sender_id integer идентификатор отправителя
-     * @param $receiver_id integer идентификатор получателя
-     * @param $message string текст сообщения
-     */
-    public static function directSQL_createNewMessageForManager($sender_id, $receiver_id, $message)
-    {
-        Yii::$app->db_mssql->createCommand()->insert('CBaseCRM_Fresh_7x.dbo.LIST_NOTEPAD_TXT', [
-            'ID_MANAGER' => $receiver_id,
-            'ID_MANAGER_SEND' => $sender_id,
-            'TEXT_MESSAGE' => $message,
-            'DATA_TXT' => new Expression('GETDATE()'),
-            'TIME_TXT' => new Expression('GETDATE()'),
-            'ID_TIP_LOCAL_MESSAGE' => FreshOfficeAPI::MESSAGES_TYPE_СООБЩЕНИЕ,
-            'ID_PRIZNAK_NOTEPAD_MESSAGE' => FreshOfficeAPI::MESSAGES_STATUS_НЕПРОЧИТАНО,
-            'ID_LIST_PROJECT_COMPANY' => 0,
-        ])->execute();
     }
 
     /**
@@ -559,12 +518,9 @@ ORDER BY COMPANY_NAME';
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // ПЕРЕДАЧА КОНТРАГЕНТА ДРУГОМУ МЕНЕДЖЕРУ
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.COMPANY', [
-            'ID_MANAGER' => $receiver_id,
-        ], [
-            'ID_COMPANY' => intval($ca_id),
-        ])->execute();
-//        ])->getRawSql();
+        $rows_affected = DirectMSSQLQueries::changeResponsible($ca_id, $receiver_id);
+        if ($rows_affected == 0)
+            $errors[] = 'Не удалось передать контрагента другому менеджеру';
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // СОЗДАНИЕ СООБЩЕНИЯ ПОЛЬЗОВАТЕЛЮ
@@ -587,7 +543,7 @@ ORDER BY COMPANY_NAME';
 
         // второй вариант отправки сообщения
         // создание напрямую в базу (требуются права на запись в базу):
-        //self::createNewMessageForManager($sender_id, $receiver_id, $message);
+        //DirectMSSQLQueries::createNewMessageForManager($sender_id, $receiver_id, $message);
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
         // СОЗДАНИЕ ЗАДАЧИ ПОЛЬЗОВАТЕЛЮ

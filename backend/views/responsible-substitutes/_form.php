@@ -3,7 +3,7 @@
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
-use common\models\Appeals;
+use common\models\DirectMSSQLQueries;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\ResponsibleSubstitutes */
@@ -16,7 +16,7 @@ use common\models\Appeals;
     <div class="row">
         <div class="col-md-6">
             <?= $form->field($model, 'required_id')->widget(Select2::className(), [
-                'data' => Appeals::arrayMapOfManagersForSelect2(),
+                'data' => DirectMSSQLQueries::arrayMapOfManagersForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
             ]) ?>
@@ -24,7 +24,7 @@ use common\models\Appeals;
         </div>
         <div class="col-md-6">
             <?= $form->field($model, 'substitute_id')->widget(Select2::className(), [
-                'data' => Appeals::arrayMapOfManagersForSelect2(),
+                'data' => DirectMSSQLQueries::arrayMapOfManagersForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
             ]) ?>

@@ -107,64 +107,8 @@ class ApiController extends Controller
 
                 // сохраняем обращение
                 $model->save();
-                // пытаемся идентифицировать контрагента
-                $matches = $model->tryToIdentifyCounteragent();
-                if (count($matches) > 0) {
-                    // в результате выборки вообще есть варианты
-                    if (count($matches) == 1) {
-                        // контрагент идентифицирован однозначно
-                        $model->fillUpIdentifiedCounteragentsFields($matches[0]);
-                        if ($model->ca_state_id == Appeals::CA_STATE_ACTUAL) {
-                            // это действующий клиент
-                            // просто ставим статусы клиента "Действующий" и обращения "Закрыто"
-                            $model->state_id = Appeals::APPEAL_STATE_CLOSED;
-                            // создание задачи текущему ответственному о том, что обратился клиент,
-                            // с которым мы работаем
-                            // в функции применяется подстановка ответственных
-                            Appeals::foapi_createNewTaskForManager($model->fo_id_company, $model->fo_id_manager, $model->form_message);
-                        }
-                        else {
-                            // теперь необходимо разобраться: мы работали с клиентом уже (статус "Повторно")
-                            // или он просто дублирует заявку с другого ресурса
-                            // выборка ответственных по отказам
-                            $responsibleRefusal = ResponsibleRefusal::find()->select('responsible_id')->asArray()->column();
-                            if (count($responsibleRefusal) > 0) {
-                                if (in_array($model->fo_id_manager, $responsibleRefusal)) {
-                                    // если ответственный идентифицированного контрагента входит в список
-                                    // ответственных по отказам (БАНК или БАНК ВХОДЯЩИЕ на момент написания кода)
-                                    // обращение принимает статусы клиента "Повторно" и обращения "Выбор ответственного"
-                                    $model->ca_state_id = Appeals::CA_STATE_REPEATED;
-                                    $model->state_id = Appeals::APPEAL_STATE_RESPONSIBLE;
-                                }
-                                else {
-                                    // ответственный не является отказником, значит, заказчик просто дублирует заявку
-                                    // обращение принимает статусы клиента "Дубль" и обращения "Закрыто"
-                                    $model->ca_state_id = Appeals::CA_STATE_DUPLICATE;
-                                    $model->state_id = Appeals::APPEAL_STATE_CLOSED;
-                                }
-                            }
-                            else {
-                                // если ответственные-отказники не назначены, тогда мы не знаем, что делать с этим
-                                // обращением, поставим статусы "Неоднозначный" и "Новое"
-                                $model->ca_state_id = Appeals::CA_STATE_AMBIGUOUS;
-                                $model->state_id = Appeals::APPEAL_STATE_NEW;
-                            }
-                        }
-                    }
-                    else {
-                        // контрагент не может быть идентифицирован однозначно
-                        // то есть в результате выборки несколько подходящих записей
-                        // статусы "Неоднозначный" и "Новое"
-                        $model->ca_state_id = Appeals::CA_STATE_AMBIGUOUS;
-                        $model->state_id = Appeals::APPEAL_STATE_NEW;
-                    }
-                }
-                else {
-                    // контрагент вообще не идентифицирован
-                    // статусы "Новый" и "Новое"
-                    $model->ca_state_id = Appeals::CA_STATE_NEW;
-                    $model->state_id = Appeals::APPEAL_STATE_NEW;
-                }
+                // пытаемся идентифицировать контрагента и заполняем статусы клиента и обращения
+                $model->fillStates($model->tryToIdentifyCounteragent());
                 // сохраняем измененные статусы
                 $model->save();
             }

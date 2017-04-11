@@ -4,7 +4,7 @@ return [
     'modules' => [
         'user' => [
             'class' => 'dektrium\user\Module',
-            'admins' => ['root'],
+            'admins' => ['root', 'administrator'],
             'enableRegistration' => false,
             'enableConfirmation' => false,
             'enablePasswordRecovery' => false,
@@ -17,7 +17,16 @@ return [
             'controllerMap' => [
                 'admin' => 'backend\controllers\UsersController',
                 //'settings' => 'backend\controllers\SettingsController',
-                'security' => 'backend\controllers\SecurityController',
+                'security' => [
+                    'class' => 'backend\controllers\SecurityController',
+                    'on ' . backend\controllers\SecurityController::EVENT_AFTER_LOGIN => function ($e) {
+                        if (Yii::$app->user->can('operator')) {
+                            // пользователя с правами оператора сразу переводим на страницу добавления нового обращения
+                            Yii::$app->response->redirect(['/appeals/create'])->send();
+                            Yii::$app->end();
+                        }
+                    }
+                ],
             ],
         ],
         'rbac' => 'dektrium\rbac\RbacWebModule',

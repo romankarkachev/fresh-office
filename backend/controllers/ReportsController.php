@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\ReportCaDuplicates;
 use Yii;
 use yii\web\Controller;
 use yii\web\Response;
@@ -26,9 +27,14 @@ class ReportsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['turnover', 'nofinances'],
+                        'actions' => ['turnover'],
                         'allow' => true,
                         'roles' => ['root', 'role_report1'],
+                    ],
+                    [
+                        'actions' => ['nofinances', 'ca-duplicates'],
+                        'allow' => true,
+                        'roles' => ['root'],
                     ],
                 ],
             ],
@@ -58,7 +64,7 @@ class ReportsController extends Controller
             $model = new ReportTurnover();
             Excel::export([
                 'models' => $dataProvider->getModels(),
-                'fileName' => 'Отчет по клиентам (сформирован '.date('Y-m-d').').xlsx',
+                'fileName' => 'Отчет по клиентам (сформирован '.date('Y-m-d в H i').').xlsx',
                 'format' => 'Excel2007',
                 'columns' => [
                     [
@@ -122,5 +128,58 @@ class ReportsController extends Controller
             'dataProvider' => $dataProvider,
             'searchApplied' => $searchApplied,
         ]);
+    }
+
+    /**
+     * Отображает отчет по дубликатам в контрагентах.
+     * Поля для поиска: наименование, номер телефона, email.
+     */
+    public function actionCaDuplicates()
+    {
+        $searchModel = new ReportCaDuplicates();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        if (Yii::$app->request->get('export') != null) {
+            if ($dataProvider->getTotalCount() == 0) {
+                Yii::$app->getSession()->setFlash('error', 'Нет данных для экспорта.');
+                $this->redirect(['/reports/ca-duplicates']);
+                return false;
+            }
+
+            $model = new ReportCaDuplicates();
+            Excel::export([
+                'models' => $dataProvider->getModels(),
+                'fileName' => 'Отчет по дубликатам клиентам (сформирован '.date('Y-m-d в H i').').xlsx',
+                'format' => 'Excel2007',
+                'columns' => [
+                    [
+                        'attribute' => 'id',
+                        'header' => $model->attributeLabels()['id'],
+                    ],
+                    [
+                        'attribute' => 'name',
+                        'header' => $model->attributeLabels()['name'],
+                    ],
+                    [
+                        'attribute' => 'parameter',
+                        'header' => $model->attributeLabels()['parameter'],
+                    ],
+                ],
+            ]);
+        }
+        else {
+            // в кнопку Экспорт в Excel встраиваем строку запроса
+            $queryString = '';
+            if (Yii::$app->request->queryString != '') $queryString = '&' . Yii::$app->request->queryString;
+
+            return $this->render('caduplicates', [
+                'searchModel' => $searchModel,
+                'dataProvider' => $dataProvider,
+                'searchApplied' => $searchApplied,
+                'queryString' => $queryString,
+            ]);
+        }
     }
 }

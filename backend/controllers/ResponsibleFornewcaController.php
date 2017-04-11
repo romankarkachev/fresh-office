@@ -3,17 +3,17 @@
 namespace backend\controllers;
 
 use Yii;
-use common\models\AppealSources;
-use common\models\AppealSourcesSearch;
+use common\models\ResponsibleFornewca;
+use common\models\ResponsibleFornewcaSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
 /**
- * AppealSourcesController implements the CRUD actions for AppealSources model.
+ * ResponsibleFornewcaController implements the CRUD actions for ResponsibleFornewca model.
  */
-class AppealSourcesController extends Controller
+class ResponsibleFornewcaController extends Controller
 {
     /**
      * @inheritdoc
@@ -41,43 +41,34 @@ class AppealSourcesController extends Controller
     }
 
     /**
-     * Lists all AppealSources models.
+     * Lists all ResponsibleFornewca models.
      * @return mixed
      */
     public function actionIndex()
     {
-        $searchModel = new AppealSourcesSearch();
+        $searchModel = new ResponsibleFornewcaSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'searchApplied' => $searchApplied,
         ]);
     }
 
     /**
-     * Displays a single AppealSources model.
-     * @param integer $id
-     * @return mixed
-     */
-    public function actionView($id)
-    {
-        return $this->render('view', [
-            'model' => $this->findModel($id),
-        ]);
-    }
-
-    /**
-     * Creates a new AppealSources model.
-     * If creation is successful, the browser will be redirected to the 'view' page.
+     * Creates a new ResponsibleFornewca model.
+     * If creation is successful, the browser will be redirected to the 'index' page.
      * @return mixed
      */
     public function actionCreate()
     {
-        $model = new AppealSources();
+        $model = new ResponsibleFornewca();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
+            return $this->redirect(['/responsible-fornewca']);
         } else {
             return $this->render('create', [
                 'model' => $model,
@@ -86,8 +77,8 @@ class AppealSourcesController extends Controller
     }
 
     /**
-     * Updates an existing AppealSources model.
-     * If update is successful, the browser will be redirected to the 'view' page.
+     * Updates an existing ResponsibleFornewca model.
+     * If update is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
      */
@@ -96,7 +87,7 @@ class AppealSourcesController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['view', 'id' => $model->id]);
+            return $this->redirect(['/responsible-fornewca']);
         } else {
             return $this->render('update', [
                 'model' => $model,
@@ -105,7 +96,7 @@ class AppealSourcesController extends Controller
     }
 
     /**
-     * Deletes an existing AppealSources model.
+     * Deletes an existing ResponsibleFornewca model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
@@ -114,22 +105,22 @@ class AppealSourcesController extends Controller
     {
         $this->findModel($id)->delete();
 
-        return $this->redirect(['index']);
+        return $this->redirect(['/responsible-fornewca']);
     }
 
     /**
-     * Finds the AppealSources model based on its primary key value.
+     * Finds the ResponsibleFornewca model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param integer $id
-     * @return AppealSources the loaded model
+     * @return ResponsibleFornewca the loaded model
      * @throws NotFoundHttpException if the model cannot be found
      */
     protected function findModel($id)
     {
-        if (($model = AppealSources::findOne($id)) !== null) {
+        if (($model = ResponsibleFornewca::findOne($id)) !== null) {
             return $model;
         } else {
-            throw new NotFoundHttpException('The requested page does not exist.');
+            throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
     }
 }

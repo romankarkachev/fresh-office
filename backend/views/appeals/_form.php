@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
+use common\models\Appeals;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Appeals */
@@ -46,21 +47,26 @@ use yii\bootstrap\ActiveForm;
             </div>
         </div>
         <div class="col-md-7">
+            <?php if ($model->state_id != Appeals::APPEAL_STATE_CLOSED): ?>
             <p><?= Html::button('Идентифицировать контрагента', ['id' => 'btn-identify-ca', 'class' => 'btn btn-default', 'title' => 'Попытаться идентифицировать контрагента', 'data-model-id' => $model->id, 'data-loading-text' => '<i class="fa fa-cog fa-spin fa-lg text-info"></i> Поиск по базе данных...', 'autocomplete' => 'off']) ?></p>
+            <?php endif; ?>
             <div id="block-ca"><?= $this->render('_ca', ['model' => $model, 'form' => $form]) ?></div>
         </div>
     </div>
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Обращения', ['/appeals'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
+        <?php if ($model->state_id != Appeals::APPEAL_STATE_CLOSED): ?>
         <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
 
+        <?php endif; ?>
     </div>
     <?php ActiveForm::end(); ?>
 
 </div>
 <?php
 $url_id_ca = Url::to(['/appeals/try-to-identify-counteragent']);
+$url_after_id = Url::to(['/appeals/after-identifying-ambiguous']);
 $this->registerJs(<<<JS
 // Функция выполняет попытку идентификации контрагента по имеющимся контактным данным.
 // В случае успеха заполняютя поля Наименование и Идентификатор.
@@ -97,23 +103,21 @@ function btnIdentifyOnClick() {
 // Функция-обработчик щелчка по ссылке в таблице с множеством совпадений при идентификации контрагента.
 //
 function tableMultipleRowOnClick() {
-    // заполняем поля
-    // идентификатор контрагента
-    $("#appeals-fo_id_company").val($(this).attr("data-caId"));
-    $("#lbl-company-id").text($(this).attr("data-caId"));
-    // наименование контрагента
-    $("#appeals-fo_company_name").val($(this).attr("data-caName"));
-    $("#lbl-company-name").text($(this).attr("data-caName"));
-    // статус контрагента (в зависимости от финансов)
-    $("#appeals-ca_state_id").val($(this).attr("data-stateId")).trigger("change");
-    $("#lbl-state-name").text($(this).attr("data-stateName"));
-    // ответственный
-    $("#appeals-fo_id_manager").val($(this).attr("data-managerId")).trigger("change");
+    var \$btn = $("#btn-identify-ca");
+    // идентификатор обращения
+    appeal_id = \$btn.attr("data-model-id");
+    // идентификатор выбранного контрагент
+    ca_id = $(this).attr("data-caId");
 
-    $("#table-multiple").remove();
-    $("#block-ca-hidden").show("fast");
+    $("#block-ca").load("$url_after_id?appeal_id=" + appeal_id + "&ca_id=" + ca_id, function( response, status, xhr ) {
+        if (status == "error") {
+            \$btn.removeClass().addClass("btn btn-danger");
+            $("#block-ca").html("Невозможно загрузить данные. Ошибка " + xhr.status + ": " + xhr.statusText + ".");
+            return;
+        }
+    });
 
-    $("#btn-identify-ca").removeClass().addClass("btn btn-success");
+    \$btn.removeClass().addClass("btn btn-success");
 
     // скроллим кверху
     $("html, body").animate({scrollTop: 0}, 1000);

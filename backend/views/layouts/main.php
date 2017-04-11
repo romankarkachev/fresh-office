@@ -49,6 +49,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-remove text-info"></i> Исключения номенклатуры', 'url' => ['/products-excludes']],
                 ['label' => '<i class="fa fa-user-circle text-info"></i> Подстановка ответственных', 'url' => ['/responsible-substitutes']],
                 ['label' => '<i class="fa fa-user-circle-o text-info"></i> Ответственные для отказа', 'url' => ['/responsible-refusal']],
+                ['label' => '<i class="fa fa-user-plus text-info"></i> Ответственные для новых', 'url' => ['/responsible-fornewca']],
                 ['label' => '<i class="fa fa-user-secret text-info"></i> Источники обращения', 'url' => ['/appeal-sources']],
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-users text-info"></i> Пользователи', 'url' => ['/users']],
@@ -60,6 +61,7 @@ if (Yii::$app->user->can('root'))
             'items' => [
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по оборотам клиентов', 'url' => ['/reports/turnover']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оборотов', 'url' => ['/reports/nofinances']],
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по дубликатам в контрагентах', 'url' => ['/reports/ca-duplicates']],
             ],
         ],
     ];
@@ -70,6 +72,10 @@ elseif (Yii::$app->user->can('role_documents'))
 elseif (Yii::$app->user->can('role_report1'))
     $items = [
         ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
+    ];
+elseif (Yii::$app->user->can('operator'))
+    $items = [
+        ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create'], 'linkOptions' => ['title' => 'Обращения']],
     ];
 $items[] = '<li>'
     . Html::beginForm(['/logout'], 'post')

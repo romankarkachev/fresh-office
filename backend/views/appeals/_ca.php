@@ -4,7 +4,9 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\JsExpression;
 use kartik\select2\Select2;
+use common\models\Appeals;
 use common\models\DirectMSSQLQueries;
+use common\models\ResponsibleFornewca;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Appeals */
@@ -12,7 +14,14 @@ use common\models\DirectMSSQLQueries;
 /* @var $matches array */
 
 $company_id = '-';
-if ($model->fo_id_company != null && $model->fo_id_company != '') $company_id = $model->fo_id_company;
+if ($model->fo_id_company != null && $model->fo_id_company != '') {
+    $company_id = $model->fo_id_company;
+    // набор ответственных лиц - только для новых контрагентов (ограниченный список)
+    $responsibleDataSet = DirectMSSQLQueries::arrayMapOfManagersForSelect2();
+}
+else
+    // набор ответственных лиц полный
+    $responsibleDataSet = ResponsibleFornewca::arrayMapForSelect2();
 
 $company_name = 'Контрагент не идентифицирован';
 if ($model->fo_company_name != null && $model->fo_company_name != '') $company_name = $model->fo_company_name;
@@ -66,7 +75,7 @@ if (isset($matches)) {
     <div class="row">
         <div class="col-md-1">
             <div class="form-group">
-                <label class="control-label" for="appeals-fo_company_name">ID</label>
+                <label class="control-label" for="appeals-fo_id_company">ID</label>
                 <p id="lbl-company-id"><?= $company_id ?></p>
             </div>
         </div>
@@ -78,7 +87,7 @@ if (isset($matches)) {
         </div>
         <div class="col-md-3">
             <div class="form-group">
-                <label class="control-label" for="appeals-fo_company_name">Статус</label>
+                <label class="control-label" for="appeals-fo_company_state">Статус</label>
                 <p id="lbl-state-name"><?= $company_state ?></p>
             </div>
         </div>
@@ -87,10 +96,11 @@ if (isset($matches)) {
     <div class="row">
         <div class="col-md-5">
             <?= $form->field($model, 'fo_id_manager')->widget(Select2::className(), [
-                'data' => DirectMSSQLQueries::arrayMapOfManagersForSelect2(),
+                'data' => $responsibleDataSet,
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
-                'pluginEvents' => [
+                'disabled' => $model->state_id == Appeals::APPEAL_STATE_CLOSED,
+                    'pluginEvents' => [
                     'select2:select' => new JsExpression('function() {
         ca_id = $("#appeals-fo_id_company").val();
         receiver_id = $(this).val();

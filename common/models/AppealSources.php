@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "appeal_sources".
@@ -42,6 +43,16 @@ class AppealSources extends \yii\db\ActiveRecord
             'id' => 'ID',
             'name' => 'Наименование',
         ];
+    }
+
+    /**
+     * Делает выборку источников обращения и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapForSelect2()
+    {
+        return ArrayHelper::map(AppealSources::find()->all(), 'id', 'name');
     }
 
     /**

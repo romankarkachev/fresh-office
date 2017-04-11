@@ -24,7 +24,6 @@ $this->params['breadcrumbs'][] = 'Отчет по клиентам за пери
         <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Экспорт в Excel', '/reports/turnover?export=true' . $queryString, ['class' => 'btn btn-default pull-right']) ?>
 
     </p>
-
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'layout' => '{items}{summary}{pager}',

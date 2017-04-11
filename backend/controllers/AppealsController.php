@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\DirectMSSQLQueries;
 use common\models\FreshOfficeAPI;
 use Yii;
 use common\models\Appeals;
@@ -27,11 +28,16 @@ class AppealsController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'update', 'delete', 'try-to-identify-counteragent', 'delegate-counteragent'],
                 'rules' => [
                     [
+                        'actions' => ['index', 'update', 'delete', 'try-to-identify-counteragent', 'after-identifying-ambiguous', 'delegate-counteragent'],
                         'allow' => true,
                         'roles' => ['root'],
+                    ],
+                    [
+                        'actions' => ['create'],
+                        'allow' => true,
+                        'roles' => ['root', 'operator'],
                     ],
                 ],
             ],
@@ -72,11 +78,17 @@ class AppealsController extends Controller
     public function actionCreate()
     {
         $model = new Appeals();
+        $model->scenario = 'create_manual';
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/appeals']);
+            Yii::$app->session->setFlash('success', 'Обращение успешно создано.');
+
+            if (Yii::$app->user->can('root'))
+                return $this->redirect(['/appeals']);
+            else
+                return $this->redirect(['/appeals/create']);
         } else {
-            return $this->render('create', [
+            return $this->render('creating_form_operator', [
                 'model' => $model,
             ]);
         }
@@ -90,6 +102,11 @@ class AppealsController extends Controller
      */
     public function actionUpdate($id)
     {
+//        $time = time();
+//        $formatter = new \IntlDateFormatter('ru_RU', \IntlDateFormatter::NONE, \IntlDateFormatter::LONG, 'Europe/Moscow');
+//        echo $formatter->format($time), PHP_EOL;
+//        echo "ICU: " . INTL_ICU_VERSION . "\n";
+//        return;
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
@@ -137,52 +154,57 @@ class AppealsController extends Controller
     /**
      * Пытается идентифицировать контрагента по имеющимся контактным данным.
      * @param $id integer идентификатор обращения
-     * @return array|bool
+     * @return mixed|bool
      */
     public function actionTryToIdentifyCounteragent($id)
     {
         if (Yii::$app->request->isAjax) {
             $model = $this->findModel($id);
+            // пытаемся идентифицировать контрагента
             $matches = $model->tryToIdentifyCounteragent();
             $params = [
                 'model' => $model,
                 // если указывать form не здесь, а в самой форме, то все рухнет и не будет работать
                 'form' => $form = ActiveForm::begin(),
             ];
+            // заполняем статусы клиента и обращения
+            $model->fillStates($matches);
 
-            $model->fo_id_company = null;
-            $model->fo_company_name = null;
-            $model->fo_id_manager = null;
-            $model->ca_state_id = null;
-
-            if (count($matches) > 0) {
+            if (count($matches) > 0)
                 if (count($matches) == 1)
-                    // контрагент идентифицирован однозначно
-                    $model->fillUpIdentifiedCounteragentsFields($matches[0]);
-                else {
-                    // другие совпадения, если результатов несколько
-                    // проставим уточненные статусы клиентов
-                    // выборка ответственных-отказников
-                    $responsibleRefusal = ResponsibleRefusal::find()->select('responsible_id')->asArray()->column();
-                    if (count($responsibleRefusal) > 0)
-                        foreach ($matches as $index => $match)
-                            if (in_array($match['managerId'], $responsibleRefusal)) {
-                                // если ответственный в списке отказников - значит клиент просто повторно обращается
-                                $matches[$index]['stateId'] = Appeals::CA_STATE_REPEATED;
-                                $matches[$index]['stateName'] = $model->getCaStateName($match['stateId']);
-                            }
-                            else {
-                                // если ответственного нет в списке отказников, значит клиент дублирует заявку
-                                $matches[$index]['stateId'] = Appeals::CA_STATE_DUPLICATE;
-                                $matches[$index]['stateName'] = $model->getCaStateName($match['stateId']);
-                            }
-
+                    // если контрагент идентифицирован однозначно, сохраним сразу модель
+                    $model->save();
+                else
                     $params['matches'] = $matches;
-                }
-            }
 
             return $this->renderAjax('_ca', $params);
         }
+
+        return false;
+    }
+
+    /**
+     * Вызывается после выбора контрагента из списка подходящих при неоднозначной его идентификации.
+     * @param $appeal_id integer идентификатор обращения
+     * @param $ca_id integer идентификатор контрагента
+     * @return mixed|bool
+     */
+    public function actionAfterIdentifyingAmbiguous($appeal_id, $ca_id)
+    {
+        if (Yii::$app->request->isAjax) {
+            $model = $this->findModel($appeal_id);
+            $matches = DirectMSSQLQueries::fetchCounteragent($ca_id);
+            $params = [
+                'model' => $model,
+                // если указывать form не здесь, а в самой форме, то все рухнет и не будет работать
+                'form' => $form = ActiveForm::begin(),
+            ];
+            // заполняем статусы клиента и обращения
+            $model->fillStates($matches);
+            $model->save();
+            return $this->renderAjax('_ca', $params);
+        }
+
         return false;
     }
 

@@ -84,6 +84,10 @@ class Appeals extends \yii\db\ActiveRecord
             [['form_username', 'form_region', 'form_phone', 'form_email', 'fo_company_name'], 'string', 'max' => 150],
             [['request_referrer', 'request_user_agent'], 'string', 'max' => 255],
             [['request_user_ip'], 'string', 'max' => 30],
+            // для ввода вручную немного другие правила валидации
+            ['as_id', 'required', 'on' => 'create_manual'],
+            ['form_phone', 'validatePhone', 'on' => 'create_manual'],
+            ['form_email', 'email', 'on' => 'create_manual'],
             [['as_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppealSources::className(), 'targetAttribute' => ['as_id' => 'id']],
         ];
     }
@@ -132,6 +136,34 @@ class Appeals extends \yii\db\ActiveRecord
                 ],
             ],
         ];
+    }
+
+    /**
+     * Собственное правило валидации для номера телефона.
+     */
+    public function validatePhone()
+    {
+        $phone_processed = preg_replace("/[^0-9]/", '', $this->form_phone);
+        if (strlen($phone_processed) < 10)
+            $this->addError('form_phone', 'Номер телефона должен состоять из 10 цифр.');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeSave($insert)
+    {
+        if (parent::beforeSave($insert)) {
+            if ($this->scenario == 'create_manual') {
+                // убираем из номера телефона все символы кроме цифр и предваряем его кодом страны
+                $this->form_phone = preg_replace("/[^0-9]/", '', $this->form_phone);
+                // пытаемся идентифицировать контрагента
+                $this->fillStates($this->tryToIdentifyCounteragent());
+            }
+
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -295,6 +327,70 @@ ORDER BY COMPANY_NAME';
     }
 
     /**
+     * Заполняет состояние клиента и обращения в зависимости от результатов идентификации контрагента.
+     * @param $matches array
+     */
+    public function fillStates($matches)
+    {
+        if (count($matches) > 0) {
+            // в результате выборки вообще есть варианты
+            if (count($matches) == 1) {
+                // контрагент идентифицирован однозначно
+                $this->fillUpIdentifiedCounteragentsFields($matches[0]);
+                if ($this->ca_state_id == Appeals::CA_STATE_ACTUAL) {
+                    // это действующий клиент
+                    // просто ставим статусы клиента "Действующий" и обращения "Закрыто"
+                    $this->state_id = Appeals::APPEAL_STATE_CLOSED;
+                    // создание задачи текущему ответственному о том, что обратился клиент,
+                    // с которым мы работаем
+                    // в функции применяется подстановка ответственных
+                    self::foapi_createNewTaskForManager($this->fo_id_company, $this->fo_id_manager, $this->form_message);
+                }
+                else {
+                    // теперь необходимо разобраться: мы работали с клиентом уже (статус "Повторно")
+                    // или он просто дублирует заявку с другого ресурса
+                    // выборка ответственных по отказам
+                    $responsibleRefusal = ResponsibleRefusal::find()->select('responsible_id')->asArray()->column();
+                    if (count($responsibleRefusal) > 0) {
+                        if (in_array($this->fo_id_manager, $responsibleRefusal)) {
+                            // если ответственный идентифицированного контрагента входит в список
+                            // ответственных по отказам (БАНК или БАНК ВХОДЯЩИЕ на момент написания кода)
+                            // обращение принимает статусы клиента "Повторно" и обращения "Выбор ответственного"
+                            $this->ca_state_id = Appeals::CA_STATE_REPEATED;
+                            $this->state_id = Appeals::APPEAL_STATE_RESPONSIBLE;
+                        }
+                        else {
+                            // ответственный не является отказником, значит, заказчик просто дублирует заявку
+                            // обращение принимает статусы клиента "Дубль" и обращения "Закрыто"
+                            $this->ca_state_id = Appeals::CA_STATE_DUPLICATE;
+                            $this->state_id = Appeals::APPEAL_STATE_CLOSED;
+                        }
+                    }
+                    else {
+                        // если ответственные-отказники не назначены, тогда мы не знаем, что делать с этим
+                        // обращением, поставим статусы "Неоднозначный" и "Новое"
+                        $this->ca_state_id = Appeals::CA_STATE_AMBIGUOUS;
+                        $this->state_id = Appeals::APPEAL_STATE_NEW;
+                    }
+                }
+            }
+            else {
+                // контрагент не может быть идентифицирован однозначно
+                // то есть в результате выборки несколько подходящих записей
+                // статусы "Неоднозначный" и "Новое"
+                $this->ca_state_id = Appeals::CA_STATE_AMBIGUOUS;
+                $this->state_id = Appeals::APPEAL_STATE_NEW;
+            }
+        }
+        else {
+            // контрагент вообще не идентифицирован
+            // статусы "Новый" и "Новое"
+            $this->ca_state_id = Appeals::CA_STATE_NEW;
+            $this->state_id = Appeals::APPEAL_STATE_NEW;
+        }
+    }
+
+    /**
      * Заполняет данные по успешно идентифицированному контрагенту на основании значений из переданного параметра.
      * @param $dbRow array массив значений, которые будут назначены
      */
@@ -368,7 +464,7 @@ ORDER BY COMPANY_NAME';
             //'user_id' => 38, // temporary1
             'category_id' => FreshOfficeAPI::TASK_CATEGORY_СТАНДАРТНАЯ,
             'status_id' => FreshOfficeAPI::TASKS_STATUS_ЗАПЛАНИРОВАН,
-            'type_id' => FreshOfficeAPI::TASK_TYPE_НАПОМИНАНИЕ,
+            'type_id' => FreshOfficeAPI::TASK_TYPE_ОБРАЩЕНИЕ,
             'date_from' => date('Y-m-d\TH:i:s.u', time()),
             'date_till' => date('Y-m-d\TH:i:s.u', mktime(0, 0, 0, date("m")  , date("d")+1, date("Y"))),
             'note' => $note,

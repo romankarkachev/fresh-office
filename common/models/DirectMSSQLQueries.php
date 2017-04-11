@@ -13,6 +13,40 @@ use yii\helpers\ArrayHelper;
 class DirectMSSQLQueries extends Model
 {
     /**
+     * Возвращает в виде массива менеджеров CRM.
+     * @return array
+     */
+    public static function fetchManagers()
+    {
+        $query_text = '
+SELECT
+    ID_MANAGER AS id,
+    MANAGER_NAME AS name
+FROM CBaseCRM_Fresh_7x.dbo.MANAGERS
+ORDER BY name';
+
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
+     * Возвращает данные контрагента.
+     * @param $id integer идентификатор контрагента
+     * @return array
+     */
+    public static function fetchCounteragent($id)
+    {
+        $query_text = '
+SELECT
+    COMPANY.ID_COMPANY AS caId, COMPANY_NAME AS caName,
+    MANAGERS.ID_MANAGER AS managerId, MANAGERS.MANAGER_NAME AS managerName
+FROM CBaseCRM_Fresh_7x.dbo.COMPANY
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
+WHERE COMPANY.ID_COMPANY=' . intval($id);
+
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
      * Выполняет создание записи в базе данных SQL в таблице Сообщения.
      * @param $sender_id integer идентификатор отправителя
      * @param $receiver_id integer идентификатор получателя
@@ -51,22 +85,6 @@ class DirectMSSQLQueries extends Model
             return true;
         else
             return false;
-    }
-
-    /**
-     * Возвращает в виде массива менеджеров CRM.
-     * @return array
-     */
-    public static function fetchManagers()
-    {
-        $query_text = '
-SELECT
-    ID_MANAGER AS id,
-    MANAGER_NAME AS name
-FROM CBaseCRM_Fresh_7x.dbo.MANAGERS
-ORDER BY name';
-
-        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
     }
 
     /**

@@ -5,7 +5,6 @@ namespace common\models;
 use Yii;
 use yii\base\Model;
 use yii\data\ArrayDataProvider;
-use yii\helpers\ArrayHelper;
 
 /**
  * ReportNofinances - это отчет по клиентам, с которыми нет финансовых отношений.

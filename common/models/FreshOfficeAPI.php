@@ -54,6 +54,7 @@ class FreshOfficeAPI extends Model
     const TASK_TYPE_ВХОДЯЩИЙ = 1; // новый клиент
     const TASK_TYPE_ВСТРЕЧА = 2;
     const TASK_TYPE_НАПОМИНАНИЕ = 3;
+    const TASK_TYPE_ОБРАЩЕНИЕ = 17;
 
     /**
      * Типы контрагентов.

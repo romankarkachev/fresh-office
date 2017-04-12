@@ -151,8 +151,10 @@ function delegateCounteragent(appeal_id, ca_id, receiver_id) {
             });
             $("#block-fo_id_manager_notif").html(drawAlert("danger", "exclamation-sign", text_errors));
         }
-        else if (data == true)
-            $("#block-fo_id_manager_notif").html(drawAlert("success", "ok-circle", operation_pending + " контрагента " + operation_done + " успешно!"));
+        else if (data == true) {
+            $("#block-fo_id_manager_notif").html(drawAlert("success", "ok-circle", operation_pending + " контрагента " + operation_done + " успешно! Страница будет перезагружена автоматически."));
+            setTimeout(function() {window.location.reload();}, 5000);
+        }
         else if (data == false)
             $("#block-fo_id_manager_notif").html(drawAlert("danger", "question-sign", "Обращение не обнаружено. " + operation_pending + " контрагента не " + operation_done + "!"));
     });

@@ -2,12 +2,10 @@
 
 namespace backend\controllers;
 
-use common\models\DirectMSSQLQueries;
-use common\models\FreshOfficeAPI;
 use Yii;
 use common\models\Appeals;
 use common\models\AppealsSearch;
-use common\models\ResponsibleRefusal;
+use common\models\DirectMSSQLQueries;
 use yii\bootstrap\ActiveForm;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -35,9 +33,16 @@ class AppealsController extends Controller
                         'roles' => ['root'],
                     ],
                     [
+                        // Создание обращений вручную только для Полных прав и Оператора
                         'actions' => ['create'],
                         'allow' => true,
                         'roles' => ['root', 'operator'],
+                    ],
+                    [
+                        // Мастер обработки обращений только для Полных прав и Работа с отчетом по оборотам клиентов
+                        'actions' => ['wizard'],
+                        'allow' => true,
+                        'roles' => ['root', 'role_report1'],
                     ],
                 ],
             ],
@@ -70,9 +75,9 @@ class AppealsController extends Controller
     }
 
     /**
-     * НЕ ИСПОЛЬЗУЕТСЯ, ОБРАЩЕНИЯ СОЗДАЮТСЯ ТОЛЬКО АВТОМАТИЧЕСКИ
-     * Creates a new Appeals model.
-     * If creation is successful, the browser will be redirected to the 'index' page.
+     * Создает новое обращение.
+     * Если создание выполнено успешно, браузер редиректит в список обращений.
+     * Либо на страницу создания нового обращения, если создание выполнял оператор.
      * @return mixed
      */
     public function actionCreate()
@@ -111,6 +116,43 @@ class AppealsController extends Controller
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
             return $this->redirect(['/appeals']);
+        } else {
+            // заполним ответственного, если идентифицирован контрагент
+            if ($model->fo_id_company != null) {
+                $model->fo_id_manager = $model->getCounteragentsReliableField();
+            }
+            return $this->render('update', [
+                'model' => $model,
+                'is_wizard' => true,
+            ]);
+        }
+    }
+
+    /**
+     * Мастер обработки обращений.
+     * Вызывает редактирование обращений в определенных статусах до тех пор, пока новая выборка не окажется пустой.
+     * @return string|Response
+     */
+    public function actionWizard()
+    {
+        $model = Appeals::find()
+            ->where(['in', 'state_id', [
+                // новые
+                Appeals::APPEAL_STATE_NEW,
+                // выбор ответственного
+                Appeals::APPEAL_STATE_RESPONSIBLE
+            ]])
+            ->orWhere(['in', 'ca_state_id', [
+                // неоднозначные
+                Appeals::CA_STATE_AMBIGUOUS
+            ]])
+            ->orderBy('created_at')
+            ->one();
+        if ($model == null) return $this->render('wizard_empty_dataset');
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // но пока сюда никто никакой post-запрос не отправляет
+            return $this->redirect(['/appeals/wizard']);
         } else {
             // заполним ответственного, если идентифицирован контрагент
             if ($model->fo_id_company != null) {
@@ -215,26 +257,21 @@ class AppealsController extends Controller
     public function actionDelegateCounteragent()
     {
         if (Yii::$app->request->isPost) {
-            $ca_id = Yii::$app->request->post('ca_id');
-            $appeal_id = Yii::$app->request->post('appeal_id');
-            $receiver_id = Yii::$app->request->post('receiver_id');
+            $ca_id = intval(Yii::$app->request->post('ca_id'));
+            $appeal_id = intval(Yii::$app->request->post('appeal_id'));
+            $receiver_id = intval(Yii::$app->request->post('receiver_id'));
 
             $appeal = Appeals::findOne($appeal_id);
             if ($appeal === null) return false;
 
+            Yii::$app->response->format = Response::FORMAT_JSON;
             if ($ca_id == null) {
                 // необходимо создать новую карточку контрагента и назначить его выбранному ответственному
                 $result = Appeals::createCounteragent($appeal, $receiver_id);
-                if ($result === true)
-                    return $this->redirect(['/appeals']);
-                else {
-                    Yii::$app->response->format = Response::FORMAT_JSON;
-                    return $result;
-                }
+                //var_dump(Yii::$app->request->referrer);
+                return $result;
             }
             else {
-                Yii::$app->response->format = Response::FORMAT_JSON;
-
                 // просто передаем контрагента новому ответственному
                 $query_text = '
 SELECT COMPANY.COMPANY_NAME, COMPANY.ID_MANAGER
@@ -244,7 +281,7 @@ WHERE COMPANY.ID_COMPANY = ' . $ca_id;
                 if (count($result) > 0) {
                     $sender_id = $result[0]['ID_MANAGER'];
                     return Appeals::delegateCounteragent(
-                    // обращение
+                        // обращение
                         $appeal,
                         // контрагент
                         $ca_id,

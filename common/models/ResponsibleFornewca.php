@@ -72,6 +72,6 @@ class ResponsibleFornewca extends \yii\db\ActiveRecord
      */
     public static function arrayMapForSelect2()
     {
-        return ArrayHelper::map(ResponsibleFornewca::find()->orderBy('responsible_name')->all(), 'id', 'responsible_name');
+        return ArrayHelper::map(ResponsibleFornewca::find()->orderBy('responsible_name')->all(), 'responsible_id', 'responsible_name');
     }
 }

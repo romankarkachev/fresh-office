@@ -155,16 +155,16 @@ class ReportsController extends Controller
                 'format' => 'Excel2007',
                 'columns' => [
                     [
-                        'attribute' => 'id',
-                        'header' => $model->attributeLabels()['id'],
-                    ],
-                    [
                         'attribute' => 'name',
                         'header' => $model->attributeLabels()['name'],
                     ],
                     [
                         'attribute' => 'parameter',
                         'header' => $model->attributeLabels()['parameter'],
+                    ],
+                    [
+                        'attribute' => 'owners',
+                        'header' => $model->attributeLabels()['owners'],
                     ],
                 ],
             ]);

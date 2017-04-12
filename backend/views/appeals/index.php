@@ -15,12 +15,12 @@ $this->params['breadcrumbs'][] = 'Обращения';
 <div class="appeals-list">
     <?= $this->render('_search', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
 
-    <!--
     <p>
-        <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
+        <!--<?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>-->
+
+        <?= Html::a('<i class="fa fa-magic" aria-hidden="true"></i> Мастер обработки обращений', ['/appeals/wizard'], ['class' => 'btn btn-default']) ?>
 
     </p>
-    -->
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'layout' => '{items}{pager}',

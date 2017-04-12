@@ -71,7 +71,8 @@ elseif (Yii::$app->user->can('role_documents'))
     ];
 elseif (Yii::$app->user->can('role_report1'))
     $items = [
-        ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
+        ['label' => '<i class="fa fa-magic fa-lg text-success"></i> Мастер обработки обращений', 'url' => ['/appeals/wizard']],
+        ['label' => '<i class="fa fa-pie-chart fa-lg text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
     ];
 elseif (Yii::$app->user->can('operator'))
     $items = [

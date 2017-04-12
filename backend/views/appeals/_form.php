@@ -8,6 +8,7 @@ use common\models\Appeals;
 /* @var $this yii\web\View */
 /* @var $model common\models\Appeals */
 /* @var $form yii\bootstrap\ActiveForm */
+/* @var $is_wizard bool|null */
 ?>
 
 <div class="appeals-form">
@@ -47,12 +48,13 @@ use common\models\Appeals;
             </div>
         </div>
         <div class="col-md-7">
-            <?php if ($model->state_id != Appeals::APPEAL_STATE_CLOSED): ?>
+            <?php if ($model->fo_id_company === null): ?>
             <p><?= Html::button('Идентифицировать контрагента', ['id' => 'btn-identify-ca', 'class' => 'btn btn-default', 'title' => 'Попытаться идентифицировать контрагента', 'data-model-id' => $model->id, 'data-loading-text' => '<i class="fa fa-cog fa-spin fa-lg text-info"></i> Поиск по базе данных...', 'autocomplete' => 'off']) ?></p>
             <?php endif; ?>
             <div id="block-ca"><?= $this->render('_ca', ['model' => $model, 'form' => $form]) ?></div>
         </div>
     </div>
+    <?php if (!isset($is_wizard)): ?>
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Обращения', ['/appeals'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
@@ -61,6 +63,12 @@ use common\models\Appeals;
 
         <?php endif; ?>
     </div>
+    <?php else: if ($model->fo_id_company != null): ?>
+        <div class="alert alert-success" role="alert">
+            <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
+            <strong>Изменения сохранены. Обновите страницу, чтобы перейти к следующему обращению.</strong>
+        </div>
+    <?php endif;endif; ?>
     <?php ActiveForm::end(); ?>
 
 </div>

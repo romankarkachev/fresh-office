@@ -409,7 +409,7 @@ ORDER BY COMPANY_NAME';
      * @param $message string текст сообщения, которое будет отправлено менеджеру
      * @return array|integer|bool
      */
-    public function foapi_createNewMessageForManager($sender_id, $receiver_id, $message)
+    public static function foapi_createNewMessageForManager($sender_id, $receiver_id, $message)
     {
         $params = [
             'user_id' => $receiver_id,

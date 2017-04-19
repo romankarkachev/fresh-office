@@ -12,7 +12,7 @@ return [
             'modelMap' => [
                 'User' => 'common\models\User',
                 'UserSearch' => 'common\models\UserSearch',
-                ///'Profile' => 'common\models\Profile',
+                //'Profile' => 'common\models\Profile',
             ],
             'controllerMap' => [
                 'admin' => 'backend\controllers\UsersController',

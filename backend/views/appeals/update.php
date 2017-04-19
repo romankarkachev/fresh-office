@@ -17,7 +17,7 @@ else
 <div class="appeals-update">
     <?= $this->render('_form', [
         'model' => $model,
-        'is_wizard' => true,
+        'is_wizard' => $is_wizard,
     ]) ?>
 
 </div>

@@ -131,22 +131,25 @@ class ApiController extends Controller
         // это обращения в статусе "Ожидает оплаты"
         $appeals = Appeals::find()->where(['state_id' => Appeals::APPEAL_STATE_PAYMENT])->all();
         // соберем уникальные идентификаторы контрагентов в этих обращениях
+        // distinct не подходит, потому что обращения нужно брать все, сворачивать нельзя
         $ca_ids = [];
         foreach ($appeals as $appeal)
             /* @var $appeal Appeals */
             if (!in_array($appeal->fo_id_company, $ca_ids)) $ca_ids[] = $appeal->fo_id_company;
 
-        // если в результате сбора идентификаторов контрагентов массив не пустой, то приступим к выборе из MS SQL
+        // если в результате сбора идентификаторов контрагентов массив не пустой, то приступим к выборке из MS SQL
         if (count($ca_ids) > 0) {
             $query_text = '
-SELECT LIST_MANYS.ID_COMPANY AS id, COMPANY.ID_MANAGER AS manager_id, COUNT(ID_MANY) AS finance_count
-FROM LIST_MANYS
-LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_MANYS.ID_COMPANY
-WHERE
-    LIST_MANYS.ID_COMPANY IN (' . implode(',', $ca_ids) . ') AND
-    ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND
-    ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
-GROUP BY LIST_MANYS.ID_COMPANY, COMPANY.ID_MANAGER';
+SELECT COMPANY.ID_COMPANY AS id, ID_MANAGER AS manager_id, ISNULL(COUNT_FINANCE, 0) AS financeCount
+FROM COMPANY
+LEFT JOIN (
+	SELECT ID_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE
+	FROM LIST_MANYS
+	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND
+	      ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
+	GROUP BY ID_COMPANY
+) AS FINANCES ON FINANCES.ID_COMPANY = COMPANY.ID_COMPANY
+WHERE COMPANY.ID_COMPANY IN (' . implode(',', $ca_ids) . ')';
 
             $cas = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
             if (count($cas) > 0) {

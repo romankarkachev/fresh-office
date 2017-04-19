@@ -65,6 +65,12 @@ class Appeals extends \yii\db\ActiveRecord
     public $fo_id_manager;
 
     /**
+     * Прикрепленные к обращению файлы.
+     * @var array
+     */
+    public $files;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -88,6 +94,7 @@ class Appeals extends \yii\db\ActiveRecord
             ['as_id', 'required', 'on' => 'create_manual'],
             ['form_phone', 'validatePhone', 'on' => 'create_manual'],
             ['form_email', 'email', 'on' => 'create_manual'],
+            [['files'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 10],
             [['as_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppealSources::className(), 'targetAttribute' => ['as_id' => 'id']],
         ];
     }
@@ -116,6 +123,7 @@ class Appeals extends \yii\db\ActiveRecord
             'request_referrer' => 'Поле post-запроса Referer',
             'request_user_agent' => 'Поле post-запроса userAgent',
             'request_user_ip' => 'IP отправителя',
+            'files' => 'Файлы',
             // для сортировки
             'appealSourceName' => 'Источник обращения',
             'appealStateName' => 'Статус обращения',
@@ -163,6 +171,35 @@ class Appeals extends \yii\db\ActiveRecord
 
             return true;
         }
+        return false;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        // отправляем уведомление ответственному
+        // если контрагент идентифицирован, есть ответственный, у него не пустой email
+        $this->sendEmailIfFilesAre();
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeDelete()
+    {
+        if (parent::beforeDelete()) {
+            // Удаление связанных объектов перед удалением
+            // удаляем возможные файлы
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $files = AppealsFiles::find()->where(['appeal_id' => $this->id])->all();
+            foreach ($files as $file) $file->delete();
+
+            return true;
+        }
+
         return false;
     }
 
@@ -238,6 +275,40 @@ class Appeals extends \yii\db\ActiveRecord
     public static function arrayMapOfCaStatesForSelect2()
     {
         return ArrayHelper::map(self::fetchCaStates() , 'id', 'name');
+    }
+
+    /**
+     * Выполняет загрузку файлов из post-параметров, а также сохранение их имен в базу данных.
+     * Каждый файл прикрепляется к текущему обращению.
+     * @return bool
+     */
+    public function upload()
+    {
+        if ($this->validate()) {
+            // путь к папке, куда будет загружен файл
+            $pifp = AppealsFiles::getUploadsFilepath();
+            if ($pifp !== false) {
+                foreach ($this->files as $file) {
+                    $fileAttached_fn = mb_strtolower(Yii::$app->security->generateRandomString() . '.' . $file->extension, 'utf-8');
+                    $fileAttached_ffp = $pifp . '/' . $fileAttached_fn;
+
+                    if ($file->saveAs($fileAttached_ffp)) {
+                        // заполняем поля записи в базе о загруженном успешно файле
+                        $fileAttachedmodel = new AppealsFiles();
+                        $fileAttachedmodel->appeal_id = $this->id;
+                        $fileAttachedmodel->ffp = $fileAttached_ffp;
+                        $fileAttachedmodel->fn = $fileAttached_fn;
+                        $fileAttachedmodel->ofn = $file->name;
+                        $fileAttachedmodel->size = filesize($fileAttached_ffp);
+                        $fileAttachedmodel->save();
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -327,6 +398,18 @@ ORDER BY COMPANY_NAME';
     }
 
     /**
+     * Заполняет данные по успешно идентифицированному контрагенту на основании значений из переданного параметра.
+     * @param $dbRow array массив значений, которые будут назначены
+     */
+    public function fillUpIdentifiedCounteragentsFields($dbRow)
+    {
+        $this->fo_id_company = $dbRow['caId'];
+        $this->fo_company_name = $dbRow['caName'];
+        $this->fo_id_manager = $dbRow['managerId'];
+        $this->ca_state_id = $dbRow['stateId'];
+    }
+
+    /**
      * Заполняет состояние клиента и обращения в зависимости от результатов идентификации контрагента.
      * @param $matches array
      */
@@ -364,6 +447,14 @@ ORDER BY COMPANY_NAME';
                             // обращение принимает статусы клиента "Дубль" и обращения "Закрыто"
                             $this->ca_state_id = Appeals::CA_STATE_DUPLICATE;
                             $this->state_id = Appeals::APPEAL_STATE_CLOSED;
+                            // создание задачи текущему ответственному о том, что обратился клиент,
+                            // с которым мы работаем
+                            // в функции применяется подстановка ответственных
+                            self::foapi_createNewTaskForManager(
+                                $this->fo_id_company,
+                                $this->fo_id_manager,
+                                'Уважаемый менеджер! Клиент дублирует заявку со следующим обращением: ' . chr(13) . $this->form_message
+                            );
                         }
                     }
                     else {
@@ -391,15 +482,74 @@ ORDER BY COMPANY_NAME';
     }
 
     /**
-     * Заполняет данные по успешно идентифицированному контрагенту на основании значений из переданного параметра.
-     * @param $dbRow array массив значений, которые будут назначены
+     * Отправляет приаттаченные к обращению файлы на почту ответственного менеджера.
      */
-    public function fillUpIdentifiedCounteragentsFields($dbRow)
+    public function sendEmailIfFilesAre()
     {
-        $this->fo_id_company = $dbRow['caId'];
-        $this->fo_company_name = $dbRow['caName'];
-        $this->fo_id_manager = $dbRow['managerId'];
-        $this->ca_state_id = $dbRow['stateId'];
+        // отправляется, только если клиент идентифицирован и есть что отправлять
+        $files = AppealsFiles::find()->where(['appeal_id' => $this->id])->andWhere(['sent_at' => null])->all();
+        if ($this->fo_id_company != null && count($files) > 0) {
+            // определим ответственного
+            $responsible_email = '';
+            $responsible = $this->getCounteragentsReliable();
+            if (count($responsible) > 0) {
+                // берем только первый элемент массива, их там и не должно вообще быть больше
+                $responsible = $responsible[0];
+
+                if (isset($responsible['id'])) {
+                    $responsible_id = intval($responsible['id']);
+                    // проверим, не входит ли текущий ответственный в список отказников
+                    $responsibleRefusal = ResponsibleRefusal::find()->select('responsible_id')->asArray()->column();
+                    if (count($responsibleRefusal) > 0)
+                        // если ответственный в списке отказников, то отправлять email не будем
+                        // во всяком случае в этот раз, но когда при следующем сохранении будет обнаружен другой
+                        // ответственный, то можно будет попытаться еще раз отправить
+                        if (in_array($responsible_id, $responsibleRefusal)) return false;
+
+                    // проверим, не входит ли текущий ответственный в список подмены
+                    // возможно, это ЦОД или ВИП. тогда подменим на реальных людей
+                    $rs = ResponsibleSubstitutes::find()->select('required_id,substitute_id')->asArray()->all();
+                    if (count($rs) > 0) {
+                        // выборка ответственных для подмены успешно выполнена, есть записи
+                        $key = array_search($responsible_id, array_column($rs, 'required_id'));
+                        // проверим, не входит ли переданный ответственный в список подменяемых и
+                        // заменим на реального, если входит
+                        if (false !== $key) $responsible = $this->getResponsible(intval($rs[$key]['substitute_id']));
+                    };
+                }
+
+                if (isset($responsible['email']))
+                    if ($responsible['email'] != null && $responsible['email'] != '')
+                        $responsible_email = trim($responsible['email']);
+            }
+            else {
+                $responsible_email = Yii::$app->params['receiverEmail'];
+            }
+
+            if ($responsible_email != null && $responsible_email != '') {
+                // только если есть файлы и ответственный
+                $params['appeal'] = $this;
+
+                $letter = Yii::$app->mailer->compose([
+                    'html' => 'filesAttachedToAppeal-html',
+                ], $params)
+                    ->setFrom(Yii::$app->params['senderEmail'])
+                    ->setTo($responsible_email)
+                    ->setSubject('Создано новое обращение');
+
+                foreach ($files as $file)
+                    /* @var $file AppealsFiles */
+                    $letter->attach($file->ffp);
+
+                if ($letter->send()) {
+                    AppealsFiles::updateAll([
+                        'sent_at' => time(),
+                    ], [
+                        'appeal_id' => $this->id,
+                    ]);
+                }
+            };
+        }
     }
 
     /**
@@ -667,13 +817,37 @@ ORDER BY COMPANY_NAME';
     }
 
     /**
+     * Получает данные менеджера по переданному в параметрах идентификатору или по имеющемуся значению в модели.
+     * @param $id integer
+     * @return array|bool
+     */
+    public function getResponsible($id = null)
+    {
+        if ($id == null)
+            $manager_id = $this->fo_id_manager;
+        else
+            $manager_id = $id;
+
+        $query_text = '
+SELECT ID_MANAGER AS id, MANAGER_NAME AS name, e_mail AS email
+FROM [CBaseCRM_Fresh_7x].[dbo].[MANAGERS]
+WHERE ID_MANAGER = ' . $manager_id;
+
+        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        if (count($result) > 0)
+            return $result[0];
+        else
+            return false;
+    }
+
+    /**
      * Получает текущего ответственного по контрагенту из базы данных CRM.
      * @return array
      */
     public function getCounteragentsReliable()
     {
         $query_text = '
-SELECT MANAGERS.ID_MANAGER AS id, MANAGERS.MANAGER_NAME AS name
+SELECT MANAGERS.ID_MANAGER AS id, MANAGERS.MANAGER_NAME AS name, MANAGERS.e_mail AS email
 FROM CBaseCRM_Fresh_7x.dbo.COMPANY
 LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
 WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;

@@ -63,12 +63,12 @@ use common\models\Appeals;
 
         <?php endif; ?>
     </div>
-    <?php else: if ($model->fo_id_company != null): ?>
+    <?php elseif ($is_wizard === true && $model->fo_id_company != null): ?>
         <div class="alert alert-success" role="alert">
             <span class="glyphicon glyphicon-ok" aria-hidden="true"></span>
             <strong>Изменения сохранены. Обновите страницу, чтобы перейти к следующему обращению.</strong>
         </div>
-    <?php endif;endif; ?>
+    <?php endif; ?>
     <?php ActiveForm::end(); ?>
 
 </div>

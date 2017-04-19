@@ -9,6 +9,9 @@ use common\models\AppealSources;
 /* @var $model common\models\Appeals */
 
 $this->title = 'Новое обращение | ' . Yii::$app->name;
+if (Yii::$app->user->can('root')) {
+    $this->params['breadcrumbs'][] = ['label' => 'Обращения', 'url' => ['/appeals']];
+}
 $this->params['breadcrumbs'][] = 'Новое обращение *';
 ?>
 <div class="appeals-create">
@@ -52,6 +55,8 @@ $this->params['breadcrumbs'][] = 'Новое обращение *';
 
         </div>
     </div>
+    <?= $form->field($model, 'files[]')->fileInput(['multiple' => true]) ?>
+
     <div class="form-group">
         <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
 

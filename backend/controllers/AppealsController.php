@@ -12,6 +12,7 @@ use yii\web\NotFoundHttpException;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
+use yii\web\UploadedFile;
 
 /**
  * AppealsController implements the CRUD actions for Appeals model.
@@ -86,17 +87,30 @@ class AppealsController extends Controller
         $model->scenario = 'create_manual';
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            $model->files = UploadedFile::getInstances($model, 'files');
+            if (count($model->files) > 0) {
+                if (!$model->upload()) {
+                    Yii::$app->session->setFlash('error', 'Не удалось загрузить файлы.');
+                    return $this->render('creating_form_operator', [
+                        'model' => $model,
+                    ]);
+                }
+
+                // отправляем загруженные файлы
+                $model->sendEmailIfFilesAre();
+            }
+
             Yii::$app->session->setFlash('success', 'Обращение успешно создано.');
 
             if (Yii::$app->user->can('root'))
                 return $this->redirect(['/appeals']);
             else
                 return $this->redirect(['/appeals/create']);
-        } else {
-            return $this->render('creating_form_operator', [
-                'model' => $model,
-            ]);
         }
+
+        return $this->render('creating_form_operator', [
+            'model' => $model,
+        ]);
     }
 
     /**
@@ -123,7 +137,6 @@ class AppealsController extends Controller
             }
             return $this->render('update', [
                 'model' => $model,
-                'is_wizard' => true,
             ]);
         }
     }
@@ -160,6 +173,7 @@ class AppealsController extends Controller
             }
             return $this->render('update', [
                 'model' => $model,
+                'is_wizard' => true,
             ]);
         }
     }
@@ -268,7 +282,6 @@ class AppealsController extends Controller
             if ($ca_id == null) {
                 // необходимо создать новую карточку контрагента и назначить его выбранному ответственному
                 $result = Appeals::createCounteragent($appeal, $receiver_id);
-                //var_dump(Yii::$app->request->referrer);
                 return $result;
             }
             else {

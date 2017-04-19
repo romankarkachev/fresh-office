@@ -16,6 +16,10 @@ $this->params['breadcrumbs'][] = 'Обращения';
     <?= $this->render('_search', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
 
     <p>
+        <?php if (Yii::$app->user->can('root')): ?>
+            <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
+
+        <?php endif; ?>
         <!--<?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>-->
 
         <?= Html::a('<i class="fa fa-magic" aria-hidden="true"></i> Мастер обработки обращений', ['/appeals/wizard'], ['class' => 'btn btn-default']) ?>

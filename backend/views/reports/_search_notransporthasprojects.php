@@ -2,19 +2,17 @@
 
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
-use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
-use common\models\ReportTurnover;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\ReportTurnover */
+/* @var $model common\models\ReportNoTransportHasProjects */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $searchApplied bool */
 ?>
 
-<div class="turnover-search">
+<div class="notransporthasprojects-search">
     <?php $form = ActiveForm::begin([
-        'action' => ['/reports/turnover'],
+        'action' => ['/reports/no-transport-has-projects'],
         'method' => 'get',
         'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
     ]); ?>
@@ -24,8 +22,8 @@ use common\models\ReportTurnover;
         <div class="panel-body">
             <div class="row">
                 <div class="col-md-2">
-                    <?= $form->field($model, 'searchPeriod')->widget(DateControl::className(), [
-                        'value' => $model->searchPeriod,
+                    <?= $form->field($model, 'searchPeriodStart')->widget(DateControl::className(), [
+                        'value' => $model->searchPeriodStart,
                         'type' => DateControl::FORMAT_DATE,
                         'language' => 'ru',
                         'displayFormat' => 'php:d.m.Y',
@@ -43,27 +41,24 @@ use common\models\ReportTurnover;
                     ]) ?>
 
                 </div>
-                <?php if (Yii::$app->user->can('root')): ?>
                 <div class="col-md-2">
-                    <?= $form->field($model, 'searchPaymentSign')->widget(Select2::className(), [
-                        'data' => ReportTurnover::arrayMapOfPaymentSignsForSelect2(),
-                        'theme' => Select2::THEME_BOOTSTRAP,
-                        'options' => ['placeholder' => '- выберите -'],
+                    <?= $form->field($model, 'searchPeriodEnd')->widget(DateControl::className(), [
+                        'value' => $model->searchPeriodEnd,
+                        'type' => DateControl::FORMAT_DATE,
+                        'language' => 'ru',
+                        'displayFormat' => 'php:d.m.Y',
+                        'saveFormat' => 'php:Y-m-d',
+                        'widgetOptions' => [
+                            'options' => ['placeholder' => 'конец'],
+                            'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                            'layout' => '{input}{picker}{remove}',
+                            'pluginOptions' => [
+                                'todayHighlight' => true,
+                                'weekStart' => 1,
+                                'autoclose' => true,
+                            ],
+                        ],
                     ]) ?>
-
-                </div>
-                <?php endif; ?>
-                <div class="col-md-1">
-                    <?= $form->field($model, 'searchSumCondition')->widget(Select2::className(), [
-                        'data' => ReportTurnover::arrayMapOfSumConditionsForSelect2(),
-                        'theme' => Select2::THEME_BOOTSTRAP,
-                        'options' => ['placeholder' => '- выберите -'],
-                        'hideSearch' => true,
-                    ]) ?>
-
-                </div>
-                <div class="col-md-2">
-                    <?= $form->field($model, 'searchSumLimit', ['template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'])->textInput() ?>
 
                 </div>
                 <div class="col-md-1">
@@ -74,7 +69,7 @@ use common\models\ReportTurnover;
             <div class="form-group">
                 <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info']) ?>
 
-                <?= Html::a('Отключить отбор', ['/reports/turnover'], ['class' => 'btn btn-default']) ?>
+                <?= Html::a('Отключить отбор', ['/reports/no-transport-has-projects'], ['class' => 'btn btn-default']) ?>
 
             </div>
         </div>

@@ -3,6 +3,7 @@
 namespace backend\controllers;
 
 use common\models\ReportCaDuplicates;
+use common\models\ReportNoTransportHasProjects;
 use Yii;
 use yii\web\Controller;
 use yii\web\Response;
@@ -32,7 +33,7 @@ class ReportsController extends Controller
                         'roles' => ['root', 'role_report1'],
                     ],
                     [
-                        'actions' => ['nofinances', 'ca-duplicates'],
+                        'actions' => ['nofinances', 'ca-duplicates', 'no-transport-has-projects'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -181,5 +182,25 @@ class ReportsController extends Controller
                 'queryString' => $queryString,
             ]);
         }
+    }
+
+    /**
+     * Отображает отчет по контрагентам, у которых есть записи в финансах с признаком утилизация, но нет записей
+     * с признаком транспорт. Также у контрагента должны быть проекты.
+     * Поля для поиска: начало и конец периода (для финансов).
+     * Поля для вывода: id, наименование, ответственный контрагента.
+     */
+    public function actionNoTransportHasProjects()
+    {
+        $searchModel = new ReportNoTransportHasProjects();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('notransporthasprojects', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'searchApplied' => $searchApplied,
+        ]);
     }
 }

@@ -73,6 +73,7 @@ $this->params['breadcrumbs'][] = 'Обращения';
             ],
             [
                 'class' => 'yii\grid\ActionColumn',
+                'visible' => Yii::$app->user->can('root'),
                 'header' => 'Действия',
                 'template' => '{update} {delete}',
                 'buttons' => [

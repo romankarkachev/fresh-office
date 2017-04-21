@@ -29,7 +29,12 @@ class AppealsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['index', 'update', 'delete', 'try-to-identify-counteragent', 'after-identifying-ambiguous', 'delegate-counteragent'],
+                        'actions' => ['try-to-identify-counteragent', 'after-identifying-ambiguous', 'delegate-counteragent'],
+                        'allow' => true,
+                        'roles' => ['@'],
+                    ],
+                    [
+                        'actions' => ['update', 'delete'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -41,7 +46,7 @@ class AppealsController extends Controller
                     ],
                     [
                         // Мастер обработки обращений только для Полных прав и Работа с отчетом по оборотам клиентов
-                        'actions' => ['wizard'],
+                        'actions' => ['index', 'wizard'],
                         'allow' => true,
                         'roles' => ['root', 'role_report1'],
                     ],

@@ -11,18 +11,21 @@ class FreshOfficeAPI extends Model
 {
     /**
      * Признаки оплаты.
+     * Таблица в SQL: SUB_PRIZNAK_MANY.
      */
     const FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ = 1;
     const FINANCES_PAYMENT_SIGN_ТРАНСПОРТ = 2;
 
     /**
      * Направления движения.
+     * Таблица в SQL: LIST_SPR_NAPR_MONY.
      */
     const FINANCES_DIRECTION_ПРИХОД = 1;
     const FINANCES_DIRECTION_РАСХОД = 2;
 
     /**
      * Типы сообщений.
+     * Таблица в SQL: LIST_TIP_NOTEPAD_MESSAGE.
      */
     const MESSAGES_TYPE_СООБЩЕНИЕ = 1;
     const MESSAGES_TYPE_ПРЕДЛОЖЕНИЕ = 2;
@@ -31,6 +34,7 @@ class FreshOfficeAPI extends Model
 
     /**
      * Статусы сообщений.
+     * Таблица в SQL: LIST_PRIZNAK_NOTEPAD_MESSAGE.
      */
     const MESSAGES_STATUS_ПРОЧИТАНО = 1;
     const MESSAGES_STATUS_НЕПРОЧИТАНО = 2;
@@ -50,6 +54,7 @@ class FreshOfficeAPI extends Model
 
     /**
      * Типы задач.
+     * Таблица в SQL: VID_CONTACT.
      */
     const TASK_TYPE_ВХОДЯЩИЙ = 1; // новый клиент
     const TASK_TYPE_ВСТРЕЧА = 2;
@@ -69,6 +74,7 @@ class FreshOfficeAPI extends Model
 
     /**
      * Группа контрагента.
+     * Таблица в SQL: GROUPS_COMPANY.
      */
     const COMPANY_GROUP_ОТДЕЛ_ВХОДЯЩИХ_ЗАЯВОК = 10;
 

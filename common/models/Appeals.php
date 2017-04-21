@@ -91,7 +91,7 @@ class Appeals extends \yii\db\ActiveRecord
             [['request_referrer', 'request_user_agent'], 'string', 'max' => 255],
             [['request_user_ip'], 'string', 'max' => 30],
             // для ввода вручную немного другие правила валидации
-            ['as_id', 'required', 'on' => 'create_manual'],
+            [['form_company', 'as_id'], 'required', 'on' => 'create_manual'],
             ['form_phone', 'validatePhone', 'on' => 'create_manual'],
             ['form_email', 'email', 'on' => 'create_manual'],
             [['files'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 10],
@@ -522,34 +522,50 @@ ORDER BY COMPANY_NAME';
                     if ($responsible['email'] != null && $responsible['email'] != '')
                         $responsible_email = trim($responsible['email']);
             }
-            else {
-                $responsible_email = Yii::$app->params['receiverEmail'];
+
+            // все равно куда-то должно уйти, берем главного ответственного
+            if ($responsible_email == null || $responsible_email == '') $responsible_email = Yii::$app->params['receiverEmail'];
+
+            // только если есть файлы и ответственный
+            $params['appeal'] = $this;
+
+            $letter = Yii::$app->mailer->compose([
+                'html' => 'filesAttachedToAppeal-html',
+            ], $params)
+                ->setFrom(Yii::$app->params['senderEmail'])
+                ->setTo($responsible_email)
+                ->setSubject('Создано новое обращение');
+
+            foreach ($files as $file)
+                /* @var $file AppealsFiles */
+                $letter->attach($file->ffp);
+
+            if ($letter->send()) {
+                AppealsFiles::updateAll([
+                    'sent_at' => time(),
+                ], [
+                    'appeal_id' => $this->id,
+                ]);
             }
-
-            if ($responsible_email != null && $responsible_email != '') {
-                // только если есть файлы и ответственный
-                $params['appeal'] = $this;
-
-                $letter = Yii::$app->mailer->compose([
-                    'html' => 'filesAttachedToAppeal-html',
-                ], $params)
-                    ->setFrom(Yii::$app->params['senderEmail'])
-                    ->setTo($responsible_email)
-                    ->setSubject('Создано новое обращение');
-
-                foreach ($files as $file)
-                    /* @var $file AppealsFiles */
-                    $letter->attach($file->ffp);
-
-                if ($letter->send()) {
-                    AppealsFiles::updateAll([
-                        'sent_at' => time(),
-                    ], [
-                        'appeal_id' => $this->id,
-                    ]);
-                }
-            };
         }
+    }
+
+    /**
+     * Выполняет преобразование номера телефона к виду +7 (999) 999-99-99, если он сохранен в виде 9999999999.
+     * @return string
+     */
+    public function formatPhoneNumber()
+    {
+        $phone_f = '<нет номера телефона>';
+        if ($this->form_phone != null && $this->form_phone != '')
+            if (preg_match('/^(\d{3})(\d{3})(\d{2})(\d{2})$/', $this->form_phone, $matches)) {
+                $phone_f = '+7 ('.$matches[1].') '.$matches[2].'-'.$matches[3].'-'.$matches[4];
+            }
+            else
+                // не удалось преобразовать в человеческий вид - отображаем как есть
+                $phone_f = $this->form_phone;
+
+        return $phone_f;
     }
 
     /**
@@ -655,7 +671,7 @@ ORDER BY COMPANY_NAME';
         // дополним контакты номером телефона, если он задан
         if ($appeal->form_phone != null && $appeal->form_phone != '')
             $contacts['phones'][] = [
-                'phone' => $appeal->form_phone,
+                'phone' => '8' . $appeal->form_phone,
             ];
 
         // дополним контакты электронным ящиком, если он задан

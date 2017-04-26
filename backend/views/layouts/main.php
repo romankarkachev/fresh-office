@@ -13,6 +13,8 @@ use common\widgets\Alert;
 AppAsset::register($this);
 
 rmrevin\yii\fontawesome\AssetBundle::register($this);
+
+\hiqdev\assets\icheck\iCheckAsset::register($this);
 ?>
 <?php $this->beginPage() ?>
 <!DOCTYPE html>
@@ -59,10 +61,19 @@ if (Yii::$app->user->can('root'))
             'label' => 'Отчеты',
             'url' => '#',
             'items' => [
+                ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ обращений', 'url' => ['/reports/analytics']],
+                '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по оборотам клиентов', 'url' => ['/reports/turnover']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оборотов', 'url' => ['/reports/nofinances']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по дубликатам в контрагентах', 'url' => ['/reports/ca-duplicates']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оплаты транспорта', 'url' => ['/reports/no-transport-has-projects']],
+            ],
+        ],
+        [
+            'label' => 'Обработки',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-cogs"></i> Оплата рейсов', 'url' => ['/process/freights-payments']],
             ],
         ],
     ];

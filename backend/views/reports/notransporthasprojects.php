@@ -7,6 +7,7 @@ use yii\grid\GridView;
 /* @var $searchModel common\models\ReportNoTransportHasProjects */
 /* @var $dataProvider yii\data\ArrayDataProvider */
 /* @var $searchApplied bool */
+/* @var $queryString string */
 
 $this->title = 'Отчет по клиентам с утилизацией без транспорта за период | '.Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Отчет по клиентам с утилизацией без транспорта за период';
@@ -18,6 +19,8 @@ $this->params['breadcrumbs'][] = 'Отчет по клиентам с утили
 
     <p>
         <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
+
+        <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Экспорт в Excel', '/reports/no-transport-has-projects?export=true' . $queryString, ['class' => 'btn btn-default pull-right']) ?>
 
     </p>
     <?= GridView::widget([

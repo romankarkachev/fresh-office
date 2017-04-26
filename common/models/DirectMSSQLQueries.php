@@ -88,6 +88,83 @@ WHERE COMPANY.ID_COMPANY=' . intval($id);
     }
 
     /**
+     * Делает выборку проектов с суммой, себестоимостью, перевозчиком, датой оплаты рейса.
+     * Выбрка только по идентификаторам, переданным в параметрах.
+     * @param $project_ids string идентификаторы проектов через запятую
+     * @return array
+     */
+    public static function fetchProjectsForDatePayment($project_ids)
+    {
+        if ($project_ids == null || $project_ids == '') return [];
+
+        $query_text = '
+SELECT
+    LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id,
+    ADD_perevoz AS ferryman_name,
+    ADD_oplata AS date_payment,
+    payment.amount,
+    payment.cost
+FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_PROJECT_COMPANY]
+LEFT JOIN (
+	SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR) AS amount, SUM(SS_PRICE_TOVAR) AS cost
+	FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_TOVAR_PROJECT]
+	GROUP BY ID_LIST_PROJECT_COMPANY
+) AS payment ON payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY
+WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY IN (' . $project_ids . ')';
+
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
+     * Выполняет изменение даты оплаты проекта.
+     * @return bool
+     */
+    public static function updateProjectsAddOplata($project_id, $date_payment)
+    {
+        $rows_affected = Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY', [
+            'ADD_oplata' => new Expression('CONVERT(datetime, \''. $date_payment .'T00:00:00.000\', 126)'),
+        ], [
+            'ID_LIST_PROJECT_COMPANY' => intval($project_id),
+        ])->execute();
+
+        if ($rows_affected >= 0)
+            return true;
+        else
+            return false;
+    }
+
+    /**
+     * Выполняет дополнение массива обращений, переданного в параметрах, наименованиями контрагентов.
+     * @param $appeals array массив обращений
+     * @param $ca_ids string идентификаторы контрагентов через запятую
+     * @return array
+     */
+    public static function fillAppealsArrayWithNames($appeals, $ca_ids)
+    {
+        $result = $appeals;
+
+        $query_text = '
+SELECT COMPANY.ID_COMPANY AS ca_id, COMPANY_NAME AS ca_name
+FROM COMPANY
+WHERE COMPANY.ID_COMPANY IN (' . $ca_ids . ')';
+
+        $result_array = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        if (count($result_array) > 0) {
+            // дополним массив обращений наименованиями контрагентов
+            foreach ($result_array as $row) {
+                foreach ($result as $index => $appeal) {
+                    if ($appeal['ca_id'] == $row['ca_id']) {
+                        $result[$index]['ca_name'] = $row['ca_name'];
+                        break;
+                    }
+                }
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Делает выборку менеджеров и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array

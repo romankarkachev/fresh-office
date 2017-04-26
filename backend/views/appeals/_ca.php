@@ -57,7 +57,7 @@ if (isset($matches)) {
                     'caId' => $match['caId'],
                     'caName' => $match['caName'],
                     'stateId' => $match['stateId'],
-                    'stateName' => $model->getCaStateName($match['stateId']),
+                    'stateName' => Appeals::getIndepCaStateName($match['stateId']),
                     'managerId' => $match['managerId'],
                 ]]) . '</td>
                 <td>' . $match['contact'] . '</td>
@@ -92,6 +92,7 @@ if (isset($matches)) {
             </div>
         </div>
     </div>
+    <?php if ($model->ca_state_id != Appeals::CA_STATE_AMBIGUOUS): ?>
     <div id="block-fo_id_manager_notif" class="form-group"></div>
     <div class="row">
         <div class="col-md-5">
@@ -119,6 +120,7 @@ if (isset($matches)) {
 
         </div>
     </div>
+    <?php endif; ?>
 </div>
 <?php
 $url_delegate_counteragent = Url::to(['/appeals/delegate-counteragent']);

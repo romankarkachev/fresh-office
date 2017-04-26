@@ -2,6 +2,8 @@
 
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
+use kartik\select2\Select2;
+use common\models\DirectMSSQLQueries;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\ReportCaDuplicates */
@@ -20,6 +22,14 @@ use yii\bootstrap\ActiveForm;
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
             <div class="row">
+                <div class="col-md-3">
+                    <?= $form->field($model, 'searchResponsibleId')->widget(Select2::className(), [
+                        'data' => DirectMSSQLQueries::arrayMapOfManagersForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                    ]) ?>
+
+                </div>
                 <div class="col-md-1">
                     <?= $form->field($model, 'searchPerPage')->textInput() ?>
 

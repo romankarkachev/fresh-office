@@ -2,9 +2,11 @@
 
 namespace backend\controllers;
 
+use common\models\ReportAnalytics;
 use common\models\ReportCaDuplicates;
 use common\models\ReportNoTransportHasProjects;
 use Yii;
+use yii\data\ArrayDataProvider;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
@@ -33,7 +35,7 @@ class ReportsController extends Controller
                         'roles' => ['root', 'role_report1'],
                     ],
                     [
-                        'actions' => ['nofinances', 'ca-duplicates', 'no-transport-has-projects'],
+                        'actions' => ['nofinances', 'ca-duplicates', 'no-transport-has-projects', 'analytics'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -62,7 +64,6 @@ class ReportsController extends Controller
                 return false;
             }
 
-            $model = new ReportTurnover();
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Отчет по клиентам (сформирован '.date('Y-m-d в H i').').xlsx',
@@ -70,19 +71,19 @@ class ReportsController extends Controller
                 'columns' => [
                     [
                         'attribute' => 'id',
-                        'header' => $model->attributeLabels()['id'],
+                        'header' => $searchModel->attributeLabels()['id'],
                     ],
                     [
                         'attribute' => 'name',
-                        'header' => $model->attributeLabels()['name'],
+                        'header' => $searchModel->attributeLabels()['name'],
                     ],
                     [
                         'attribute' => 'responsible',
-                        'header' => $model->attributeLabels()['responsible'],
+                        'header' => $searchModel->attributeLabels()['responsible'],
                     ],
                     [
                         'attribute' => 'turnover',
-                        'header' => $model->attributeLabels()['turnover'],
+                        'header' => $searchModel->attributeLabels()['turnover'],
                     ]
                 ],
             ]);
@@ -149,23 +150,22 @@ class ReportsController extends Controller
                 return false;
             }
 
-            $model = new ReportCaDuplicates();
             Excel::export([
                 'models' => $dataProvider->getModels(),
-                'fileName' => 'Отчет по дубликатам клиентам (сформирован '.date('Y-m-d в H i').').xlsx',
+                'fileName' => 'Отчет по дубликатам клиентов (сформирован '.date('Y-m-d в H i').').xlsx',
                 'format' => 'Excel2007',
                 'columns' => [
                     [
                         'attribute' => 'name',
-                        'header' => $model->attributeLabels()['name'],
+                        'header' => $searchModel->attributeLabels()['name'],
                     ],
                     [
                         'attribute' => 'parameter',
-                        'header' => $model->attributeLabels()['parameter'],
+                        'header' => $searchModel->attributeLabels()['parameter'],
                     ],
                     [
                         'attribute' => 'owners',
-                        'header' => $model->attributeLabels()['owners'],
+                        'header' => $searchModel->attributeLabels()['owners'],
                     ],
                 ],
             ]);
@@ -197,10 +197,102 @@ class ReportsController extends Controller
 
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
-        return $this->render('notransporthasprojects', [
+        if (Yii::$app->request->get('export') != null) {
+            if ($dataProvider->getTotalCount() == 0) {
+                Yii::$app->getSession()->setFlash('error', 'Нет данных для экспорта.');
+                $this->redirect(['/reports/ca-duplicates']);
+                return false;
+            }
+
+            Excel::export([
+                'models' => $dataProvider->getModels(),
+                'fileName' => 'Отчет по утилизации без транспорта (сформирован '.date('Y-m-d в H i').').xlsx',
+                'format' => 'Excel2007',
+                'columns' => [
+                    [
+                        'attribute' => 'id',
+                        'header' => $searchModel->attributeLabels()['id'],
+                    ],
+                    [
+                        'attribute' => 'name',
+                        'header' => $searchModel->attributeLabels()['name'],
+                    ],
+                    [
+                        'attribute' => 'responsible',
+                        'header' => $searchModel->attributeLabels()['responsible'],
+                    ],
+                ],
+            ]);
+        }
+        else {
+            // в кнопку Экспорт в Excel встраиваем строку запроса
+            $queryString = '';
+            if (Yii::$app->request->queryString != '') $queryString = '&' . Yii::$app->request->queryString;
+
+            return $this->render('notransporthasprojects', [
+                'searchModel' => $searchModel,
+                'dataProvider' => $dataProvider,
+                'searchApplied' => $searchApplied,
+                'queryString' => $queryString,
+            ]);
+        }
+    }
+
+    /**
+     *
+     */
+    public function actionAnalytics()
+    {
+        $searchModel = new ReportAnalytics();
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        // если нет отбора за период, то отчет не показываем совсем
+        if (count(Yii::$app->request->queryParams) == 0)
+            return $this->render('_nodata_analytics', [
+                'searchModel' => $searchModel,
+            ]);
+
+        $appeals_array = $searchModel->search(Yii::$app->request->queryParams);
+        $totalAppealsPeriod = count($appeals_array);
+
+        // Таблица 1. Всего обращений по ответственным за период.
+        $dpTable1 = $searchModel->makeDataProviderForTable1($appeals_array);
+
+        // Таблица 2. Всего обращений по источникам за период.
+        $dpTable2 = $searchModel->makeDataProviderForTable2($appeals_array);
+
+        // для остальных таблиц выборка всех обращений
+        unset($appeals_array);
+        $appeals_array = $searchModel->search(Yii::$app->request->queryParams, ReportAnalytics::MODE_ALL);
+        $totalAppeals = count($appeals_array);
+
+        // Таблица 3. Всего обращений по их статусам.
+        $dpTable3 = $searchModel->makeDataProviderForTable3($appeals_array);
+
+        // Таблица 4. Всего обращений по статусам клиентов.
+        $dpTable4 = $searchModel->makeDataProviderForTable4($appeals_array);
+
+        // Таблица 5. Обращения по ответственным в разрезе статусов обращений.
+        $columns5 = [];
+        $dpTable5 = $searchModel->makeDataProviderForTable(5, $appeals_array, 'responsible_id', 'responsible_name', $columns5);
+
+        // Таблица 6. Обращения по источникам в разрезе стасусов обращений.
+        $columns6 = [];
+        $dpTable6 = $searchModel->makeDataProviderForTable(6, $appeals_array, 'as_id', 'as_name', $columns6);
+
+        return $this->render('analytics', [
             'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
             'searchApplied' => $searchApplied,
+            'totalAppealsPeriod' => $totalAppealsPeriod,
+            'totalAppeals' => $totalAppeals,
+            'dpTable1' => $dpTable1,
+            'dpTable2' => $dpTable2,
+            'dpTable3' => $dpTable3,
+            'dpTable4' => $dpTable4,
+            'dpTable5' => $dpTable5,
+            'columns5' => $columns5,
+            'dpTable6' => $dpTable6,
+            'columns6' => $columns6,
         ]);
     }
 }

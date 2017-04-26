@@ -28,7 +28,6 @@ use yii\helpers\ArrayHelper;
  *
  * @property string $appealStateName
  * @property string $caStateName
- * @property string $asName
  *
  * @property AppealSources $as
  */
@@ -886,6 +885,21 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
 
     /**
      * Возвращает наименование статуса обращения.
+     * @param $state_id integer|null идентификатор статуса, для которого нужно определить наименование
+     * @return string
+     */
+    public static function getIndepAppealStateName($state_id)
+    {
+        $sourceTable = Appeals::fetchAppealStates();
+        $key = array_search($state_id, array_column($sourceTable, 'id'));
+        if (false !== $key)
+            return $sourceTable[$key]['name'];
+        else
+            return '';
+    }
+
+    /**
+     * Возвращает наименование статуса обращения.
      * @return string
      */
     public function getAppealStateName()
@@ -907,19 +921,28 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
      * @param $state_id integer|null идентификатор статуса, для которого нужно определить наименование
      * @return string
      */
-    public function getCaStateName($state_id = null)
+    public static function getIndepCaStateName($state_id)
     {
-        // если не передается снаружи, возьмем значение поля модели
-        if ($state_id === null) {
-            $state_id = $this->ca_state_id;
-        }
+        $sourceTable = self::fetchCaStates();
+        $key = array_search($state_id, array_column($sourceTable, 'id'));
+        if (false !== $key)
+            return $sourceTable[$key]['name'];
+        else
+            return '';
+    }
 
-        if (null === $state_id) {
+    /**
+     * Возвращает наименование статуса клиента.
+     * @return string
+     */
+    public function getCaStateName()
+    {
+        if (null === $this->ca_state_id) {
             return '<не определен>';
         }
 
         $sourceTable = self::fetchCaStates();
-        $key = array_search($state_id, array_column($sourceTable, 'id'));
+        $key = array_search($this->ca_state_id, array_column($sourceTable, 'id'));
         if (false !== $key)
             return $sourceTable[$key]['name'];
         else

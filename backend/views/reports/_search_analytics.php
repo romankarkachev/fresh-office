@@ -5,20 +5,19 @@ use yii\bootstrap\ActiveForm;
 use kartik\datecontrol\DateControl;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\ReportNoTransportHasProjects */
+/* @var $model common\models\ReportAnalytics */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $searchApplied bool */
 ?>
 
-<div class="notransporthasprojects-search">
+<div class="analytics-search">
     <?php $form = ActiveForm::begin([
-        'action' => ['/reports/no-transport-has-projects'],
+        'action' => ['/reports/analytics'],
         'method' => 'get',
-        'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
     ]); ?>
 
     <div class="panel panel-info">
-        <div class="panel-heading">Форма отбора</div>
+        <div class="panel-heading">Настройка</div>
         <div class="panel-body">
             <div class="row">
                 <div class="col-md-2">
@@ -61,20 +60,9 @@ use kartik\datecontrol\DateControl;
                     ]) ?>
 
                 </div>
-                <div class="col-md-1">
-                    <?= $form->field($model, 'searchPerPage')->textInput() ?>
-
-                </div>
-                <div class="col-md-2">
-                    <label for="<?= strtolower($model->formName() . '-searchSelfDelivery') ?>" class="control-label"><?= $model->attributeLabels()['searchSelfDelivery'] ?></label>
-                    <?= $form->field($model, 'searchSelfDelivery')->checkbox()->label(false) ?>
-
-                </div>
             </div>
             <div class="form-group">
-                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info']) ?>
-
-                <?= Html::a('Отключить отбор', ['/reports/no-transport-has-projects'], ['class' => 'btn btn-default']) ?>
+                <?= Html::submitButton('<i class="fa fa-repeat"></i> Сформировать', ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default')]) ?>
 
             </div>
         </div>
@@ -82,12 +70,3 @@ use kartik\datecontrol\DateControl;
     <?php ActiveForm::end(); ?>
 
 </div>
-<?php
-$this->registerJs(<<<JS
-$('input').iCheck({
-    checkboxClass: 'icheckbox_square-green',
-});
-JS
-, yii\web\View::POS_READY);
-?>
-

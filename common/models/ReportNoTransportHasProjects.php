@@ -5,7 +5,6 @@ namespace common\models;
 use Yii;
 use yii\base\Model;
 use yii\data\ArrayDataProvider;
-use yii\helpers\ArrayHelper;
 
 /**
  * ReportNoTransportHasProjects - это отчет по клиентам, которые имеют проекты и записи в финансах с признаком
@@ -13,6 +12,12 @@ use yii\helpers\ArrayHelper;
  */
 class ReportNoTransportHasProjects extends Model
 {
+    /**
+     * Признак исключения проектов с самопривозом.
+     * @var integer
+     */
+    public $searchSelfDelivery;
+
     /**
      * Дата начала периода.
      * @var string
@@ -38,7 +43,7 @@ class ReportNoTransportHasProjects extends Model
     public function rules()
     {
         return [
-            [['id', 'searchPerPage'], 'integer'],
+            [['id', 'searchSelfDelivery', 'searchPerPage'], 'integer'],
             [['name', 'responsible'], 'string'],
             [['searchPeriodStart', 'searchPeriodEnd'], 'safe'],
         ];
@@ -54,6 +59,7 @@ class ReportNoTransportHasProjects extends Model
             'name' => 'Наименование',
             'responsible' => 'Ответственный',
             // для сортировки
+            'searchSelfDelivery' => 'Исключить самопривоз',
             'searchPeriodStart' => 'Начало периода',
             'searchPeriodEnd' => 'Конец периода',
             'searchPerPage' => 'Записей', // на странице
@@ -93,14 +99,46 @@ class ReportNoTransportHasProjects extends Model
             }
             else if ($this->searchPeriodStart !== '' && $this->searchPeriodEnd === '') {
                 // если указан только начало периода
-                $searchPeriod_condition = 'DATE_MANY >= CONVERT(datetime, \'' . $this->searchPeriodStart . ' 00:00:00' . '\', 120)';
+                $searchPeriod_condition = ' AND DATE_MANY >= CONVERT(datetime, \'' . $this->searchPeriodStart . ' 00:00:00' . '\', 120)';
             }
             else if ($this->searchPeriodStart === '' && $this->searchPeriodEnd !== '') {
                 // если указан только конец периода
-                $searchPeriod_condition = 'DATE_MANY <= CONVERT(datetime, \'' . $this->searchPeriodEnd . ' 23:59:59' . '\', 120)';
+                $searchPeriod_condition = ' AND DATE_MANY <= CONVERT(datetime, \'' . $this->searchPeriodEnd . ' 23:59:59' . '\', 120)';
             };
 
-        $query_text = '
+        // уточняем условие
+        if ($this->searchSelfDelivery == true)
+            $query_text = '
+SELECT COMPANY.ID_COMPANY AS id, COMPANY_NAME AS name, MANAGERS.MANAGER_NAME AS responsible, ISNULL(U.MESAURE, 0) AS UTILIZATION, T.MESAURE
+FROM COMPANY
+LEFT JOIN (
+	SELECT ID_COMPANY, COUNT(ID_MANY) AS MESAURE
+	FROM LIST_MANYS
+	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . $searchPeriod_condition . '
+	GROUP BY ID_COMPANY
+) AS U ON U.ID_COMPANY = COMPANY.ID_COMPANY
+LEFT JOIN (
+	SELECT ID_COMPANY, COUNT(ID_MANY) AS MESAURE
+	FROM LIST_MANYS
+	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_ТРАНСПОРТ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . $searchPeriod_condition . '
+	GROUP BY ID_COMPANY
+) AS T ON T.ID_COMPANY = COMPANY.ID_COMPANY
+LEFT JOIN (
+	SELECT ID_COMPANY, COUNT(ID_LIST_SPR_PROJECT) AS PROJECTS_COUNT
+    FROM CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY
+    WHERE ID_LIST_SPR_PROJECT = ' . FreshOfficeAPI::PROJECT_TYPE_САМОПРИВОЗ . ' OR ID_LIST_SPR_PROJECT = ' . FreshOfficeAPI::PROJECT_TYPE_ДОКУМЕНТЫ . ' OR ADD_perevoz LIKE \'%самопривоз%\'
+    GROUP BY ID_COMPANY
+) AS HAVING_SELF ON HAVING_SELF.ID_COMPANY = COMPANY.ID_COMPANY
+LEFT JOIN (
+    SELECT ID_COMPANY, COUNT(ID_LIST_SPR_PROJECT) AS PROJECTS_COUNT
+    FROM CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY
+    WHERE ID_LIST_SPR_PROJECT <> ' . FreshOfficeAPI::PROJECT_TYPE_САМОПРИВОЗ . ' AND ID_LIST_SPR_PROJECT <> ' . FreshOfficeAPI::PROJECT_TYPE_ДОКУМЕНТЫ . ' AND ADD_perevoz NOT LIKE \'%самопривоз%\'
+    GROUP BY ID_COMPANY
+) AS HAVING_NOT_SELF ON HAVING_NOT_SELF.ID_COMPANY = COMPANY.ID_COMPANY
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
+WHERE U.MESAURE IS NOT NULL AND T.MESAURE IS NULL AND HAVING_SELF.PROJECTS_COUNT IS NULL AND HAVING_NOT_SELF.PROJECTS_COUNT IS NOT NULL';
+        else
+            $query_text = '
 SELECT COMPANY.ID_COMPANY AS id, COMPANY_NAME AS name, MANAGERS.MANAGER_NAME AS responsible, ISNULL(U.MESAURE, 0) AS UTILIZATION, T.MESAURE
 FROM COMPANY
 LEFT JOIN (

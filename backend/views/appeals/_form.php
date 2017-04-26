@@ -44,6 +44,8 @@ use common\models\Appeals;
                     </div>
                     <?= $form->field($model, 'form_message')->textarea(['rows' => 6, 'disabled' => true]) ?>
 
+                    <?= $form->field($model, 'as_id')->textInput(['value' => $model->appealSourceName, 'disabled' => true]) ?>
+
                 </div>
             </div>
         </div>

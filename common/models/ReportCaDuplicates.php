@@ -13,6 +13,12 @@ use yii\helpers\ArrayHelper;
 class ReportCaDuplicates extends Model
 {
     /**
+     * Ответственный.
+     * @var integer
+     */
+    public $searchResponsibleId;
+
+    /**
      * Количество записей на странице.
      * По-умолчанию - false.
      * @var integer
@@ -25,7 +31,7 @@ class ReportCaDuplicates extends Model
     public function rules()
     {
         return [
-            [['id', 'searchPerPage'], 'integer'],
+            [['id', 'searchResponsibleId', 'searchPerPage'], 'integer'],
             [['name', 'parameter', 'owners'], 'string'],
         ];
     }
@@ -41,6 +47,7 @@ class ReportCaDuplicates extends Model
             'parameter' => 'Значение совпадения',
             'owners' => 'Собственники',
             // для отбора
+            'searchResponsibleId' => 'Ответственный',
             'searchPerPage' => 'Записей', // на странице
         ];
     }
@@ -71,13 +78,22 @@ class ReportCaDuplicates extends Model
         // записей на странице - все
         if (!isset($this->searchPerPage)) $this->searchPerPage = false;
 
+        // уточняем условие
+        $searchResponsibleId_name_condition = '';
+        if ($this->searchResponsibleId != null) {
+            $searchResponsibleId_condition = '
+    WHERE COMPANY.ID_MANAGER = ' . intval($this->searchResponsibleId);
+
+            $searchResponsibleId_phoneemail_condition = ' AND COMPANY.ID_MANAGER = ' . intval($this->searchResponsibleId);
+        }
+
         // поиск дубликатов по наименованию
         $query_text = '
 SELECT
     \'Наименование\' AS name,
     COMPANY_NAME AS parameter,
     \'Количество повторений: \' + CAST(COUNT(*) AS VARCHAR) AS owners
-FROM COMPANY
+FROM COMPANY' . $searchResponsibleId_name_condition .'
 GROUP BY COMPANY_NAME
 HAVING COUNT(*) > 1';
 
@@ -99,8 +115,9 @@ SELECT
             FOR XML PATH(\'\')
             )
     ,1,1,\'\') AS owners
-FROM [LIST_TELEPHONES] t1
-WHERE t1.TELEPHONE IS NOT NULL
+FROM LIST_TELEPHONES t1
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = t1.ID_COMPANY
+WHERE t1.TELEPHONE IS NOT NULL' . $searchResponsibleId_phoneemail_condition .'
 GROUP BY TELEPHONE
 HAVING COUNT(DISTINCT t1.ID_COMPANY) > 1';
 
@@ -123,7 +140,8 @@ SELECT
             )
     ,1,1,\'\') AS owners
 FROM LIST_EMAIL_CLIENT t1
-WHERE t1.EMAIL IS NOT NULL
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = t1.ID_COMPANY
+WHERE t1.EMAIL IS NOT NULL' . $searchResponsibleId_phoneemail_condition .'
 GROUP BY EMAIL
 HAVING COUNT(DISTINCT t1.ID_COMPANY) > 1';
 

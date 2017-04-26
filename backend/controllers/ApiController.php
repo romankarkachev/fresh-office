@@ -3,6 +3,7 @@
 namespace backend\controllers;
 
 use common\models\AppealSources;
+use common\models\DirectMSSQLQueries;
 use common\models\FreshOfficeAPI;
 use common\models\ResponsibleRefusal;
 use Yii;
@@ -26,7 +27,7 @@ class ApiController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['process-form', 'check-finances'],
+                'only' => ['process-form', 'check-finances', 'update-counteragents-names'],
                 'rules' => [
                     [
                         'allow' => true,
@@ -123,7 +124,6 @@ class ApiController extends Controller
      * На "Отказ", если ответственный у контрагента стал "Банк" или "Банк входящие".
      * На "Конверсия", если появились записи в разделе Финансы.
      * Если ни одно из двух вышеперечисленных условий не выполнилось, обращение откладывается до следующего раза.
-     * @return mixed
      */
     public function actionCheckFinances()
     {
@@ -175,6 +175,39 @@ WHERE COMPANY.ID_COMPANY IN (' . implode(',', $ca_ids) . ')';
                             continue 2;
                         }
                     }
+                }
+            }
+        }
+    }
+
+    /**
+     * Модуль обновления наименований контрагентов, созданных вручную из веб-приложения.
+     * Запускается по заданию, делает выборку обращений, созданных не более недели назад.
+     * Если наименование контрагента изменилось, то выполняется его обновление.
+     */
+    public function actionUpdateCounteragentsNames()
+    {
+        // вычислим дату неделю назад
+        $date = new \DateTime(date('Y-m-d'));
+        $date->modify('-7 day');
+        $week_ago = strtotime($date->format('Y-m-d'));
+
+        $query = Appeals::find()
+            // не старше недели
+            ->where('created_at >= ' . $week_ago)
+            // только с новыми контрагентами
+            ->andWhere(['ca_state_id' => Appeals::CA_STATE_NEW]);
+        $appeals = $query->select(['id', 'ca_id' => 'fo_id_company', 'ca_old_name' => 'fo_company_name'])->asArray()->all();
+        $distinct_counteragents = $query->select('fo_id_company')->distinct()->column();
+        $appeals = DirectMSSQLQueries::fillAppealsArrayWithNames($appeals, implode(',', $distinct_counteragents));
+
+        foreach ($appeals as $appeal) {
+            if ($appeal['ca_old_name'] != $appeal['ca_name']) {
+                //print '<p>У контрагента ' . $appeal['ca_id'] . ' изменилось наименование: ' . $appeal['ca_old_name'] . ' -> ' . $appeal['ca_name'] . '!</p>';
+                $appeal_model = Appeals::findOne($appeal['id']);
+                if ($appeal_model != null) {
+                    $appeal_model->fo_company_name = $appeal['ca_name'];
+                    $appeal_model->save();
                 }
             }
         }

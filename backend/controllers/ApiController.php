@@ -76,10 +76,14 @@ class ApiController extends Controller
             $form = new ExternalAppealForm();
             if ($form->load(Yii::$app->request->post())) {
                 // возвращаем пользователя на ту страницу, откуда он пришел
-                $this->redirect(Yii::$app->request->referrer);
+                // либо на страницу, которая задана в POST-параметрах
+                if (Yii::$app->request->post('redirect') != null)
+                    $this->redirect(Yii::$app->request->post('redirect'));
+                else
+                    $this->redirect(Yii::$app->request->referrer);
 
                 // выборка источников обращения в виде массива: id | name
-                $appealSources = AppealSources::find()->asArray()->all();
+                $appealSources = AppealSources::find()->select(['id', 'search_field'])->asArray()->all();
 
                 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                 // СОЗДАНИЕ ОБРАЩЕНИЯ
@@ -102,7 +106,7 @@ class ApiController extends Controller
                 // попытаемся идентифицировать источник обращения по доменному имени
                 $presumable_domain = parse_url(Yii::$app->request->referrer, PHP_URL_HOST);
                 if ($presumable_domain !== false && $presumable_domain != '') {
-                    $key = array_search($presumable_domain, array_column($appealSources, 'name'));
+                    $key = array_search($presumable_domain, array_column($appealSources, 'search_field'));
                     if (false !== $key) $model->as_id = $appealSources[$key]['id'];
                 }
 

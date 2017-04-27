@@ -10,6 +10,7 @@ use yii\helpers\ArrayHelper;
  *
  * @property integer $id
  * @property string $name
+ * @property string $search_field
  *
  * @property Appeals[] $appeals
  */
@@ -30,7 +31,7 @@ class AppealSources extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['name'], 'string', 'max' => 50],
+            [['name', 'search_field'], 'string', 'max' => 50],
         ];
     }
 
@@ -42,6 +43,7 @@ class AppealSources extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'name' => 'Наименование',
+            'search_field' => 'Подстрока для идентификации',
         ];
     }
 

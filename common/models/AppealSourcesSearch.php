@@ -19,7 +19,7 @@ class AppealSourcesSearch extends AppealSources
     {
         return [
             [['id'], 'integer'],
-            [['name'], 'safe'],
+            [['name', 'search_field'], 'safe'],
         ];
     }
 
@@ -62,7 +62,8 @@ class AppealSourcesSearch extends AppealSources
             'id' => $this->id,
         ]);
 
-        $query->andFilterWhere(['like', 'name', $this->name]);
+        $query->andFilterWhere(['like', 'name', $this->name])
+            ->orFilterWhere(['like', 'search_field', $this->search_field]);
 
         return $dataProvider;
     }

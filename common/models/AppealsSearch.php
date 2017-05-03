@@ -18,8 +18,8 @@ class AppealsSearch extends Appeals
     public function rules()
     {
         return [
-            [['id', 'created_at', 'state_id', 'fo_id_company', 'ca_state_id', 'as_id'], 'integer'],
-            [['form_company', 'form_username', 'form_region', 'form_phone', 'form_email', 'form_message', 'fo_company_name'], 'safe'],
+            [['id', 'created_at', 'created_by', 'state_id', 'ac_id', 'fo_id_company', 'fo_id_manager', 'ca_state_id', 'as_id'], 'integer'],
+            [['form_company', 'form_username', 'form_region', 'form_phone', 'form_email', 'form_message', 'fo_company_name', 'request_referrer', 'request_user_agent', 'request_user_ip'], 'safe'],
         ];
     }
 
@@ -52,7 +52,9 @@ class AppealsSearch extends Appeals
             'attributes' => [
                 'id',
                 'created_at',
+                'created_by',
                 'state_id',
+                'ac_id',
                 'form_company',
                 'form_username',
                 'form_region',
@@ -89,8 +91,11 @@ class AppealsSearch extends Appeals
         $query->andFilterWhere([
             'id' => $this->id,
             'created_at' => $this->created_at,
+            'created_by' => $this->created_by,
             'state_id' => $this->state_id,
+            'ac_id' => $this->ac_id,
             'fo_id_company' => $this->fo_id_company,
+            'fo_id_manager' => $this->fo_id_manager,
             'ca_state_id' => $this->ca_state_id,
             'as_id' => $this->as_id,
         ]);

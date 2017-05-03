@@ -16,12 +16,12 @@ use common\models\ResponsibleFornewca;
 $company_id = '-';
 if ($model->fo_id_company != null && $model->fo_id_company != '') {
     $company_id = $model->fo_id_company;
-    // набор ответственных лиц - только для новых контрагентов (ограниченный список)
+    // набор ответственных лиц полный
     $responsibleDataSet = DirectMSSQLQueries::arrayMapOfManagersForSelect2();
 }
 else
-    // набор ответственных лиц полный
-    $responsibleDataSet = ResponsibleFornewca::arrayMapForSelect2();
+    // набор ответственных лиц - только для новых контрагентов (ограниченный список)
+    $responsibleDataSet = ResponsibleFornewca::arrayMapForSelect2($model->ac_id);
 
 $company_name = 'Контрагент не идентифицирован';
 if ($model->fo_company_name != null && $model->fo_company_name != '') $company_name = $model->fo_company_name;
@@ -105,7 +105,7 @@ if (isset($matches)) {
                     'select2:select' => new JsExpression('function() {
         ca_id = $("#appeals-fo_id_company").val();
         receiver_id = $(this).val();
-        appeal_id = $("#btn-identify-ca").attr("data-model-id");
+        appeal_id = $("#appeals-id").val();
         ManagerOnChange(appeal_id, ca_id, receiver_id);
     }'),
                     'select2:selecting' => new JsExpression('function() {
@@ -164,7 +164,7 @@ function delegateCounteragent(appeal_id, ca_id, receiver_id) {
 
 // Функция выполняет создание задачи для нового ответственного, а также передачу ему контрагента.
 //
-function ManagerOnChange() {
+function ManagerOnChange(appeal_id, ca_id, receiver_id) {
     delegateCounteragent(appeal_id, ca_id, receiver_id);
 } // ManagerOnChange()
 JS

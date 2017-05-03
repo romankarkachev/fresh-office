@@ -11,6 +11,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $id
  * @property integer $responsible_id
  * @property string $responsible_name
+ * @property integer $ac_id
  */
 class ResponsibleFornewca extends \yii\db\ActiveRecord
 {
@@ -28,8 +29,8 @@ class ResponsibleFornewca extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['responsible_id'], 'required'],
-            [['responsible_id'], 'integer'],
+            [['responsible_id', 'ac_id'], 'required'],
+            [['responsible_id', 'ac_id'], 'integer'],
             [['responsible_name'], 'string', 'max' => 50],
         ];
     }
@@ -43,6 +44,8 @@ class ResponsibleFornewca extends \yii\db\ActiveRecord
             'id' => 'ID',
             'responsible_id' => 'Ответственный',
             'responsible_name' => 'Ответственный',
+            'ac_id' => 'Раздел учета', // 1 - утилизация, 2 - экология
+            'acName' => 'Раздел учета',
         ];
     }
 
@@ -68,10 +71,50 @@ class ResponsibleFornewca extends \yii\db\ActiveRecord
     /**
      * Делает выборку ответственных для новых контрагентов и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
+     * @param $ac_id integer идентификатор раздела учета (может отсутствовать)
      * @return array
      */
-    public static function arrayMapForSelect2()
+    public static function arrayMapForSelect2($ac_id = null)
     {
-        return ArrayHelper::map(ResponsibleFornewca::find()->orderBy('responsible_name')->all(), 'responsible_id', 'responsible_name');
+        $query = ResponsibleFornewca::find()->orderBy('responsible_name');
+        if ($ac_id != null) $query->where(['ac_id' => $ac_id]);
+        $array = $query->all();
+
+        return ArrayHelper::map($array, 'responsible_id', 'responsible_name');
+    }
+
+    /**
+     * Делает выборку ответственных для новых контрагентов по учету утилизации и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfUtilizationSectionForSelect2()
+    {
+        return ArrayHelper::map(ResponsibleFornewca::find()
+            ->where(['ac_id' => Appeals::РАЗДЕЛ_УЧЕТА_УТИЛИЗАЦИЯ])
+            ->orderBy('responsible_name')
+            ->all(), 'responsible_id', 'responsible_name');
+    }
+
+    /**
+     * Делает выборку ответственных для новых контрагентов по учету экологии и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfEcologySectionForSelect2()
+    {
+        return ArrayHelper::map(ResponsibleFornewca::find()
+            ->where(['ac_id' => Appeals::РАЗДЕЛ_УЧЕТА_ЭКОЛОГИЯ])
+            ->orderBy('responsible_name')
+            ->all(), 'responsible_id', 'responsible_name');
+    }
+
+    /**
+     * Возвращает наименование раздела учета.
+     * @return string
+     */
+    public function getAcName()
+    {
+        return Appeals::getIndepAccountSectionName($this->ac_id);
     }
 }

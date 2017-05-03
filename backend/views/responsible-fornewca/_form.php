@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
+use common\models\Appeals;
 use common\models\DirectMSSQLQueries;
 
 /* @var $this yii\web\View */
@@ -14,6 +15,15 @@ use common\models\DirectMSSQLQueries;
     <?php $form = ActiveForm::begin(); ?>
 
     <div class="row">
+        <div class="col-md-2">
+            <?= $form->field($model, 'ac_id')->widget(Select2::className(), [
+                'data' => Appeals::arrayMapOfAccountSectionsForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+                'hideSearch' => true,
+            ]) ?>
+
+        </div>
         <div class="col-md-3">
             <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
                 'data' => DirectMSSQLQueries::arrayMapOfManagersForSelect2(),

@@ -2,18 +2,19 @@
 
 namespace backend\controllers;
 
-use common\models\ReportAnalytics;
-use common\models\ReportCaDuplicates;
-use common\models\ReportNoTransportHasProjects;
+use common\models\Appeals;
 use Yii;
 use yii\data\ArrayDataProvider;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use moonland\phpexcel\Excel;
+use common\models\DirectMSSQLQueries;
 use common\models\ReportTurnover;
 use common\models\ReportNofinances;
-use common\models\DirectMSSQLQueries;
+use common\models\ReportAnalytics;
+use common\models\ReportCaDuplicates;
+use common\models\ReportNoTransportHasProjects;
 
 /**
  * Reports controller
@@ -32,7 +33,7 @@ class ReportsController extends Controller
                     [
                         'actions' => ['turnover'],
                         'allow' => true,
-                        'roles' => ['root', 'role_report1'],
+                        'roles' => ['root', 'sales_department_head'],
                     ],
                     [
                         'actions' => ['nofinances', 'ca-duplicates', 'no-transport-has-projects', 'analytics'],
@@ -239,7 +240,8 @@ class ReportsController extends Controller
     }
 
     /**
-     *
+     * Отображает отчет с анализом обращений (по ответственным, по источникам обращения и т.д.).
+     * Поля для поиска: раздел учета, начало и конец периода (для выборки обращений).
      */
     public function actionAnalytics()
     {
@@ -247,10 +249,13 @@ class ReportsController extends Controller
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         // если нет отбора за период, то отчет не показываем совсем
-        if (count(Yii::$app->request->queryParams) == 0)
+        if (count(Yii::$app->request->queryParams) == 0) {
+            // можно и вернуть значение по-умолчанию:
+            //$searchModel->searchAccountSection = Appeals::РАЗДЕЛ_УЧЕТА_УТИЛИЗАЦИЯ;
             return $this->render('_nodata_analytics', [
                 'searchModel' => $searchModel,
             ]);
+        }
 
         $appeals_array = $searchModel->search(Yii::$app->request->queryParams);
         $totalAppealsPeriod = count($appeals_array);

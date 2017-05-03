@@ -3,6 +3,8 @@
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 use kartik\datecontrol\DateControl;
+use kartik\select2\Select2;
+use common\models\Appeals;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\ReportAnalytics */
@@ -20,6 +22,15 @@ use kartik\datecontrol\DateControl;
         <div class="panel-heading">Настройка</div>
         <div class="panel-body">
             <div class="row">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchAccountSection')->widget(Select2::className(), [
+                        'data' => Appeals::arrayMapOfAccountSectionsForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
                 <div class="col-md-2">
                     <?= $form->field($model, 'searchPeriodStart')->widget(DateControl::className(), [
                         'value' => $model->searchPeriodStart,

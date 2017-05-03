@@ -9,9 +9,10 @@ use yii\helpers\ArrayHelper;
 use backend\components\TotalsColumn;
 
 /**
- * ReportAnalytics - это набор отчетов для анализа обращений.
+ * ReportAnalyticsCurrentReponsible - это набор отчетов для анализа обращений (отчет строится только по текущим
+ * ответственным, которые определяются по дополнительному запросу в MS SQL).
  */
-class ReportAnalytics extends Model
+class ReportAnalyticsCurrentReponsible extends Model
 {
     /**
      * Режим запроса обращений за период.
@@ -31,12 +32,6 @@ class ReportAnalytics extends Model
     const CAPTION_FOR_TABLE6 = 'Таблица 6. Обращения по источникам в разрезе стасусов.';
 
     /**
-     * Раздел учета.
-     * @var string
-     */
-    public $searchAccountSection;
-
-    /**
      * Дата начала периода.
      * @var string
      */
@@ -54,8 +49,6 @@ class ReportAnalytics extends Model
     public function rules()
     {
         return [
-            ['searchAccountSection', 'required'],
-            ['searchAccountSection', 'integer'],
             [['searchPeriodStart', 'searchPeriodEnd'], 'safe'],
         ];
     }
@@ -97,7 +90,6 @@ class ReportAnalytics extends Model
             'table6_total_ca_state' => 'Всего',
 
             // для отбора
-            'searchAccountSection' => 'Раздел учета',
             'searchPeriodStart' => 'Начало периода',
             'searchPeriodEnd' => 'Конец периода',
         ];
@@ -463,17 +455,18 @@ class ReportAnalytics extends Model
     /**
      * Выполняет дополнение массива ответственными лицами.
      * @param $appeals array массив обращений
-     * @param $managers_ids string идентификаторы контрагентов через запятую
+     * @param $ca_ids string идентификаторы контрагентов через запятую
      * @return array
      */
-    public function addAppealsArrayWithResponsible($appeals, $managers_ids)
+    public function addAppealsArrayWithResponsible($appeals, $ca_ids)
     {
         $result = $appeals;
 
         $query_text = '
-SELECT ID_MANAGER AS manager_id, MANAGER_NAME AS manager_name
-FROM MANAGERS
-WHERE ID_MANAGER IN (' . $managers_ids . ')';
+SELECT COMPANY.ID_COMPANY AS ca_id, COMPANY_NAME AS ca_name, COMPANY.ID_MANAGER AS manager_id, MANAGER_NAME AS manager_name
+FROM COMPANY
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
+WHERE COMPANY.ID_COMPANY IN (' . $ca_ids . ')';
 
         $responsible_array = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
         //var_dump($responsible_array);
@@ -481,8 +474,9 @@ WHERE ID_MANAGER IN (' . $managers_ids . ')';
             // дополним массив обращений ответственными
             foreach ($responsible_array as $responsible) {
                 foreach ($result as $index => $appeal) {
-                    if ($appeal['responsible_id'] == $responsible['manager_id']) {
+                    if ($appeal['ca_id'] == $responsible['ca_id']) {
                         // всем заявкам проставляем этого ответственного
+                        $result[$index]['ca_name'] = $responsible['ca_name'];
                         $result[$index]['responsible_id'] = intval($responsible['manager_id']);
                         $result[$index]['responsible_name'] = $responsible['manager_name'];
                     }
@@ -504,16 +498,7 @@ WHERE ID_MANAGER IN (' . $managers_ids . ')';
     {
         $this->load($params);
 
-        $query = Appeals::find()->select([
-            'appeals.id',
-            'as_id',
-            'as_name' => 'appeal_sources.name',
-            'ca_state_id',
-            'state_id',
-            'ca_id' => 'fo_id_company',
-            'ca_name' => 'fo_company_name',
-            'responsible_id' => 'fo_id_manager',
-        ]);
+        $query = Appeals::find()->select(['appeals.id', 'as_id', 'as_name' => 'appeal_sources.name', 'ca_state_id', 'state_id', 'ca_id' => 'fo_id_company']);
         $query->leftJoin('appeal_sources', 'appeal_sources.id = appeals.as_id');
 
         if ($mode == self::MODE_PERIOD)
@@ -532,17 +517,11 @@ WHERE ID_MANAGER IN (' . $managers_ids . ')';
                     $query->andWhere(['<=', 'created_at', strtotime($this->searchPeriodEnd . ' 23:59:59')]);
                 }
             }
-
-        // дополняем запрос условием по разделу учета
-        if ($this->searchAccountSection != null)
-            $query->andWhere(['ac_id' => $this->searchAccountSection]);
-
         $appeals_array = $query->asArray()->all();
 
         // извлечем всех уникальных контрагентов в отдельный массив,
         // чтобы потом для каждого из них определить ответственного
-        $distinct_counteragents = []; // устарело, не применяется
-        $distinct_managers = [];
+        $distinct_counteragents = [];
         foreach ($appeals_array as $index => $appeal) {
             /* @var $appeal \common\models\Appeals */
 
@@ -550,11 +529,6 @@ WHERE ID_MANAGER IN (' . $managers_ids . ')';
             if ($appeal['ca_id'] != null)
                 if (!in_array($appeal['ca_id'], $distinct_counteragents))
                     $distinct_counteragents[] = $appeal['ca_id'];
-
-            // добавляем менеджера в массив их уникальных идентификаторов
-            if ($appeal['responsible_id'] != null)
-                if (!in_array($appeal['responsible_id'], $distinct_managers))
-                    $distinct_managers[] = $appeal['responsible_id'];
 
             // подставим наименование статуса клиента
             $appeals_array[$index]['ca_state_name'] = Appeals::getIndepCaStateName($appeal['ca_state_id']);
@@ -564,7 +538,7 @@ WHERE ID_MANAGER IN (' . $managers_ids . ')';
         }
 
         if (count($distinct_counteragents) > 0) {
-            $appeals_array = $this->addAppealsArrayWithResponsible($appeals_array, implode(",", $distinct_managers));
+            $appeals_array = $this->addAppealsArrayWithResponsible($appeals_array, implode(",", $distinct_counteragents));
         }
 
         return $appeals_array;

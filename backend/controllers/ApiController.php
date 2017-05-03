@@ -94,7 +94,8 @@ class ApiController extends Controller
                 $model->form_company = $form->company;
                 $model->form_username = $form->name;
                 $model->form_region = $form->region;
-                $model->form_phone = $form->phone;
+                // в номере телефона оставляем только цифры
+                $model->form_phone = preg_replace("/[^0-9]/", '', $form->phone);
                 $model->form_email = $form->email;
                 $model->form_message = $form->message;
 

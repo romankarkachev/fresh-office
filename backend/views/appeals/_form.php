@@ -19,6 +19,8 @@ use common\models\Appeals;
             <div class="panel panel-success">
                 <div class="panel-heading">Форма обращения</div>
                 <div class="panel-body">
+                    <?= $form->field($model, 'id')->hiddenInput()->label(false) ?>
+
                     <p><strong>Создано</strong>: <?= Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y в H:i') ?></p>
                     <div class="row">
                         <div class="col-md-6">
@@ -51,7 +53,7 @@ use common\models\Appeals;
         </div>
         <div class="col-md-7">
             <?php if ($model->fo_id_company === null): ?>
-            <p><?= Html::button('Идентифицировать контрагента', ['id' => 'btn-identify-ca', 'class' => 'btn btn-default', 'title' => 'Попытаться идентифицировать контрагента', 'data-model-id' => $model->id, 'data-loading-text' => '<i class="fa fa-cog fa-spin fa-lg text-info"></i> Поиск по базе данных...', 'autocomplete' => 'off']) ?></p>
+            <p><?= Html::button('Идентифицировать контрагента', ['id' => 'btn-identify-ca', 'class' => 'btn btn-default', 'title' => 'Попытаться идентифицировать контрагента', 'data-loading-text' => '<i class="fa fa-cog fa-spin fa-lg text-info"></i> Поиск по базе данных...', 'autocomplete' => 'off']) ?></p>
             <?php endif; ?>
             <div id="block-ca"><?= $this->render('_ca', ['model' => $model, 'form' => $form]) ?></div>
         </div>
@@ -64,6 +66,14 @@ use common\models\Appeals;
         <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
 
         <?php endif; ?>
+        <?= Html::a('<i class="fa fa-trash-o" aria-hidden="true"></i> Удалить', ['delete', 'id' => $model->id], [
+            'class' => 'btn btn-danger btn-lg',
+            'data' => [
+                'confirm' => 'Вы действительно хотите удалить это обращение?',
+                'method' => 'post',
+            ],
+        ]) ?>
+
     </div>
     <?php elseif ($is_wizard === true && $model->fo_id_company != null): ?>
         <div class="alert alert-success" role="alert">
@@ -91,7 +101,7 @@ function btnIdentifyOnClick() {
     \$btn.button("loading");
 
     // фиксируем идентификатор обращения
-    appeal_id = \$btn.attr("data-model-id");
+    appeal_id = $("#appeals-id").val();
 
     $("#block-ca").load("$url_id_ca?id=" + appeal_id, function( response, status, xhr ) {
         \$btn.button("reset");
@@ -115,7 +125,7 @@ function btnIdentifyOnClick() {
 function tableMultipleRowOnClick() {
     var \$btn = $("#btn-identify-ca");
     // идентификатор обращения
-    appeal_id = \$btn.attr("data-model-id");
+    appeal_id = $("#appeals-id").val();
     // идентификатор выбранного контрагент
     ca_id = $(this).attr("data-caId");
 

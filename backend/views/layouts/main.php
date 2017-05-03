@@ -81,14 +81,35 @@ elseif (Yii::$app->user->can('role_documents'))
     $items = [
         ['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
     ];
-elseif (Yii::$app->user->can('role_report1'))
+elseif (Yii::$app->user->can('role_processes'))
+    $items = [
+        [
+            'label' => 'Обработки',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-cogs"></i> Оплата рейсов', 'url' => ['/process/freights-payments']],
+            ],
+        ],
+    ];
+elseif (Yii::$app->user->can('sales_department_head'))
     $items = [
         ['label' => '<i class="fa fa-magic fa-lg text-success"></i> Мастер обработки обращений', 'url' => ['/appeals/wizard']],
-        ['label' => '<i class="fa fa-pie-chart fa-lg text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
+        ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
+        [
+            'label' => 'Отчеты',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ обращений', 'url' => ['/reports/analytics']],
+                '<li class="divider"></li>',
+                ['label' => '<i class="fa fa-pie-chart fa-lg text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по дубликатам в контрагентах', 'url' => ['/reports/ca-duplicates']],
+            ],
+        ],
     ];
 elseif (Yii::$app->user->can('operator'))
     $items = [
-        ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create'], 'linkOptions' => ['title' => 'Обращения']],
+        ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create']],
+        ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
     ];
 $items[] = '<li>'
     . Html::beginForm(['/logout'], 'post')

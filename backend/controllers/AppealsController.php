@@ -7,6 +7,7 @@ use common\models\Appeals;
 use common\models\AppealsSearch;
 use common\models\DirectMSSQLQueries;
 use yii\bootstrap\ActiveForm;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -29,14 +30,19 @@ class AppealsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['try-to-identify-counteragent', 'after-identifying-ambiguous', 'delegate-counteragent'],
+                        'actions' => ['try-to-identify-counteragent', 'after-identifying-ambiguous', 'delegate-counteragent', 'temp'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
                     [
-                        'actions' => ['update', 'delete'],
+                        'actions' => ['update'],
                         'allow' => true,
                         'roles' => ['root'],
+                    ],
+                    [
+                        'actions' => ['delete'],
+                        'allow' => true,
+                        'roles' => ['root', 'sales_department_head'],
                     ],
                     [
                         // Создание обращений вручную только для Полных прав и Оператора
@@ -45,10 +51,10 @@ class AppealsController extends Controller
                         'roles' => ['root', 'operator'],
                     ],
                     [
-                        // Мастер обработки обращений только для Полных прав и Работа с отчетом по оборотам клиентов
+                        // Мастер обработки обращений, их список
                         'actions' => ['index', 'wizard'],
                         'allow' => true,
-                        'roles' => ['root', 'role_report1'],
+                        'roles' => ['root', 'sales_department_head', 'operator'],
                     ],
                 ],
             ],
@@ -62,6 +68,14 @@ class AppealsController extends Controller
         ];
     }
 
+    public function actionTemp()
+    {
+        $roles = Yii::$app->authManager->getRolesByUser(1);
+        if (count($roles) == 1)
+            print '<p>один</p>';
+        var_dump($roles['root']->name);
+    }
+
     /**
      * Lists all Appeals models.
      * @return mixed
@@ -70,6 +84,13 @@ class AppealsController extends Controller
     {
         $searchModel = new AppealsSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        // для оператора отбор только по собственным контрагентам
+        if (Yii::$app->user->can('operator'))
+            $dataProvider = $searchModel->search(ArrayHelper::merge(
+                Yii::$app->request->queryParams,
+                [$searchModel->formName() => ['created_by' => Yii::$app->user->id]]
+            ));
 
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 

@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
+use common\models\Appeals;
 use common\models\AppealSources;
 
 /* @var $this yii\web\View */
@@ -47,12 +48,25 @@ $this->params['breadcrumbs'][] = 'Новое обращение *';
         <div class="col-md-6">
             <?= $form->field($model, 'form_message')->textarea(['rows' => 5, 'placeholder' => 'Введите пожелания заказчика']) ?>
 
-            <?= $form->field($model, 'as_id')->widget(Select2::className(), [
-                'data' => AppealSources::arrayMapForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-            ]) ?>
+            <div class="row">
+                <div class="col-md-6">
+                    <?= $form->field($model, 'as_id')->widget(Select2::className(), [
+                        'data' => AppealSources::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                    ]) ?>
 
+                </div>
+                <div class="col-md-6">
+                    <?= $form->field($model, 'ac_id')->widget(Select2::className(), [
+                        'data' => Appeals::arrayMapOfAccountSectionsForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
+            </div>
         </div>
     </div>
     <p>Соберите все необходимые файлы в одном месте, нажмите на кнопку и единоразово отметьте все файлы. Вы можете прикрепить максимум 10 файлов.</p>

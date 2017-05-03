@@ -20,6 +20,10 @@ $this->params['breadcrumbs'][] = 'Ответственные лица для с�
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
+            [
+                'attribute' => 'acName',
+                'options' => ['width' => 100],
+            ],
             'responsible_name',
             [
                 'class' => 'yii\grid\ActionColumn',

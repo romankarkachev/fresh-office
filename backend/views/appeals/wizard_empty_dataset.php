@@ -4,7 +4,7 @@
 /* @var $model common\models\Appeals */
 
 $this->title = 'Мастер обработки обращений | ' . Yii::$app->name;
-if (Yii::$app->user->can('root') || Yii::$app->user->can('role_report1'))
+if (Yii::$app->user->can('root') || Yii::$app->user->can('sales_department_head'))
     $this->params['breadcrumbs'][] = ['label' => 'Обращения', 'url' => ['/appeals']];
 $this->params['breadcrumbs'][] = 'Мастер обработки обращений';
 ?>

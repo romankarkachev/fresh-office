@@ -11,7 +11,9 @@ use yii\helpers\ArrayHelper;
  *
  * @property integer $id
  * @property integer $created_at
+ * @property integer $created_by
  * @property integer $state_id
+ * @property integer $ac_id
  * @property string $form_company
  * @property string $form_username
  * @property string $form_region
@@ -20,6 +22,7 @@ use yii\helpers\ArrayHelper;
  * @property string $form_message
  * @property integer $fo_id_company
  * @property string $fo_company_name
+ * @property integer $fo_id_manager
  * @property integer $ca_state_id
  * @property integer $as_id
  * @property string $request_referrer
@@ -29,10 +32,18 @@ use yii\helpers\ArrayHelper;
  * @property string $appealStateName
  * @property string $caStateName
  *
+ * @property User $createdBy
  * @property AppealSources $as
+ * @property AppealsFiles[] $appealsFiles
  */
 class Appeals extends \yii\db\ActiveRecord
 {
+    /**
+     * Разделы учета.
+     */
+    const РАЗДЕЛ_УЧЕТА_УТИЛИЗАЦИЯ = 1;
+    const РАЗДЕЛ_УЧЕТА_ЭКОЛОГИЯ = 2;
+
     /**
      * Статусы клиентов.
      */
@@ -58,12 +69,6 @@ class Appeals extends \yii\db\ActiveRecord
     const TEMPLATE_MESSAGE_BODY_DELEGATING_COUNTERAGENT = 'Вам передана компания: %COMPANY_NAME%.';
 
     /**
-     * Ответственный по контрагенту.
-     * @var integer
-     */
-    public $fo_id_manager;
-
-    /**
      * Прикрепленные к обращению файлы.
      * @var array
      */
@@ -83,17 +88,18 @@ class Appeals extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['created_at', 'state_id', 'fo_id_company', 'ca_state_id', 'as_id'], 'integer'],
+            [['created_at', 'created_by', 'state_id', 'ac_id', 'fo_id_company', 'fo_id_manager', 'ca_state_id', 'as_id'], 'integer'],
             [['form_message'], 'string'],
             [['form_company'], 'string', 'max' => 50],
             [['form_username', 'form_region', 'form_phone', 'form_email', 'fo_company_name'], 'string', 'max' => 150],
             [['request_referrer', 'request_user_agent'], 'string', 'max' => 255],
             [['request_user_ip'], 'string', 'max' => 30],
             // для ввода вручную немного другие правила валидации
-            [['form_company', 'as_id'], 'required', 'on' => 'create_manual'],
+            [['form_company', 'as_id', 'ac_id'], 'required', 'on' => 'create_manual'],
             ['form_phone', 'validatePhone', 'on' => 'create_manual'],
             ['form_email', 'email', 'on' => 'create_manual'],
             [['files'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 10],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['as_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppealSources::className(), 'targetAttribute' => ['as_id' => 'id']],
         ];
     }
@@ -106,7 +112,9 @@ class Appeals extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'created_at' => 'Дата и время создания',
+            'created_by' => 'Автор создания',
             'state_id' => 'Статус обращения',
+            'ac_id' => 'Раздел учета', // 1 - утилизация, 2 - экология
             // поля формы (6):
             'form_company' => 'Компания',
             'form_username' => 'Имя',
@@ -116,7 +124,7 @@ class Appeals extends \yii\db\ActiveRecord
             'form_message' => 'Текст сообщения',
             'fo_id_company' => 'Контрагент из Fresh Office',
             'fo_company_name' => 'Контрагент', // Наименование контрагента из Fresh Office
-            'fo_id_manager' => 'Ответственный', // поле виртуальное, в базе не хранится
+            'fo_id_manager' => 'Ответственный', // Ответственный по контрагенту из Fresh Office
             'ca_state_id' => 'Статус контрагента',
             'as_id' => 'Источник обращения',
             'request_referrer' => 'Поле post-запроса Referer',
@@ -142,6 +150,12 @@ class Appeals extends \yii\db\ActiveRecord
                     ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
                 ],
             ],
+            'blameable' => [
+                'class' => 'yii\behaviors\BlameableBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
+                ],
+            ],
         ];
     }
 
@@ -162,7 +176,7 @@ class Appeals extends \yii\db\ActiveRecord
     {
         if (parent::beforeSave($insert)) {
             if ($this->scenario == 'create_manual') {
-                // убираем из номера телефона все символы кроме цифр и предваряем его кодом страны
+                // убираем из номера телефона все символы кроме цифр
                 $this->form_phone = preg_replace("/[^0-9]/", '', $this->form_phone);
                 // пытаемся идентифицировать контрагента
                 $this->fillStates($this->tryToIdentifyCounteragent());
@@ -200,6 +214,24 @@ class Appeals extends \yii\db\ActiveRecord
         }
 
         return false;
+    }
+
+    /**
+     * Возвращает в виде массива разновидности разделов учета.
+     * @return array
+     */
+    public static function fetchAccountSections()
+    {
+        return [
+            [
+                'id' => self::РАЗДЕЛ_УЧЕТА_УТИЛИЗАЦИЯ,
+                'name' => 'Утилизация',
+            ],
+            [
+                'id' => self::РАЗДЕЛ_УЧЕТА_ЭКОЛОГИЯ,
+                'name' => 'Экология',
+            ],
+        ];
     }
 
     /**
@@ -274,6 +306,16 @@ class Appeals extends \yii\db\ActiveRecord
     public static function arrayMapOfCaStatesForSelect2()
     {
         return ArrayHelper::map(self::fetchCaStates() , 'id', 'name');
+    }
+
+    /**
+     * Делает выборку разделов учета и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfAccountSectionsForSelect2()
+    {
+        return ArrayHelper::map(self::fetchAccountSections() , 'id', 'name');
     }
 
     /**
@@ -884,18 +926,52 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
     }
 
     /**
+     * Возвращает наименование раздела учета.
+     * @param $ac_id integer идентификатор раздела учета
+     * @return string
+     */
+    public static function getIndepAccountSectionName($ac_id)
+    {
+        if ($ac_id != null) {
+            $sourceTable = Appeals::fetchAccountSections();
+            $key = array_search($ac_id, array_column($sourceTable, 'id'));
+            if (false !== $key) return $sourceTable[$key]['name'];
+        }
+
+        return '';
+    }
+
+    /**
+     * Возвращает наименование раздела учета.
+     * @return string
+     */
+    public function getAccountSectionName()
+    {
+        if (null === $this->ac_id) {
+            return '<не определен>';
+        }
+
+        $sourceTable = self::fetchAccountSections();
+        $key = array_search($this->ac_id, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
+    }
+
+    /**
      * Возвращает наименование статуса обращения.
-     * @param $state_id integer|null идентификатор статуса, для которого нужно определить наименование
+     * @param $state_id integer идентификатор статуса, для которого нужно определить наименование
      * @return string
      */
     public static function getIndepAppealStateName($state_id)
     {
-        $sourceTable = Appeals::fetchAppealStates();
-        $key = array_search($state_id, array_column($sourceTable, 'id'));
-        if (false !== $key)
-            return $sourceTable[$key]['name'];
-        else
-            return '';
+        if ($state_id != null) {
+            $sourceTable = Appeals::fetchAppealStates();
+            $key = array_search($state_id, array_column($sourceTable, 'id'));
+            if (false !== $key) return $sourceTable[$key]['name'];
+        }
+
+        return '';
     }
 
     /**
@@ -910,10 +986,9 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
 
         $sourceTable = self::fetchAppealStates();
         $key = array_search($this->state_id, array_column($sourceTable, 'id'));
-        if (false !== $key)
-            return $sourceTable[$key]['name'];
-        else
-            return '';
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
     }
 
     /**
@@ -925,10 +1000,9 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
     {
         $sourceTable = self::fetchCaStates();
         $key = array_search($state_id, array_column($sourceTable, 'id'));
-        if (false !== $key)
-            return $sourceTable[$key]['name'];
-        else
-            return '';
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
     }
 
     /**
@@ -943,10 +1017,27 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
 
         $sourceTable = self::fetchCaStates();
         $key = array_search($this->ca_state_id, array_column($sourceTable, 'id'));
-        if (false !== $key)
-            return $sourceTable[$key]['name'];
-        else
-            return '';
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'created_by']);
+    }
+
+    /**
+     * Возвращает имя автора-создателя в виде ivan (Иван).
+     * @return string
+     */
+    public function getCreatedByName()
+    {
+        return $this->created_by == null ? '' : ($this->createdBy->profile == null ? $this->createdBy->username :
+            $this->createdBy->username . ' (' . $this->createdBy->profile->name . ')');
     }
 
     /**
@@ -964,5 +1055,13 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
     public function getAppealSourceName()
     {
         return $this->as == null ? '' : $this->as->name;
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getAppealsFiles()
+    {
+        return $this->hasMany(AppealsFiles::className(), ['appeal_id' => 'id']);
     }
 }

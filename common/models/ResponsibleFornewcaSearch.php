@@ -18,7 +18,7 @@ class ResponsibleFornewcaSearch extends ResponsibleFornewca
     public function rules()
     {
         return [
-            [['id', 'responsible_id'], 'integer'],
+            [['id', 'responsible_id', 'ac_id'], 'integer'],
             [['responsible_name'], 'safe'],
         ];
     }
@@ -61,6 +61,7 @@ class ResponsibleFornewcaSearch extends ResponsibleFornewca
         $query->andFilterWhere([
             'id' => $this->id,
             'responsible_id' => $this->responsible_id,
+            'ac_id' => $this->ac_id,
         ]);
 
         $query->andFilterWhere(['like', 'responsible_name', $this->responsible_name]);

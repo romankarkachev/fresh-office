@@ -2,13 +2,13 @@
 
 namespace backend\controllers;
 
-use common\models\Appeals;
 use Yii;
 use yii\data\ArrayDataProvider;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use moonland\phpexcel\Excel;
+use common\models\Appeals;
 use common\models\DirectMSSQLQueries;
 use common\models\ReportTurnover;
 use common\models\ReportNofinances;
@@ -31,7 +31,7 @@ class ReportsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['turnover'],
+                        'actions' => ['turnover', 'analytics'],
                         'allow' => true,
                         'roles' => ['root', 'sales_department_head'],
                     ],

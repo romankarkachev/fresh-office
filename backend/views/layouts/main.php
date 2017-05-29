@@ -81,7 +81,7 @@ elseif (Yii::$app->user->can('role_documents'))
     $items = [
         ['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
     ];
-elseif (Yii::$app->user->can('role_processes'))
+elseif (Yii::$app->user->can('accountant_freights'))
     $items = [
         [
             'label' => 'Обработки',

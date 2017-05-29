@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = 'Обращения';
 
     <p>
         <?php if (Yii::$app->user->can('root')): ?>
-            <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
+        <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
         <?php endif; ?>
         <!--<?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>-->
@@ -70,6 +70,20 @@ $this->params['breadcrumbs'][] = 'Обращения';
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
                 'options' => ['width' => '170'],
+            ],
+            [
+                'header' => 'Способ',
+                'format' => 'raw',
+                'value' => function ($model) {
+                    /* @var $model \common\models\Appeals */
+                    if ($model->request_referrer == null)
+                        return '<i class="fa fa-pencil-square-o" aria-hidden="true"></i>';
+                    else
+                        return '<i class="fa fa-globe" aria-hidden="true"></i>';
+                },
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+                'options' => ['width' => '60'],
             ],
             [
                 'class' => 'yii\grid\ActionColumn',

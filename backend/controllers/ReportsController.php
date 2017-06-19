@@ -31,12 +31,22 @@ class ReportsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['turnover', 'analytics'],
+                        'actions' => ['turnover'],
+                        'allow' => true,
+                        'roles' => ['root', 'sales_department_head', 'dpc_head'],
+                    ],
+                    [
+                        'actions' => ['analytics'],
                         'allow' => true,
                         'roles' => ['root', 'sales_department_head'],
                     ],
                     [
-                        'actions' => ['nofinances', 'ca-duplicates', 'no-transport-has-projects', 'analytics'],
+                        'actions' => ['ca-duplicates'],
+                        'allow' => true,
+                        'roles' => ['root', 'dpc_head'],
+                    ],
+                    [
+                        'actions' => ['nofinances', 'no-transport-has-projects', 'analytics'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],

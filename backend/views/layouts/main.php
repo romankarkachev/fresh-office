@@ -111,6 +111,30 @@ elseif (Yii::$app->user->can('operator'))
         ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create']],
         ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
     ];
+elseif (Yii::$app->user->can('logist'))
+    $items = [
+        ['label' => '<i class="fa fa-briefcase fa-lg"></i> Проекты', 'url' => ['/projects'], 'linkOptions' => ['title' => 'Проекты']],
+        [
+            'label' => 'Справочники',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-truck text-info"></i> Перевозчики', 'url' => ['/ferrymen']],
+                ['label' => 'Типы техники', 'url' => ['/transport-types']],
+            ],
+        ],
+    ];
+elseif (Yii::$app->user->can('dpc_head'))
+    // Руководитель ЦОД
+    $items = [
+        [
+            'label' => 'Отчеты',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по оборотам клиентов', 'url' => ['/reports/turnover']],
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по дубликатам в контрагентах', 'url' => ['/reports/ca-duplicates']],
+            ],
+        ]
+    ];
 $items[] = '<li>'
     . Html::beginForm(['/logout'], 'post')
     . Html::submitButton(

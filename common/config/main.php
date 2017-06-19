@@ -25,6 +25,11 @@ return [
                             Yii::$app->response->redirect(['/appeals/create'])->send();
                             Yii::$app->end();
                         }
+                        if (Yii::$app->user->can('logist')) {
+                            // пользователя с правами логиста сразу переводим на страницу проектов
+                            Yii::$app->response->redirect(['/projects'])->send();
+                            Yii::$app->end();
+                        }
                     }
                 ],
             ],

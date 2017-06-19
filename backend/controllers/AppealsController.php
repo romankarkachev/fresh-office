@@ -68,14 +68,6 @@ class AppealsController extends Controller
         ];
     }
 
-    public function actionTemp()
-    {
-        $roles = Yii::$app->authManager->getRolesByUser(1);
-        if (count($roles) == 1)
-            print '<p>один</p>';
-        var_dump($roles['root']->name);
-    }
-
     /**
      * Lists all Appeals models.
      * @return mixed

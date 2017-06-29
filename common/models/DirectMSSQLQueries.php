@@ -4,7 +4,7 @@ namespace common\models;
 
 use Yii;
 use yii\base\Model;
-use yii\db\Expression;
+use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -12,6 +12,55 @@ use yii\helpers\ArrayHelper;
  */
 class DirectMSSQLQueries extends Model
 {
+    /**
+     * Типы проектов.
+     * заказ предоплата, вывоз, заказ постоплата, самопривоз, фото/видео, выездные работы, производство, осмотр объекта
+     */
+    const PROJECTS_TYPES_LOGIST_LIMIT = '3,4,5,6,7,8,10,14';
+
+    /**
+     * Статусы заказов.
+     * оплачено, у заказчика, на складе, едет на склад, едет к заказчику, вывоз завершен, вывоз согласован,
+     * самопривоз одобрен, согласование вывоза, транспорт заказан
+     */
+    const PROJECTS_STATES_LOGIST_LIMIT = '5,6,13,28,29,30,31,32,33,34';
+
+    /**
+     * Делает выборку типов проектов.
+     * @param $logistLimit bool применение идентификаторов, ограничивающих выборку (для логистов)
+     * @return array
+     */
+    public static function fetchProjectsTypes($logistLimit = null)
+    {
+        $conditionIds = '';
+        if (isset($logistLimit)) $conditionIds = chr(13) . 'WHERE ID_LIST_SPR_PROJECT IN (' . self::PROJECTS_TYPES_LOGIST_LIMIT . ')';
+
+        $query_text = '
+SELECT ID_LIST_SPR_PROJECT AS id ,NAME_PROJECT AS name
+FROM CBaseCRM_Fresh_7x.dbo.LIST_SPR_PROJECT' . $conditionIds . '
+ORDER BY NAME_PROJECT';
+
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
+     * Делает выборку статусов проектов.
+     * @param $logistLimit bool применение идентификаторов, ограничивающих выборку (для логистов)
+     * @return array
+     */
+    public static function fetchProjectsStates($logistLimit = null)
+    {
+        $conditionIds = '';
+        if (isset($logistLimit)) $conditionIds = chr(13) . 'WHERE ID_PRIZNAK_PROJECT IN (' . self::PROJECTS_STATES_LOGIST_LIMIT . ')';
+
+        $query_text = '
+SELECT ID_PRIZNAK_PROJECT AS id, PRIZNAK_PROJECT AS name
+FROM CBaseCRM_Fresh_7x.dbo.LIST_SPR_PRIZNAK_PROJECT' . $conditionIds . '
+ORDER BY PRIZNAK_PROJECT';
+
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
     /**
      * Возвращает в виде массива менеджеров CRM.
      * @return array
@@ -44,6 +93,99 @@ LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
 WHERE COMPANY.ID_COMPANY=' . intval($id);
 
         return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
+     * Возвращает данные контрагента.
+     * @param $name string подстрока для поиска по наименованию
+     * @return array
+     */
+    public static function fetchCounteragents($name)
+    {
+        $query_text = '
+SELECT
+    COMPANY.ID_COMPANY AS id, COMPANY_NAME AS text
+FROM CBaseCRM_Fresh_7x.dbo.COMPANY
+WHERE COMPANY.COMPANY_NAME LIKE \'%' . $name . '%\'
+ORDER BY COMPANY_NAME';
+
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
+     * Делает выборку проектов.
+     */
+    public static function fetchProjects()
+    {
+        $query_text = '
+SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id
+,LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT AS type_id, LIST_SPR_PROJECT.NAME_PROJECT AS type_name
+,ADD_vivozdate
+,DATE_START_PROJECT AS date_start
+,DATE_FINAL_PROJECT AS date_end
+,LIST_PROJECT_COMPANY.ID_COMPANY AS ca_id, COMPANY.COMPANY_NAME AS ca_name
+,LIST_PROJECT_COMPANY.ID_MANAGER_VED AS manager_id, MANAGERS.MANAGER_NAME AS manager_name
+,payment.amount
+,payment.cost
+,LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT AS state_id, LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT AS state_name
+,ADD_perevoz
+,ADD_proizodstvo
+,ADD_oplata
+,ADD_adres
+,ADD_dannie
+,ADD_ttn
+,ADD_wieght AS weight
+FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_PROJECT_COMPANY]
+LEFT JOIN LIST_SPR_PROJECT ON LIST_SPR_PROJECT.ID_LIST_SPR_PROJECT = LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT
+LEFT JOIN LIST_SPR_PRIZNAK_PROJECT ON LIST_SPR_PRIZNAK_PROJECT.ID_PRIZNAK_PROJECT = LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = LIST_PROJECT_COMPANY.ID_MANAGER_VED
+LEFT JOIN (
+	SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR) AS amount, SUM(SS_PRICE_TOVAR) AS cost
+	FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_TOVAR_PROJECT]
+	GROUP BY ID_LIST_PROJECT_COMPANY
+) AS payment ON payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY
+WHERE
+  LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT IN (' . self::PROJECTS_STATES_LOGIST_LIMIT . ')
+  AND LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . self::PROJECTS_TYPES_LOGIST_LIMIT . ')
+ORDER BY LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY DESC';
+//WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=352';
+
+        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        return new ArrayDataProvider([
+            'modelClass' => 'common\models\ProjectsFO',
+            'key' => 'id',
+            'allModels' => $result,
+            'pagination' => [
+                //'pageSize' => $this->searchPerPage,
+            ],
+            'sort' => [
+                'defaultOrder' => ['date_start' => SORT_ASC],
+                'attributes' => [
+                    'id',
+                    'type_id',
+                    'type_name',
+                    'state_id',
+                    'state_name',
+                    'manager_id',
+                    'manager_name',
+                    'ca_id',
+                    'ca_name',
+                    'amount',
+                    'cost',
+                    'vivozdate',
+                    'date_start',
+                    'date_end',
+                    'perevoz',
+                    'proizodstvo',
+                    'oplata',
+                    'adres',
+                    'dannie',
+                    'ttn',
+                    'weight',
+                ],
+            ],
+        ]);
     }
 
     /**
@@ -172,5 +314,27 @@ WHERE COMPANY.ID_COMPANY IN (' . $ca_ids . ')';
     public static function arrayMapOfManagersForSelect2()
     {
         return ArrayHelper::map(self::fetchManagers() , 'id', 'name');
+    }
+
+    /**
+     * Делает выборку типов проектов и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @param $logistLimit bool применение идентификаторов, ограничивающих выборку (для логистов)
+     * @return array
+     */
+    public static function arrayMapOfProjectsTypesForSelect2($logistLimit = null)
+    {
+        return ArrayHelper::map(self::fetchProjectsTypes($logistLimit) , 'id', 'name');
+    }
+
+    /**
+     * Делает выборку статусов проектов и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @param $logistLimit bool применение идентификаторов, ограничивающих выборку (для логистов)
+     * @return array
+     */
+    public static function arrayMapOfProjectsStatesForSelect2($logistLimit = null)
+    {
+        return ArrayHelper::map(self::fetchProjectsStates($logistLimit) , 'id', 'name');
     }
 }

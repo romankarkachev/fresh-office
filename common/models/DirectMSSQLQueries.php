@@ -19,11 +19,22 @@ class DirectMSSQLQueries extends Model
     const PROJECTS_TYPES_LOGIST_LIMIT = '3,4,5,6,7,8,10,14';
 
     /**
+     * Типы проектов для ответственных по типам проектов.
+     * фото/видео, выездные работы, осмотр объекта
+     */
+    const PROJECTS_TYPES_FOR_RESPONSIBLE = '7,8,14';
+
+    /**
      * Статусы заказов.
      * оплачено, у заказчика, на складе, едет на склад, едет к заказчику, вывоз завершен, вывоз согласован,
      * самопривоз одобрен, согласование вывоза, транспорт заказан
      */
     const PROJECTS_STATES_LOGIST_LIMIT = '5,6,13,28,29,30,31,32,33,34';
+
+    /**
+     * Названия таблиц в MS SQL
+     */
+    const TABLE_NAME_ПЕРЕВОЗЧИКИ = 'ADD_SPR_perevoznew';
 
     /**
      * Делает выборку типов проектов.
@@ -33,7 +44,7 @@ class DirectMSSQLQueries extends Model
     public static function fetchProjectsTypes($logistLimit = null)
     {
         $conditionIds = '';
-        if (isset($logistLimit)) $conditionIds = chr(13) . 'WHERE ID_LIST_SPR_PROJECT IN (' . self::PROJECTS_TYPES_LOGIST_LIMIT . ')';
+        if (isset($logistLimit)) $conditionIds = chr(13) . 'WHERE ID_LIST_SPR_PROJECT IN (' . $logistLimit . ')';
 
         $query_text = '
 SELECT ID_LIST_SPR_PROJECT AS id ,NAME_PROJECT AS name
@@ -114,8 +125,55 @@ ORDER BY COMPANY_NAME';
 
     /**
      * Делает выборку проектов.
+     * @param $projects_types_ids string идентификаторы типов проектов, которые будут отобраны
+     * @param $exclude_ids string идентификаторы проектов, которые будут исключены из выборки
      */
-    public static function fetchProjects()
+    public static function fetchProjectsForMailingByTypes($projects_types_ids, $exclude_ids)
+    {
+        if ($exclude_ids != '')
+            $conditionsExcludeIds = '
+    LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY NOT IN (' . $exclude_ids . ')
+    AND';
+
+        $query_text = '
+SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id
+,LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT AS type_id, LIST_SPR_PROJECT.NAME_PROJECT AS type_name
+,LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT AS state_id, LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT AS state_name
+,DATE_CREATE_PROGECT AS date_created
+,DATE_START_PROJECT AS date_start
+,DATE_FINAL_PROJECT AS date_end
+,LIST_PROJECT_COMPANY.ID_COMPANY AS ca_id, COMPANY.COMPANY_NAME AS ca_name
+,LIST_PROJECT_COMPANY.ID_CONTACT_MAN AS contact_id, LIST_CONTACT_MAN.CONTACT_MAN_NAME AS contact_name, LIST_TELEPHONES.TELEPHONE AS contact_phone
+,LIST_PROJECT_COMPANY.ID_MANAGER_CREATOR AS author_id, MANAGERS.MANAGER_NAME AS author_name
+,LIST_PROJECT_COMPANY.ID_MANAGER_VED AS manager_id, MANAGERS.MANAGER_NAME AS manager_name
+,payment.amount
+,payment.cost
+,LIST_PROJECT_COMPANY.PRIM_PROJECT_COMPANY AS comment
+FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_PROJECT_COMPANY]
+LEFT JOIN LIST_SPR_PROJECT ON LIST_SPR_PROJECT.ID_LIST_SPR_PROJECT = LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT
+LEFT JOIN LIST_SPR_PRIZNAK_PROJECT ON LIST_SPR_PRIZNAK_PROJECT.ID_PRIZNAK_PROJECT = LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = LIST_PROJECT_COMPANY.ID_MANAGER_VED
+LEFT JOIN LIST_CONTACT_MAN ON LIST_CONTACT_MAN.ID_CONTACT_MAN = LIST_PROJECT_COMPANY.ID_CONTACT_MAN
+LEFT JOIN LIST_TELEPHONES ON LIST_TELEPHONES.ID_CONTACT_MAN = LIST_PROJECT_COMPANY.ID_CONTACT_MAN
+LEFT JOIN (
+	SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR) AS amount, SUM(SS_PRICE_TOVAR) AS cost
+	FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_TOVAR_PROJECT]
+	GROUP BY ID_LIST_PROJECT_COMPANY
+) AS payment ON payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY
+WHERE'. $conditionsExcludeIds . '
+    LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . $projects_types_ids . ')
+    AND LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT > ' . new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', (time() - 7*24*3600)) .'T00:00:00.000\', 126)') . '
+ORDER BY LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT';
+
+        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        return $result;
+    }
+
+    /**
+     * Делает выборку проектов для списка.
+     */
+    public static function fetchProjectsList()
     {
         $query_text = '
 SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id
@@ -186,6 +244,26 @@ ORDER BY LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY DESC';
                 ],
             ],
         ]);
+    }
+
+    /**
+     * Выполняет выборку свойств проектов, переданных в параметрах.
+     * @param $ids string строка с идентификаторами проектов, по которым будет выполнена выборка
+     * @return array
+     */
+    public static function getProjectsProperties($ids)
+    {
+        if (is_string($ids)) {
+            $query_text = '
+SELECT ID_LIST_PROJECT_COMPANY AS project_id, PROPERTIES_PROGECT AS property, VALUES_PROPERTIES_PROGECT AS value
+FROM CBaseCRM_Fresh_7x.dbo.LIST_PROPERTIES_PROGECT_COMPANY
+WHERE ID_LIST_PROJECT_COMPANY IN (' . $ids . ')
+ORDER BY ID_LIST_PROJECT_COMPANY';
+
+            return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        }
+        else
+            return [];
     }
 
     /**
@@ -267,6 +345,45 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY IN (' . $project_ids . ')';
             'ADD_oplata' => new Expression('CONVERT(datetime, \''. $date_payment .'T00:00:00.000\', 126)'),
         ], [
             'ID_LIST_PROJECT_COMPANY' => intval($project_id),
+        ])->execute();
+
+        if ($rows_affected >= 0)
+            return true;
+        else
+            return false;
+    }
+
+    /**
+     * Выполняет создание перевозчика.
+     * @param $model Ferrymen
+     * @return bool
+     */
+    public static function createFerryman($model)
+    {
+        $rows_affected = Yii::$app->db_mssql->createCommand()->insert('CBaseCRM_Fresh_7x.dbo.' . self::TABLE_NAME_ПЕРЕВОЗЧИКИ, [
+            'NAME' => $model->name,
+        ])->execute();
+
+        if ($rows_affected > 0) {
+            $model->fo_id = Yii::$app->db_mssql->getLastInsertID();
+            $model->save();
+            return true;
+        }
+        else
+            return false;
+    }
+
+    /**
+     * Выполняет обновление записей перевозчика.
+     * @param $model Ferrymen
+     * @return bool
+     */
+    public static function updateFerryman($model)
+    {
+        $rows_affected = Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.' . self::TABLE_NAME_ПЕРЕВОЗЧИКИ, [
+            'NAME' => $model->name,
+        ], [
+            'ID' => intval($model->fo_id),
         ])->execute();
 
         if ($rows_affected >= 0)

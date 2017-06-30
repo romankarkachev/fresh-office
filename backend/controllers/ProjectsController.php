@@ -52,7 +52,7 @@ class ProjectsController extends Controller
      */
     public function actionIndex()
     {
-        $dataProvider = DirectMSSQLQueries::fetchProjects();
+        $dataProvider = DirectMSSQLQueries::fetchProjectsList();
 
         return $this->render('index', [
             'dataProvider' => $dataProvider,

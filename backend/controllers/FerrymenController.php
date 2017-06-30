@@ -13,6 +13,7 @@ use common\models\DriversInstructings;
 use common\models\DriversInstructingsSearch;
 use common\models\TransportInspections;
 use common\models\TransportInspectionsSearch;
+use common\models\DirectMSSQLQueries;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -90,6 +91,10 @@ class FerrymenController extends Controller
         $model = new Ferrymen();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // создадим перевозчика
+            if (!DirectMSSQLQueries::createFerryman($model))
+                Yii::$app->session->setFlash('error', 'В CRM Fresh Office не удалось создать перевозчика. Откройте созданного перевозчика и сохраните созданный элемент еще раз.');
+
             return $this->redirect(['update', 'id' => $model->id]);
         } else {
             return $this->render('create', [
@@ -109,6 +114,16 @@ class FerrymenController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            if ($model->fo_id == null) {
+                // создадим перевозчика
+                if (!DirectMSSQLQueries::createFerryman($model))
+                    Yii::$app->session->setFlash('error', 'В CRM Fresh Office не удалось создать перевозчика. Откройте созданного перевозчика и сохраните созданный элемент еще раз.');
+            }
+            else {
+                // обновим перевозчика
+                DirectMSSQLQueries::updateFerryman($model);
+            }
+
             return $this->redirect(['/ferrymen']);
         } else {
             // водители

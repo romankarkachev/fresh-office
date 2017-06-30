@@ -53,6 +53,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-user-circle-o text-info"></i> Ответственные для отказа', 'url' => ['/responsible-refusal']],
                 ['label' => '<i class="fa fa-user-plus text-info"></i> Ответственные для новых', 'url' => ['/responsible-fornewca']],
                 ['label' => '<i class="fa fa-user-secret text-info"></i> Источники обращения', 'url' => ['/appeal-sources']],
+                ['label' => 'Ответственные по типам проектов', 'url' => ['/responsible-by-project-types']],
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-users text-info"></i> Пользователи', 'url' => ['/users']],
             ],

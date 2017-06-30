@@ -11,7 +11,7 @@ use yii\grid\GridView;
 $this->title = 'Транспорт | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Транспорт';
 ?>
-<div class="transport-index">
+<div class="transport-list">
     <?= $this->render('_search', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
 
     <p>

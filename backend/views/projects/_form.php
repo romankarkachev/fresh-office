@@ -20,7 +20,7 @@ use common\models\DirectMSSQLQueries;
     <div class="row">
         <div class="col-md-2">
             <?= $form->field($model, 'type_id')->widget(Select2::className(), [
-                'data' => DirectMSSQLQueries::arrayMapOfProjectsTypesForSelect2(true),
+                'data' => DirectMSSQLQueries::arrayMapOfProjectsTypesForSelect2(DirectMSSQLQueries::PROJECTS_TYPES_LOGIST_LIMIT),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
             ]) ?>

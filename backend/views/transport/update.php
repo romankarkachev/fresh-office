@@ -34,4 +34,13 @@ $this->params['breadcrumbs'][] = 'Автомобиль ' . $modelRepresentation;
             ],
         ]
     ]) ?>
+
 </div>
+<?php
+$this->registerJs(<<<JS
+$("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
+    $.pjax.reload({container:"#afs"});
+});
+JS
+, \yii\web\View::POS_READY);
+?>

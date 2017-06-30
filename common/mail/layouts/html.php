@@ -51,14 +51,14 @@ use yii\helpers\Html;
 
         .container {
             display: block !important;
-            max-width: 600px !important;
+            max-width: 800px !important;
             margin: 0 auto !important;
             /* makes it centered */
             clear: both !important;
         }
 
         .content {
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             display: block;
             padding: 20px;
@@ -279,7 +279,7 @@ use yii\helpers\Html;
 <table class="body-wrap">
     <tr>
         <td></td>
-        <td class="container" width="600">
+        <td class="container" width="800">
             <div class="content">
                 <table class="main" width="100%" cellpadding="0" cellspacing="0">
                     <tr>

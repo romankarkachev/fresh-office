@@ -71,7 +71,7 @@ class FerrymenTransportController extends Controller
         $model = new Transport();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/ferrymen-transport']);
+            return $this->redirect(['/ferrymen-transport/update', 'id' => $model->id]);
         } else {
             return $this->render('/transport/create', [
                 'model' => $model,

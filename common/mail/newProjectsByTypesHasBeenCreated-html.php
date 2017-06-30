@@ -1,27 +1,18 @@
 <?php
 
-use yii\helpers\Html;
-
 /* @var $this yii\web\View */
-/* @var $appeal common\models\Appeals */
-
-$link = Yii::$app->urlManager->createAbsoluteUrl(['/appeals/update', 'id' => $appeal->id]);
+/* @var $projects array */
 ?>
 <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
         <td class="content-block">
-            <strong>Уважаемый менеджер!</strong>
+            <strong>Новые проекты</strong>
         </td>
     </tr>
     <tr>
         <td class="content-block">
-            Зарегистрировано обращение, в котором Вы указаны как ответственное лицо. Клиент <?= $appeal->fo_company_name ?>, id <strong><?= $appeal->fo_id_company ?></strong>, статус <?= $appeal->caStateName ?>. Во вложении файлы по заявке. Удачной работы!
-        </td>
-    </tr>
-    <tr>
-        <td class="content-block">
-            <?= Html::a('Открыть обращение', $link, ['class' => 'btn-primary']) ?>
-
+            Обратите внимание на проекты, которые были недавно созданы.
         </td>
     </tr>
 </table>
+<?= $projects ?>

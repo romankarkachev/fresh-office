@@ -2,18 +2,19 @@
 
 namespace backend\controllers;
 
+use common\models\DirectMSSQLQueries;
 use Yii;
-use common\models\TransportBrands;
-use common\models\TransportBrandsSearch;
+use common\models\ResponsibleByProjectTypes;
+use common\models\ResponsibleByProjectTypesSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
 /**
- * TransportBrandsController implements the CRUD actions for TransportBrands model.
+ * ResponsibleByProjectTypesController implements the CRUD actions for ResponsibleByProjectTypes model.
  */
-class TransportBrandsController extends Controller
+class ResponsibleByProjectTypesController extends Controller
 {
     /**
      * @inheritdoc
@@ -41,34 +42,31 @@ class TransportBrandsController extends Controller
     }
 
     /**
-     * Lists all TransportBrands models.
+     * Lists all ResponsibleByProjectTypes models.
      * @return mixed
      */
     public function actionIndex()
     {
-        $searchModel = new TransportBrandsSearch();
+        $searchModel = new ResponsibleByProjectTypesSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
-
-        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
-            'searchApplied' => $searchApplied,
         ]);
     }
 
     /**
-     * Creates a new TransportBrands model.
+     * Creates a new ResponsibleByProjectTypes model.
      * If creation is successful, the browser will be redirected to the 'view' page.
      * @return mixed
      */
     public function actionCreate()
     {
-        $model = new TransportBrands();
+        $model = new ResponsibleByProjectTypes();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/transport-brands']);
+            return $this->redirect(['/responsible-by-project-types']);
         } else {
             return $this->render('create', [
                 'model' => $model,
@@ -77,7 +75,7 @@ class TransportBrandsController extends Controller
     }
 
     /**
-     * Updates an existing TransportBrands model.
+     * Updates an existing ResponsibleByProjectTypes model.
      * If update is successful, the browser will be redirected to the 'view' page.
      * @param integer $id
      * @return mixed
@@ -87,7 +85,7 @@ class TransportBrandsController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/transport-brands']);
+            return $this->redirect(['/responsible-by-project-types']);
         } else {
             return $this->render('update', [
                 'model' => $model,
@@ -96,7 +94,7 @@ class TransportBrandsController extends Controller
     }
 
     /**
-     * Deletes an existing TransportBrands model.
+     * Deletes an existing ResponsibleByProjectTypes model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
@@ -105,54 +103,22 @@ class TransportBrandsController extends Controller
     {
         $this->findModel($id)->delete();
 
-        return $this->redirect(['/transport-brands']);
+        return $this->redirect(['/responsible-by-project-types']);
     }
 
     /**
-     * Finds the TransportBrands model based on its primary key value.
+     * Finds the ResponsibleByProjectTypes model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param integer $id
-     * @return TransportBrands the loaded model
+     * @return ResponsibleByProjectTypes the loaded model
      * @throws NotFoundHttpException if the model cannot be found
      */
     protected function findModel($id)
     {
-        if (($model = TransportBrands::findOne($id)) !== null) {
+        if (($model = ResponsibleByProjectTypes::findOne($id)) !== null) {
             return $model;
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
-        }
-    }
-
-    /**
-     * Парсит названия марок грузовых автомобилей с сайта-донора.
-     * При повторном запуске проверка на дубли не выполняется!
-     * Выполнение происходит без дополнительного подтверждения!
-     */
-    public function actionParseData()
-    {
-        $url = 'http://gruzovoy.ru/catalog/technic/type/gryzovie_avtomobili_gryzoviki';
-        try {
-            $html = \keltstr\simplehtmldom\SimpleHTMLDom::file_get_html($url);
-            if ($html->innertext != '') {
-                $dom = 'div.allbrands > ul > li';
-                if (count($html->find($dom)) > 0) {
-                    $result = [];
-                    // перебираем результат выборки DOM
-                    foreach ($html->find($dom) as $element) {
-                        $name = $element->plaintext;
-                        if (!in_array($name, $result)) {
-                            $result[] = $name;
-                            $brand = new TransportBrands();
-                            $brand->name = $name;
-                            $brand->save();
-                        }
-                    }
-                }
-            }
-        }
-        catch (\Exception $exception) {
-            echo '<p>Не удалось выполнить запрос!</p>' . $exception;
         }
     }
 }

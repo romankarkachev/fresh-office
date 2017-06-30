@@ -2,119 +2,131 @@
 
 namespace backend\controllers;
 
-use common\models\CargosStates;
 use Yii;
-use yii\helpers\Html;
-use yii\helpers\Url;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
-use common\models\Currencies;
-use common\models\CurrenciesCrosses;
-use common\models\Settings;
-use common\models\Transactions;
-use common\models\TransactionsStates;
+use common\models\DirectMSSQLQueries;
+use common\models\MailingProjects;
+use common\models\ResponsibleByProjectTypes;
 
 class ServicesController extends Controller
 {
     /**
-     * Запрашивает и в случае успеха сохраняет курсы валют с сайта Центробанка РФ.
-     * Сохранение производится в специальное поле таблицы currencies и в отдельную таблицу (на дату).
-     * Выбираются для обновления только те валюты, у которых установлен соответствующий признак в true (is_fetch_cross).
+     * Выполняет дополнение проектов их свойствами, хранящимися отдельно.
+     * @param $projects array массив проектов из MS SQL
+     * @return array дополненный свойствами массив проектов
      */
-    public function actionFetchCbrCrosses()
+    private function fillProjectsProperties($projects)
     {
-        $xml = new \DOMDocument();
-        $url = 'http://www.cbr.ru/scripts/XML_daily.asp?date_req=' . date('d.m.Y');
+        $result = $projects;
 
-        if (@$xml->load($url)) {
-            $result = [];
+        $ids = ArrayHelper::getColumn($result, 'id', false);
+        $ids = implode(',', $ids);
+        $projectsProperties = DirectMSSQLQueries::getProjectsProperties($ids);
+        foreach ($projectsProperties as $property) {
+            $key = array_search($property['project_id'], array_column($projects, 'id'));
+            if ($key !== false) {
+                $result[$key]['properties'][] = [
+                    'property' => $property['property'],
+                    'value' => $property['value'],
+                ];
+            }
+        }
 
-            $root = $xml->documentElement;
-            $items = $root->getElementsByTagName('Valute');
+        return $result;
+    }
 
-            foreach ($items as $item) {
-                $code = $item->getElementsByTagName('CharCode')->item(0)->nodeValue;
-                $rate = $item->getElementsByTagName('Nominal')->item(0)->nodeValue;
-                $curs = $item->getElementsByTagName('Value')->item(0)->nodeValue;
-                $result[$code] = floatval(str_replace(',', '.', $curs) / $rate);
+    /**
+     * Выполняет консолидирование информации, составление текста письма и его отправку.
+     * Текст письма состоит из приветствия, списка проектов с их параметрами.
+     * @param $emails array массив получателей в разрезе типов проектов
+     * @param $projects_to_send array массив проектов к рассылке
+     */
+    private function sendLetter($emails, $projects_to_send)
+    {
+        foreach ($emails as $responsible_email) {
+            $responsible_email = trim($responsible_email);
+            $params = [];
+            // дополним временем отправки и адресатом
+            foreach ($projects_to_send as $index => $item) {
+                $projects_to_send[$index]['sent_at'] = time();
+                $projects_to_send[$index]['email_receiver'] = $responsible_email;
+
+                $params['projects'] .= $this->renderPartial('@common/mail/_projectsForMailing', ['project' => $item]);
             }
 
-            if (count($result) > 0) {
-                $currencies = Currencies::find()->where(['is_fetch_cross' => true])->all();
-                foreach ($currencies as $currency) {
-                    /* @var $currency \common\models\Currencies */
-                    if (isset($result[$currency->name])) {
-                        $current_cross = $result[$currency->name];
+            $letter = Yii::$app->mailer->compose([
+                'html' => 'newProjectsByTypesHasBeenCreated-html',
+            ], $params)
+                ->setFrom(Yii::$app->params['senderEmail'])
+                ->setTo($responsible_email)
+                ->setSubject('Подборка новых проектов с типом ' . $projects_to_send[0]['type_name']);
 
-                        $currency->actual_cross = $current_cross;
-                        $currency->save();
-
-                        $cc = CurrenciesCrosses::find()->where(['currency_id' => $currency->id, 'date' => date('Y-m-d', time())])->one();
-                        if ($cc != null) {
-                            // обновление записи за сегодня
-                            $cc->value = $current_cross;
-                            $cc->save();
-                        } else {
-                            // создание новой записи за сегодня
-                            $cc = new CurrenciesCrosses();
-                            $cc->currency_id = $currency->id;
-                            $cc->date = date('Y-m-d', time());
-                            $cc->value = $current_cross;
-                            $cc->save();
-                        }
-                    }
+            if ($letter->send()) {
+                // запишем в базу данных все идентификаторы отправленных проектов
+                foreach ($projects_to_send as $index => $item) {
+                    $mp = new MailingProjects();
+                    $mp->attributes = $item;
+                    $mp->project_id = $item['id'];
+                    $mp->save();
                 }
+
+                // пауза перед возможной следующей отправкой 2 сек
+                sleep(2);
             }
         }
     }
 
     /**
-     * Выполняет выборку незакрытых сделок за последние семь и менее от текущей даты дней.
-     * Если , то.
+     * Кодовое название Zapier.
+     * Модуль выполняет выборку вновь созданных проектов за период с определенной даты и по заданным типам проектов,
+     * и выполняет рассылку тех, которые не были разосланы ранее.
      */
-    public function actionNotifyManagersAboutUnclosedTransactions()
+    public function actionMailingByProjectsTypes()
     {
-        $termin = 7;
-        // если поле в базе в формате date
-        //$days_ago_timestamp = date('Y-m-d', (mktime()-$termin*24*3600)).' 00:00:00';
-        // если поле в базе в формате integer
-        $days_ago_timestamp = strtotime(date('Y-m-d', (mktime()-$termin*24*3600)).' 23:59:59');
-        $transactions = Transactions::find()
-            ->where(['<=', '`created_at`', $days_ago_timestamp])
-            ->andWhere(['`state_id`' => TransactionsStates::TS_OPENED])
-            ->andWhere(['`cs_id`' => CargosStates::CS_DELIVERED_CLOSED])
-            ->orderBy('`manager_id`, `created_at` DESC')
-            ->all();
+        // делаем выборку получателей по типам проектов
+        $receivers = ResponsibleByProjectTypes::find()->select(['type_id' => 'project_type_id', 'receivers'])->orderBy('project_type_id')->asArray()->all();
+        $projects_types = implode(',', ArrayHelper::getColumn($receivers, 'type_id'));
+        $receivers = ArrayHelper::map($receivers, 'type_id', 'receivers');
 
-        $deals_common = '';
-        $deals = '';
-        $current_mid = -1;
-        foreach ($transactions as $transaction) {
-            /* @var $transaction \common\models\Transactions */
-            if ($transaction->manager_id != $current_mid) {
-                if ($current_mid != -1) {
-                    Transactions::notifyUserAboutEvent($current_mid, 'transactionsAreOutdated', $deals);
-                    $deals = '';
+        $time_ago = strtotime(date('Y-m-d', (time() - 7*24*3600)).' 00:00:00'); // отправленные не более семи дней назад
+
+        // отправленные проекты берем не старше одной недели
+        $projects_exclude = implode(',', MailingProjects::find()->distinct('project_id')->select('project_id')->where('sent_at > ' . $time_ago)->column());
+
+        // выборка предположительно новых проектов с определенными типами
+        // проекты отбираются не старше одной недели
+        $projects = DirectMSSQLQueries::fetchProjectsForMailingByTypes($projects_types, $projects_exclude);
+
+        // сделаем выборку параметров и их значений
+        if (count($projects) > 0) {
+            // дополним проекты их свойствами, хранящимися в отдельной таблице
+            $projects = $this->fillProjectsProperties($projects);
+
+            // перебираем проекты, отсортированные по типу, формируем текст письма из нескольких возможных проектв
+            // и отправляем разом, после этого переходим к следующему типу проектов
+            $current_type = -1; // текущий тип проектов
+            $projects_sent = []; // проекты, которые были успешно отправлены ответственным лицам
+            foreach ($projects as $project) {
+                if ($project['type_id'] != $current_type) {
+                    if ($current_type != -1) {
+                        // изменился тип проекта, выполним отправку письма
+                        //$key = array_search(40489, array_column($userdb, 'uid'));
+                        $emails = explode("\n", ArrayHelper::getValue($receivers, $current_type));
+                        if (count($projects_sent) > 0) $this->sendLetter($emails, $projects_sent);
+                        $projects_sent = [];
+                    }
                 }
+
+                $projects_sent[] = $project;
+
+                $current_type = $project['type_id'];
             }
 
-            $message_body = '<p>Сделка <strong>№ ' . $transaction->id . ' от ' . date('d.m.Y', $transaction->created_at) . '</strong> '.Html::a('Перейти', Url::to(['/transactions/update', 'id' => $transaction->id], true)).'</p>';
-            $deals .= $message_body;
-            $deals_common .= $message_body;
-
-            $current_mid = $transaction->manager_id;
+            // и еще раз, потому что если в списке проектов к отправке проекты только одного типа, то условие в цикле
+            // не выполнится и отправка не произойдет по этой причине
+            $emails = explode("\n", ArrayHelper::getValue($receivers, $current_type));
+            if (count($projects_sent) > 0) $this->sendLetter($emails, $projects_sent);
         }
-
-        Transactions::notifyUserAboutEvent($current_mid, 'transactionsAreOutdated', $deals);
-
-        // уведомление на почтовый ящик CRM
-        $params = ['user_name' => 'Администратор'];
-        $params['notifications'] = $deals_common;
-        Yii::$app->mailer->compose([
-            'html' => 'transactionsAreOutdated-html',
-        ], $params)
-            ->setFrom(Yii::$app->params['adminEmail'])
-            ->setTo(Yii::$app->params['CRMEmail'])
-            ->setSubject('Уведомление о сделках, статус которых продолжительное время не меняется')
-            ->send();
     }
 }

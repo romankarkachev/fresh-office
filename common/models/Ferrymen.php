@@ -9,6 +9,7 @@ use yii\helpers\ArrayHelper;
  * This is the model class for table "ferrymen".
  *
  * @property integer $id
+ * @property integer $fo_id
  * @property string $name
  * @property integer $ft_id
  * @property integer $pc_id
@@ -36,7 +37,7 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
-            [['ft_id', 'pc_id'], 'integer'],
+            [['fo_id', 'ft_id', 'pc_id'], 'integer'],
             [['name', 'email'], 'string', 'max' => 255],
             [['phone', 'contact_person'], 'string', 'max' => 50],
             [['pc_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentConditions::className(), 'targetAttribute' => ['pc_id' => 'id']],
@@ -51,6 +52,7 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
+            'fo_id' => 'Идентификатор в Fresh Office',
             'name' => 'Наименование',
             'ft_id' => 'Тип',
             'pc_id' => 'Условия оплаты',
@@ -61,6 +63,15 @@ class Ferrymen extends \yii\db\ActiveRecord
             'ftName' => 'Тип',
             'pcName' => 'Условия оплаты',
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        //return true;
     }
 
     /**

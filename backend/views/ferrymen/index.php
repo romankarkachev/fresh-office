@@ -35,7 +35,7 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{update} {delete}',
+                'template' => '{update}',
                 'buttons' => [
                     'update' => function ($url, $model) {
                         return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-xs btn-default']);

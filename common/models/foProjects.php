@@ -29,7 +29,7 @@ use Yii;
  * @property string $date_start
  * @property string $date_end
  */
-class ProjectsFO extends \yii\db\ActiveRecord
+class foProjects extends \yii\db\ActiveRecord
 {
     public $isNewRecord;
 
@@ -54,6 +54,14 @@ class ProjectsFO extends \yii\db\ActiveRecord
     public $vivozdate;
     public $date_start;
     public $date_end;
+
+    /**
+     * @inheritdoc
+     */
+    public static function tableName()
+    {
+        return 'CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY';
+    }
 
     /**
      * @inheritdoc

@@ -27,6 +27,7 @@ use common\models\DirectMSSQLQueries;
                         'data' => DirectMSSQLQueries::arrayMapOfManagersForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
                     ]) ?>
 
                 </div>

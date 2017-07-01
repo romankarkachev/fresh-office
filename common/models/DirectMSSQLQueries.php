@@ -171,9 +171,12 @@ ORDER BY LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT';
     }
 
     /**
+     * НЕ ИСПОЛЬЗУЕТСЯ НИГДЕ!
      * Делает выборку проектов для списка.
+     * @param $queryParams array массив параметров для отбора
+     * @return ArrayDataProvider
      */
-    public static function fetchProjectsList()
+    public static function fetchProjectsList($queryParams)
     {
         $query_text = '
 SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id
@@ -204,21 +207,21 @@ LEFT JOIN (
 	GROUP BY ID_LIST_PROJECT_COMPANY
 ) AS payment ON payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY
 WHERE
-  LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT IN (' . self::PROJECTS_STATES_LOGIST_LIMIT . ')
-  AND LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . self::PROJECTS_TYPES_LOGIST_LIMIT . ')
+    LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT IN (' . self::PROJECTS_STATES_LOGIST_LIMIT . ')
+    AND LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . self::PROJECTS_TYPES_LOGIST_LIMIT . ')
 ORDER BY LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY DESC';
 //WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=352';
 
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
         return new ArrayDataProvider([
-            'modelClass' => 'common\models\ProjectsFO',
+            'modelClass' => 'common\models\foProjects',
             'key' => 'id',
             'allModels' => $result,
             'pagination' => [
                 //'pageSize' => $this->searchPerPage,
             ],
             'sort' => [
-                'defaultOrder' => ['date_start' => SORT_ASC],
+                'defaultOrder' => ['date_start' => SORT_DESC],
                 'attributes' => [
                     'id',
                     'type_id',
@@ -284,6 +287,31 @@ ORDER BY ID_LIST_PROJECT_COMPANY';
             'ID_PRIZNAK_NOTEPAD_MESSAGE' => FreshOfficeAPI::MESSAGES_STATUS_НЕПРОЧИТАНО,
             'ID_LIST_PROJECT_COMPANY' => 0,
         ])->execute();
+    }
+
+    /**
+     * Выполняет изменение перевозчика в проекте, а также водителя и транспортного средства.
+     * Примеры запросов, которые выполняются:
+     * UPDATE [CBaseCRM_Fresh_7x].[dbo].[LIST_PROJECT_COMPANY] SET [ADD_perevoz_new]='1', [ADD_dannie]='TATA г/н H505PK61 Зашкваров Рефат, паспорт 61 № 111222 выдан 16.10.2014 УФМС России по Пермскому краю, вод. удост. 77 05 097264 01.10.2009' WHERE [ID_COMPANY] IN ('12221', '12498', '12561', '12592')
+     * @param $project_ids string идентификаторы проектов
+     * @param $ferryman_id integer идентификатор перевозчика, который назначается
+     * @param $data string данные водителя и транспортного средства
+     * @return bool
+     */
+    public static function assignFerryman($project_ids, $ferryman_id, $data)
+    {
+        $rows_affected = Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY', [
+            'ADD_perevoz_new' => $ferryman_id,
+            'ADD_dannie' => $data,
+        ], [
+            'ID_LIST_PROJECT_COMPANY' => $project_ids,
+        ])->execute();
+        //])->getRawSql();var_dump($rows_affected);
+
+        if ($rows_affected >= 0)
+            return true;
+        else
+            return false;
     }
 
     /**

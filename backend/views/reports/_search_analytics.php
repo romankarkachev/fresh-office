@@ -28,6 +28,7 @@ use common\models\Appeals;
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                         'hideSearch' => true,
+                        'pluginOptions' => ['allowClear' => true],
                     ]) ?>
 
                 </div>

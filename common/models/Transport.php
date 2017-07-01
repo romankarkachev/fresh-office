@@ -107,6 +107,15 @@ class Transport extends \yii\db\ActiveRecord
     }
 
     /**
+     * Возвращает представление транспортного средства для вывода на экране.
+     * @return string
+     */
+    public function getRepresentation()
+    {
+        return $this->brandName . ' г/н ' . $this->rn;
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getFerryman()

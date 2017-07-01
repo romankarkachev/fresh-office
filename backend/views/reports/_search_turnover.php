@@ -58,6 +58,7 @@ use common\models\ReportTurnover;
                         'data' => ReportTurnover::arrayMapOfSumConditionsForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
                         'hideSearch' => true,
                     ]) ?>
 

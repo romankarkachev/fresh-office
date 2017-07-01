@@ -19,6 +19,8 @@ use yii\helpers\ArrayHelper;
  *
  * @property PaymentConditions $pc
  * @property FerrymenTypes $ft
+ * @property Drivers[] $drivers
+ * @property Transport[] $transport
  */
 class Ferrymen extends \yii\db\ActiveRecord
 {
@@ -103,6 +105,26 @@ class Ferrymen extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает выборку водителей и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public function arrayMapOfDriversForSelect2()
+    {
+        return ArrayHelper::map(Drivers::find()->where(['ferryman_id' => $this->id])->all(), 'id', 'name');
+    }
+
+    /**
+     * Делает выборку автомобилей и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public function arrayMapOfTransportForSelect2()
+    {
+        return ArrayHelper::map(Transport::find()->where(['ferryman_id' => $this->id])->all(), 'id', 'representation');
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getFt()
@@ -134,5 +156,21 @@ class Ferrymen extends \yii\db\ActiveRecord
     public function getPcName()
     {
         return $this->pc != null ? $this->pc->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDrivers()
+    {
+        return $this->hasMany(Drivers::className(), ['ferryman_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTransport()
+    {
+        return $this->hasMany(Transport::className(), ['ferryman_id' => 'id']);
     }
 }

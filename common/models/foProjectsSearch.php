@@ -2,66 +2,38 @@
 
 namespace common\models;
 
-use Yii;
+use yii\data\ActiveDataProvider;
 
 /**
  * Модель для выборки из таблицы проектов Fresh Office.
- *
- * @property integer $id
- * @property integer $type_id
- * @property integer $ca_id
- * @property integer $manager_id
- * @property integer $state_id
- * @property float $amount
- * @property float $cost
- * @property string $type_name
- * @property string $ca_name
- * @property string $manager_name
- * @property string $state_name
- * @property string $perevoz
- * @property string $proizodstvo
- * @property string $oplata
- * @property string $adres
- * @property string $dannie
- * @property string $ttn
- * @property string $weight
- * @property string $vivozdate
- * @property string $date_start
- * @property string $date_end
  */
-class ProjectsFO extends \yii\db\ActiveRecord
+class foProjectsSearch extends foProjects
 {
-    public $isNewRecord;
-
-    public $id;
-    public $type_id;
-    public $ca_id;
-    public $manager_id;
-    public $state_id;
-    public $amount;
-    public $cost;
-    public $type_name;
-    public $ca_name;
-    public $manager_name;
-    public $state_name;
-    public $perevoz;
-    public $proizodstvo;
-    public $oplata;
-    public $adres;
-    public $dannie;
-    public $ttn;
-    public $weight;
-    public $vivozdate;
-    public $date_start;
-    public $date_end;
+    /**
+     * Группы типов проектов
+     */
+    const CLAUSE_GROUP_PROJECT_TYPES_I = 1; // заказ пред/пост, вывоз, самопривоз 3,5,4,6
+    const CLAUSE_GROUP_PROJECT_TYPES_II = 2; // осмотр, выездные, производство 14,8,10
+    const CLAUSE_GROUP_PROJECT_TYPES_III = 3; // фото/видео 7
 
     /**
-     * @inheritdoc
+     * Группа типов проектов.
+     * @var string
      */
-    public static function getDb()
-    {
-        return Yii::$app->db_mssql;
-    }
+    public $searchGroupProjectTypes;
+
+    /**
+     * Статусы проектов.
+     * @var string
+     */
+    public $searchProjectStates;
+
+    /**
+     * Количество записей на странице.
+     * По-умолчанию - false.
+     * @var integer
+     */
+    public $searchPerPage;
 
     /**
      * @inheritdoc
@@ -70,9 +42,9 @@ class ProjectsFO extends \yii\db\ActiveRecord
     {
         return [
             [['type_name', 'ca_name', 'manager_name', 'state_name', 'perevoz', 'proizodstvo', 'oplata', 'adres', 'dannie', 'ttn', 'weight'], 'string'],
-            [['id', 'type_id', 'ca_id', 'manager_id', 'state_id'], 'integer'],
+            [['id', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchPerPage'], 'integer'],
             [['amount', 'cost'], 'number'],
-            [['vivozdate', 'date_start', 'date_end'], 'safe'],
+            [['vivozdate', 'date_start', 'date_end', 'searchGroupProjectTypes', 'searchProjectStates'], 'safe'],
         ];
     }
 
@@ -82,27 +54,169 @@ class ProjectsFO extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
-            'id' => 'ID',
-            'type_id' => 'Тип',
-            'state_id' => 'Статус',
-            'manager_id' => 'Менеджер',
-            'ca_id' => 'Контрагент',
-            'amount' => 'Стоимость',
-            'cost' => 'Себестоимость',
-            'vivozdate' => 'Дата вывоза',
-            'date_start' => 'Начало',
-            'date_end' => 'Завершение',
-            'perevoz' => 'Перевозчик',
-            'proizodstvo' => 'Произв. площ.',
-            'oplata' => 'Дата оплаты',
-            'adres' => 'Адрес',
-            'dannie' => 'Данные',
-            'ttn' => 'ТТН',
-            'weight' => 'Вес',
-            'type_name' => 'Тип',
-            'state_name' => 'Статус',
-            'manager_name' => 'Менеджер',
-            'ca_name' => 'Контрагент',
+            // для отбора
+            'searchGroupProjectTypes' => 'Типы проектов',
+            'searchProjectStates' => 'Статус проектов',
+            'searchPerPage' => 'Записей', // на странице
         ];
+    }
+
+    /**
+     * Возвращает массив с идентификаторами типов проектов по группам.
+     * @return array
+     */
+    public static function fetchGroupProjectTypesIds()
+    {
+        return [
+            [
+                'id' => self::CLAUSE_GROUP_PROJECT_TYPES_I,
+                'name' => 'Пред(пост)оплата, Вывоз, Самопривоз',
+                'types' => '3,5,4,6',
+            ],
+            [
+                'id' => self::CLAUSE_GROUP_PROJECT_TYPES_II,
+                'name' => 'Осмотр, Выездные, Производство',
+                'types' => '14,8,10',
+            ],
+            [
+                'id' => self::CLAUSE_GROUP_PROJECT_TYPES_III,
+                'name' => 'Фото/видео',
+                'types' => '7',
+            ],
+        ];
+    }
+
+    /**
+     * Выполняет выборку проектов.
+     * @param $params array массив параметров отбора
+     * @return ActiveDataProvider
+     */
+    public function search($params)
+    {
+        $query = foProjects::find();
+        $query->select([
+            'id' => 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY',
+             'type_id' => 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT',
+             'type_name' => 'LIST_SPR_PROJECT.NAME_PROJECT',
+             'ADD_vivozdate',
+             'date_start' => 'DATE_START_PROJECT',
+             'date_end' => 'DATE_FINAL_PROJECT',
+             'ca_id' => 'LIST_PROJECT_COMPANY.ID_COMPANY',
+             'ca_name' => 'COMPANY.COMPANY_NAME',
+             'manager_id' => 'LIST_PROJECT_COMPANY.ID_MANAGER_VED',
+             'manager_name' => 'MANAGERS.MANAGER_NAME',
+             'payment.amount',
+             'payment.cost',
+             'state_id' => 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT',
+             'state_name' => 'LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT',
+             'ADD_perevoz',
+             'ADD_proizodstvo',
+             'ADD_oplata',
+             'ADD_adres',
+             'ADD_dannie',
+             'ADD_ttn',
+             'weight' => 'ADD_wieght',
+        ]);
+        $query->leftJoin('LIST_SPR_PROJECT', 'LIST_SPR_PROJECT.ID_LIST_SPR_PROJECT = LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT');
+        $query->leftJoin('LIST_SPR_PRIZNAK_PROJECT', 'LIST_SPR_PRIZNAK_PROJECT.ID_PRIZNAK_PROJECT = LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT');
+        $query->leftJoin('COMPANY', 'COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY');
+        $query->leftJoin('MANAGERS', 'MANAGERS.ID_MANAGER = LIST_PROJECT_COMPANY.ID_MANAGER_VED');
+        $query->leftJoin('(
+	SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR) AS amount, SUM(SS_PRICE_TOVAR) AS cost
+	FROM CBaseCRM_Fresh_7x.dbo.LIST_TOVAR_PROJECT
+	GROUP BY ID_LIST_PROJECT_COMPANY
+) AS payment', 'payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY');
+
+        $dataProvider = new ActiveDataProvider([
+            'query' => $query,
+            'key' => 'id',
+            'sort' => [
+                'defaultOrder' => ['date_start' => SORT_DESC],
+                'attributes' => [
+                    'id' => [
+                        'asc' => ['LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => SORT_ASC],
+                        'desc' => ['LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => SORT_DESC],
+                    ],
+                    'type_id',
+                    'type_name' => [
+                        'asc' => ['LIST_SPR_PROJECT.NAME_PROJECT' => SORT_ASC],
+                        'desc' => ['LIST_SPR_PROJECT.NAME_PROJECT' => SORT_DESC],
+                    ],
+                    'state_id',
+                    'state_name' => [
+                        'asc' => ['LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT' => SORT_ASC],
+                        'desc' => ['LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT' => SORT_DESC],
+                    ],
+                    'manager_id',
+                    'manager_name' => [
+                        'asc' => ['MANAGERS.MANAGER_NAME' => SORT_ASC],
+                        'desc' => ['MANAGERS.MANAGER_NAME' => SORT_DESC],
+                    ],
+                    'ca_id',
+                    'ca_name' => [
+                        'asc' => ['COMPANY.COMPANY_NAME' => SORT_ASC],
+                        'desc' => ['COMPANY.COMPANY_NAME' => SORT_DESC],
+                    ],
+                    'amount',
+                    'cost',
+                    'vivozdate',
+                    'date_start' => [
+                        'asc' => ['DATE_START_PROJECT' => SORT_ASC],
+                        'desc' => ['DATE_START_PROJECT' => SORT_DESC],
+                    ],
+                    'date_end' => [
+                        'asc' => ['DATE_FINAL_PROJECT' => SORT_ASC],
+                        'desc' => ['DATE_FINAL_PROJECT' => SORT_DESC],
+                    ],
+                    'perevoz',
+                    'proizodstvo',
+                    'oplata',
+                    'adres',
+                    'dannie',
+                    'ttn',
+                    'weight' => [
+                        'asc' => ['ADD_wieght' => SORT_ASC],
+                        'desc' => ['ADD_wieght' => SORT_DESC],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->load($params);
+        if (!$this->validate()) {
+            return $dataProvider;
+        }
+
+        // значения по-умолчанию
+        // записей на странице - все
+        if (!isset($this->searchPerPage)) $this->searchPerPage = false;
+        // --значения по-умолчанию
+
+        $dataProvider->pagination = [
+            'pageSize' => $this->searchPerPage,
+        ];
+
+        if ($this->searchGroupProjectTypes == null && $this->searchProjectStates == null)
+            $query->andFilterWhere([
+                'and',
+                ['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', explode(',', DirectMSSQLQueries::PROJECTS_STATES_LOGIST_LIMIT)],
+                ['in', 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT', explode(',', DirectMSSQLQueries::PROJECTS_TYPES_LOGIST_LIMIT)],
+            ]);
+        else {
+            // проверим параметры отбора, которые может применять пользователь
+            if ($this->searchGroupProjectTypes != null) {
+                // указана группа типов проектов
+                $groupsOfTypes = $this->fetchGroupProjectTypesIds();
+                $key = array_search($this->searchGroupProjectTypes, array_column($groupsOfTypes, 'id'));
+                if (false !== $key) {
+                    $query->andFilterWhere(['in', 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT', explode(',', $groupsOfTypes[$key]['types'])]);
+                }
+            }
+
+            if ($this->searchProjectStates != null)
+                $query->andFilterWhere(['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', $this->searchProjectStates]);
+        }
+
+        return $dataProvider;
     }
 }

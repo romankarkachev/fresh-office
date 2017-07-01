@@ -2,19 +2,17 @@
 
 namespace backend\controllers;
 
-use common\models\ProjectsFO;
 use Yii;
-use common\models\Appeals;
-use common\models\AppealsSearch;
 use common\models\DirectMSSQLQueries;
-use yii\bootstrap\ActiveForm;
-use yii\helpers\ArrayHelper;
+use common\models\foProjects;
+use common\models\foProjectsSearch;
+use common\models\AssignFerrymanForm;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
-use yii\web\UploadedFile;
 
 /**
  * Работа с проектами Fresh Office.
@@ -31,7 +29,7 @@ class ProjectsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['index', 'update', 'direct-sql-counteragents-list'],
+                        'actions' => ['index', 'update', 'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman', 'direct-sql-counteragents-list'],
                         'allow' => true,
                         'roles' => ['root', 'logist'],
                     ],
@@ -40,7 +38,7 @@ class ProjectsController extends Controller
             'verbs' => [
                 'class' => VerbFilter::className(),
                 'actions' => [
-                    //'delete' => ['POST'],
+                    'assign-ferryman' => ['POST'],
                 ],
             ],
         ];
@@ -52,10 +50,15 @@ class ProjectsController extends Controller
      */
     public function actionIndex()
     {
-        $dataProvider = DirectMSSQLQueries::fetchProjectsList();
+        $searchModel = new foProjectsSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         return $this->render('index', [
+            'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'searchApplied' => $searchApplied,
         ]);
     }
 
@@ -67,6 +70,20 @@ class ProjectsController extends Controller
      */
     public function actionUpdate($id)
     {
+        // не работает
+        /*
+        $model = $this->findModel($id);
+
+        if ($model->load(Yii::$app->request->post())) {
+            //$model->save();
+            return $this->redirect(['/projects']);
+        } else {
+            return $this->render('update', [
+                'model' => $model,
+            ]);
+        }
+        */
+
         $query_text = '
 SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id
 ,LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT AS type_id, LIST_SPR_PROJECT.NAME_PROJECT AS type_name
@@ -99,7 +116,7 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
 
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
 
-        $model = new ProjectsFO();
+        $model = new foProjects();
         $model->attributes = $result[0];
         $model->isNewRecord = false;
 
@@ -111,6 +128,105 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
                 'model' => $model,
             ]);
         }
+    }
+
+    /**
+     * Finds the AppealSources model based on its primary key value.
+     * If the model is not found, a 404 HTTP exception will be thrown.
+     * @param integer $id
+     * @return foProjects the loaded model
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    protected function findModel($id)
+    {
+        if (($model = foProjects::findOne($id)) !== null) {
+            return $model;
+        } else {
+            throw new NotFoundHttpException('Запрошенная страница не существует.');
+        }
+    }
+
+    /**
+     * Формирует и отдает краткую карточку клиента.
+     * @param $ids string идентификаторы проектов
+     * @return mixed
+     */
+    public function actionAssignFerrymanForm($ids)
+    {
+        if (Yii::$app->request->isAjax) {
+            $model = new AssignFerrymanForm();
+            $model->project_ids = explode(',', $ids);
+
+            return $this->renderAjax('_assign_ferryman_form', [
+                'model' => $model,
+            ]);
+        }
+
+        return '';
+    }
+
+    /**
+     * Формирует поля Водитель и Транспорт для выбранного пользователем перевозчика.
+     * @param $ferryman_id integer идентификатор сделки
+     * @return mixed
+     */
+    public function actionComposeFerrymanFields($ferryman_id)
+    {
+        if (Yii::$app->request->isAjax) {
+            $model = new AssignFerrymanForm();
+            $model->ferryman_id = $ferryman_id;
+
+            return $this->renderAjax('_assign_ferryman_fields', [
+                'model' => $model,
+                'form' => \yii\bootstrap\ActiveForm::begin(),
+            ]);
+        }
+
+        return '';
+    }
+
+    /**
+     * Назначает перевозчика, водителя и транспорт выбранным проектам.
+     * @return mixed
+     */
+    public function actionAssignFerryman()
+    {
+        Url::remember(Yii::$app->request->referrer);
+        if (Yii::$app->request->isPost) {
+            $model = new AssignFerrymanForm();
+            if ($model->load(Yii::$app->request->post())) {
+                $driver = $model->driver->surname . ' ' . $model->driver->name;
+                $driver = trim($driver);
+                $driver .= ' ' . $model->driver->patronymic;
+                $driver = trim($driver);
+                if ($driver != '') {
+                    // паспортные данные
+                    $driver .= ', паспорт ' . $model->driver->pass_serie;
+                    $driver = trim($driver);
+                    if ($model->driver->pass_num != null && $model->driver->pass_num != '') $driver .= ' № ' . $model->driver->pass_num;
+                    $driver = trim($driver);
+                    if ($model->driver->pass_issued_at != null) $driver .= ' выдан ' . Yii::$app->formatter->asDate($model->driver->pass_issued_at, 'php:d.m.Y');
+                    $driver = trim($driver);
+                    $driver .= ' ' . $model->driver->pass_issued_by;
+                    $driver = trim($driver);
+
+                    // водительское удостоверение
+                    $driver .= ', вод. удост. ' . $model->driver->driver_license;
+                    if ($model->driver->dl_issued_at != null) $driver .= ' ' . Yii::$app->formatter->asDate($model->driver->dl_issued_at, 'php:d.m.Y');
+                    $driver = trim($driver);
+                }
+
+                $data = $model->transport->representation . ' ' . $driver;
+                if (DirectMSSQLQueries::assignFerryman($model->project_ids, $model->ferryman->fo_id, $data))
+                    Yii::$app->session->setFlash('success', 'Перевозчик успешно назначен в проекты ' . implode(',', $model->project_ids) . '.');
+                else
+                    Yii::$app->session->setFlash('error', 'Не удалось загрузить файлы.');
+
+                $this->goBack();
+            }
+        }
+
+        return '';
     }
 
     /**

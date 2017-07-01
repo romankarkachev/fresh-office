@@ -2,7 +2,7 @@
 
 namespace common\models;
 
-use yii\base\Model;
+use Yii;
 
 /**
  * Модель для выборки из таблицы проектов Fresh Office.
@@ -29,7 +29,7 @@ use yii\base\Model;
  * @property string $date_start
  * @property string $date_end
  */
-class ProjectsFO extends Model
+class ProjectsFO extends \yii\db\ActiveRecord
 {
     public $isNewRecord;
 
@@ -54,6 +54,14 @@ class ProjectsFO extends Model
     public $vivozdate;
     public $date_start;
     public $date_end;
+
+    /**
+     * @inheritdoc
+     */
+    public static function getDb()
+    {
+        return Yii::$app->db_mssql;
+    }
 
     /**
      * @inheritdoc

@@ -5,6 +5,8 @@ namespace backend\controllers;
 use Yii;
 use common\models\Ferrymen;
 use common\models\FerrymenSearch;
+use common\models\FerrymenFiles;
+use common\models\FerrymenFilesSearch;
 use common\models\Drivers;
 use common\models\DriversSearch;
 use common\models\Transport;
@@ -17,6 +19,7 @@ use common\models\DirectMSSQLQueries;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
@@ -34,7 +37,7 @@ class FerrymenController extends Controller
             'access' => [
                 'class' => AccessControl::className(),
                 'only' => [
-                    'index', 'create', 'update', 'delete',
+                    'index', 'create', 'update', 'delete', 'upload-files', 'download-file', 'delete-file',
                     'create-driver', 'delete-driver', 'create-transport', 'delete-transport',
                     'drivers-instructings', 'create-instructing', 'delete-instructing',
                     'transports-inspections', 'create-inspection', 'delete-inspection',
@@ -126,6 +129,14 @@ class FerrymenController extends Controller
 
             return $this->redirect(['/ferrymen']);
         } else {
+            // файлы к объекту
+            $searchModel = new FerrymenFilesSearch();
+            $dpFiles = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $model->id]]);
+            $dpFiles->setSort([
+                'defaultOrder' => ['uploaded_at' => SORT_DESC],
+            ]);
+            $dpFiles->pagination = false;
+
             // водители
             $searchModel = new DriversSearch();
             $dpDrivers = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $id]]);
@@ -170,6 +181,7 @@ class FerrymenController extends Controller
 
             return $this->render('update', [
                 'model' => $model,
+                'dpFiles' => $dpFiles,
                 'dpDrivers' => $dpDrivers,
                 'dpTransport' => $dpTransport,
             ]);
@@ -203,6 +215,80 @@ class FerrymenController extends Controller
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
+    }
+
+    /**
+     * Загрузка файлов, перемещение их из временной папки, запись в базу данных.
+     * @return mixed
+     */
+    public function actionUploadFiles()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $obj_id = Yii::$app->request->post('obj_id');
+        $upload_path = FerrymenFiles::getUploadsFilepath();
+        if ($upload_path === false) return 'Невозможно создать папку для хранения загруженных файлов!';
+
+        // массив загружаемых файлов
+        $files = $_FILES['files'];
+        // массив имен загружаемых файлов
+        $filenames = $files['name'];
+        if (count($filenames) > 0)
+            for ($i=0; $i < count($filenames); $i++) {
+                // идиотское действие, но без него
+                // PHP Strict Warning: Only variables should be passed by reference
+                $tmp = explode('.', basename($filenames[$i]));
+                $ext = end($tmp);
+                $filename = mb_strtolower(Yii::$app->security->generateRandomString() . '.'.$ext, 'utf-8');
+                $filepath = $upload_path . '/' . $filename;
+                if (move_uploaded_file($files['tmp_name'][$i], $filepath)) {
+                    $fu = new FerrymenFiles();
+                    $fu->ferryman_id = $obj_id;
+                    $fu->ffp = $filepath;
+                    $fu->fn = $filename;
+                    $fu->ofn = $filenames[$i];
+                    $fu->size = filesize($filepath);
+                    if ($fu->validate()) $fu->save(); else return 'Загруженные данные неверны.';
+                };
+            };
+
+        return [];
+    }
+
+    /**
+     * Отдает на скачивание файл, на который позиционируется по идентификатору из параметров.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
+    public function actionDownloadFile($id)
+    {
+        if (is_numeric($id)) if ($id > 0) {
+            $model = FerrymenFiles::findOne($id);
+            if (file_exists($model->ffp))
+                return Yii::$app->response->sendFile($model->ffp, $model->ofn);
+            else
+                throw new NotFoundHttpException('Файл не обнаружен.');
+        };
+    }
+
+    /**
+     * Удаляет файл, привязанный к объекту.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
+    public function actionDeleteFile($id)
+    {
+        $model = FerrymenFiles::findOne($id);
+        if ($model != null) {
+            $record_id = $model->ferryman_id;
+            $model->delete();
+
+            return $this->redirect(['/ferrymen/update', 'id' => $record_id]);
+        }
+        else
+            throw new NotFoundHttpException('Файл не обнаружен.');
     }
 
     /**

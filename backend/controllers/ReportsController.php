@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\ReportEmptycustomers;
 use Yii;
 use yii\data\ArrayDataProvider;
 use yii\web\Controller;
@@ -46,7 +47,7 @@ class ReportsController extends Controller
                         'roles' => ['root', 'dpc_head'],
                     ],
                     [
-                        'actions' => ['nofinances', 'no-transport-has-projects', 'analytics'],
+                        'actions' => ['emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -137,6 +138,35 @@ class ReportsController extends Controller
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         return $this->render('nofinances', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'searchApplied' => $searchApplied,
+        ]);
+    }
+
+    /**
+     * Отображает отчет по клиентам без любых данных: без контактных лиц, без финансов и без проектов.
+     * Если тип запроса POST, то выполняется обработка, отчет не выводится.
+     */
+    public function actionEmptycustomers()
+    {
+        if (Yii::$app->request->isPost) {
+            // если пришел POST-запрос, значит выполняется обработка
+            Yii::$app->response->format = Response::FORMAT_JSON;
+
+            $ca_ids = Yii::$app->request->post('ca_ids');
+            // все параметры обязательны
+            if ($ca_ids == null) return false;
+
+            return DirectMSSQLQueries::deleteCustomers($ca_ids);
+        }
+
+        $searchModel = new ReportEmptycustomers();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('emptycustomers', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
             'searchApplied' => $searchApplied,

@@ -291,6 +291,9 @@ ORDER BY ID_LIST_PROJECT_COMPANY';
      * Примеры запросов, которые выполняются:
      * UPDATE [CBaseCRM_Fresh_7x].[dbo].[COMPANY] SET [ID_MANAGER]=70 WHERE [ID_COMPANY] IN ('3018', '1')
      * UPDATE [CBaseCRM_Fresh_7x].[dbo].[COMPANY] SET [ID_MANAGER]=70 WHERE [ID_COMPANY]='3018'
+     * @param $ca_id integer|string идентификатор(ы) контрагента(ов)
+     * @param $manager_id integer идентификатор ответственного лица, которое назначается
+     * @return bool
      */
     public static function changeResponsible($ca_id, $manager_id)
     {
@@ -300,6 +303,29 @@ ORDER BY ID_LIST_PROJECT_COMPANY';
             'ID_COMPANY' => $ca_id,
         ])->execute();
         //])->getRawSql();
+
+        if ($rows_affected >= 0)
+            return true;
+        else
+            return false;
+    }
+
+    /**
+     * Выполняет удаление контрагентов с идентификаторами, переданными в параметрах.
+     * Примеры запросов:
+     * UPDATE [CBaseCRM_Fresh_7x].[dbo].[COMPANY] SET [TRASH]=1 WHERE [ID_COMPANY]='3312'
+     * UPDATE [CBaseCRM_Fresh_7x].[dbo].[COMPANY] SET [TRASH]=1 WHERE [ID_COMPANY] IN ('3251', '9', '3312')
+     * @param $ca_ids string идентификаторы контрагентов, которые будут удалены
+     * @return bool
+     */
+    public static function deleteCustomers($ca_ids)
+    {
+        $rows_affected = Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.COMPANY', [
+            'TRASH' => 1,
+        ], [
+            'ID_COMPANY' => $ca_ids,
+        ])->execute();
+        //])->getRawSql();var_dump($rows_affected);
 
         if ($rows_affected >= 0)
             return true;

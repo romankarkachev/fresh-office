@@ -96,7 +96,12 @@ class ReportsController extends Controller
                     [
                         'attribute' => 'turnover',
                         'header' => $searchModel->attributeLabels()['turnover'],
-                    ]
+                    ],
+                    [
+                        'attribute' => 'first_payment',
+                        'header' => $searchModel->attributeLabels()['first_payment'],
+                        'format' => 'date',
+                    ],
                 ],
             ]);
         }

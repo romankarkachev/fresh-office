@@ -70,6 +70,35 @@ class Ferrymen extends \yii\db\ActiveRecord
     /**
      * @inheritdoc
      */
+    public function beforeDelete()
+    {
+        if (parent::beforeDelete()) {
+            // Удаление связанных объектов перед удалением документа
+
+            // удаляем возможные файлы
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $files = FerrymenFiles::find()->where(['ferryman_id' => $this->id])->all();
+            foreach ($files as $file) $file->delete();
+
+            // удаляем водителей
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $drivers = Drivers::find()->where(['ferryman_id' => $this->id])->all();
+            foreach ($drivers as $driver) $driver->delete();
+
+            // удаляем транспорт
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $transports = Transport::find()->where(['ferryman_id' => $this->id])->all();
+            foreach ($transports as $transport) $transport->delete();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function afterSave($insert, $changedAttributes){
         parent::afterSave($insert, $changedAttributes);
 
@@ -111,7 +140,7 @@ class Ferrymen extends \yii\db\ActiveRecord
      */
     public function arrayMapOfDriversForSelect2()
     {
-        return ArrayHelper::map(Drivers::find()->where(['ferryman_id' => $this->id])->all(), 'id', 'name');
+        return ArrayHelper::map(Drivers::find()->select(['id', 'name' => 'CONCAT(surname, " ", name, " ", patronymic)'])->where(['ferryman_id' => $this->id])->all(), 'id', 'name');
     }
 
     /**

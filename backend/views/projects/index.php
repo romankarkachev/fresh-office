@@ -64,6 +64,7 @@ $this->params['breadcrumbs'][] = 'Проекты';
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
+            'perevoz',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

@@ -54,7 +54,7 @@ class AppealSources extends \yii\db\ActiveRecord
      */
     public static function arrayMapForSelect2()
     {
-        return ArrayHelper::map(AppealSources::find()->all(), 'id', 'name');
+        return ArrayHelper::map(self::find()->all(), 'id', 'name');
     }
 
     /**

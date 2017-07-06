@@ -18,7 +18,7 @@ class TransportTypesSearch extends TransportTypes
     public function rules()
     {
         return [
-            [['id'], 'integer'],
+            [['id', 'is_spec'], 'integer'],
             [['name'], 'safe'],
         ];
     }
@@ -60,6 +60,7 @@ class TransportTypesSearch extends TransportTypes
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
+            'is_spec' => $this->is_spec,
         ]);
 
         $query->andFilterWhere(['like', 'name', $this->name]);

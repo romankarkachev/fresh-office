@@ -10,6 +10,8 @@ use yii\helpers\ArrayHelper;
  *
  * @property integer $id
  * @property string $name
+ *
+ * @property Transport[] $transports
  */
 class TransportBrands extends \yii\db\ActiveRecord
 {
@@ -44,6 +46,17 @@ class TransportBrands extends \yii\db\ActiveRecord
     }
 
     /**
+     * Выполняет проверку, используется ли запись в других элементах.
+     * @return bool
+     */
+    public function checkIfUsed()
+    {
+        if ($this->getTransports()->count() > 0) return true;
+
+        return false;
+    }
+
+    /**
      * Делает выборку типов техники и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array
@@ -51,5 +64,13 @@ class TransportBrands extends \yii\db\ActiveRecord
     public static function arrayMapForSelect2()
     {
         return ArrayHelper::map(self::find()->orderBy('name')->all(), 'id', 'name');
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTransports()
+    {
+        return $this->hasMany(Transport::className(), ['brand_id' => 'id']);
     }
 }

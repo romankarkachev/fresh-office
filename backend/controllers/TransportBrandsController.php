@@ -27,7 +27,7 @@ class TransportBrandsController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root'],
+                        'roles' => ['root', 'logist'],
                     ],
                 ],
             ],
@@ -103,7 +103,13 @@ class TransportBrandsController extends Controller
      */
     public function actionDelete($id)
     {
-        $this->findModel($id)->delete();
+        $model = $this->findModel($id);
+        if ($model->checkIfUsed())
+            return $this->render('cannot_delete', [
+                'model' => $model,
+            ]);
+
+        $model->delete();
 
         return $this->redirect(['/transport-brands']);
     }

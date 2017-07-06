@@ -23,12 +23,20 @@ use common\behaviors\IndexFieldBehavior;
  * @property string $pass_issued_by
  *
  * @property string $ferrymanName
+ * @property integer $instrCount
  *
  * @property Ferrymen $ferryman
  * @property DriversInstructings[] $driversInstructings
  */
 class Drivers extends \yii\db\ActiveRecord
 {
+    /**
+     * Количество инструктажей, для вложенного подзапроса.
+     * Виртуальное поле.
+     * @var integer
+     */
+    public $instrCount;
+
     /**
      * @inheritdoc
      */
@@ -114,6 +122,30 @@ class Drivers extends \yii\db\ActiveRecord
         if ($this->id != null) $query->andWhere(['not in', 'id', $this->id]);
         if ($query->count() > 0)
             $this->addError('driver_license', 'Водитель с таким удостоверением уже существует.');
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeDelete()
+    {
+        if (parent::beforeDelete()) {
+            // Удаление связанных объектов перед удалением документа
+
+            // удаляем возможные файлы
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $files = DriversFiles::find()->where(['driver_id' => $this->id])->all();
+            foreach ($files as $file) $file->delete();
+
+            // удаляем инструктажи
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $dis = DriversInstructings::find()->where(['driver_id' => $this->id])->all();
+            foreach ($dis as $di) $di->delete();
+
+            return true;
+        }
+
+        return false;
     }
 
     /**

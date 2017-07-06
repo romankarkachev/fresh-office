@@ -5,7 +5,7 @@ namespace common\models;
 use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use common\models\Drivers;
+use common\models\DriversFiles;
 
 /**
  * DriversFilesSearch represents the model behind the search form about `common\models\DriversFiles`.
@@ -18,8 +18,8 @@ class DriversFilesSearch extends DriversFiles
     public function rules()
     {
         return [
-            [['id', 'ferryman_id'], 'integer'],
-            [['surname', 'name', 'patronymic', 'driver_license', 'dl_issued_at', 'driver_license_index', 'phone', 'pass_serie', 'pass_num', 'pass_issued_at', 'pass_issued_by'], 'safe'],
+            [['id', 'uploaded_at', 'uploaded_by', 'driver_id', 'size'], 'integer'],
+            [['ffp', 'fn', 'ofn'], 'safe'],
         ];
     }
 
@@ -41,7 +41,7 @@ class DriversFilesSearch extends DriversFiles
      */
     public function search($params)
     {
-        $query = Drivers::find();
+        $query = DriversFiles::find();
 
         // add conditions that should always apply here
 
@@ -60,20 +60,15 @@ class DriversFilesSearch extends DriversFiles
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
-            'ferryman_id' => $this->ferryman_id,
-            'dl_issued_at' => $this->dl_issued_at,
-            'pass_issued_at' => $this->pass_issued_at,
+            'uploaded_at' => $this->uploaded_at,
+            'uploaded_by' => $this->uploaded_by,
+            'driver_id' => $this->driver_id,
+            'size' => $this->size,
         ]);
 
-        $query->andFilterWhere(['like', 'surname', $this->surname])
-            ->andFilterWhere(['like', 'name', $this->name])
-            ->andFilterWhere(['like', 'patronymic', $this->patronymic])
-            ->andFilterWhere(['like', 'driver_license', $this->driver_license])
-            ->andFilterWhere(['like', 'driver_license_index', $this->driver_license_index])
-            ->andFilterWhere(['like', 'phone', $this->phone])
-            ->andFilterWhere(['like', 'pass_serie', $this->pass_serie])
-            ->andFilterWhere(['like', 'pass_num', $this->pass_num])
-            ->andFilterWhere(['like', 'pass_issued_by', $this->pass_issued_by]);
+        $query->andFilterWhere(['like', 'ffp', $this->ffp])
+            ->andFilterWhere(['like', 'fn', $this->fn])
+            ->andFilterWhere(['like', 'ofn', $this->ofn]);
 
         return $dataProvider;
     }

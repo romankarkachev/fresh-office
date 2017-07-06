@@ -20,6 +20,9 @@ use yii\grid\GridView;
         'layout' => '{items}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
+            'ttName',
+            'brandName',
+            'rn',
             [
                 'attribute' => 'vin',
                 'format' => 'raw',
@@ -28,18 +31,26 @@ use yii\grid\GridView;
                     /** @var $column \yii\grid\DataColumn */
 
                     $result = $model->{$column->attribute};
-                    $result .= '<p>' . Html::a('Техосмотры &rarr;', ['/ferrymen/transports-inspections', 'id' => $model->id]) . '</p>';
+
+                    // количество техсмотров
+                    $inspCount = $model->inspCount == null || $model->inspCount == 0 ? '' : ' (<strong>' . $model->inspCount . '</strong>)';
+
+                    $result .= '<p>' . Html::a('Техосмотры' . $inspCount . ' &rarr;', ['/ferrymen/transports-inspections', 'id' => $model->id]) . '</p>';
                     return $result;
                 },
             ],
-            'rn',
             'trailer_rn',
-            'ttName',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{delete}',
+                'template' => '{update} {delete}',
                 'buttons' => [
+                    'update' => function ($url, $model) {
+                        return Html::a('<i class="fa fa-pencil"></i>', ['/ferrymen-transport/update', 'id' => $model->id], [
+                            'title' => Yii::t('yii', 'Редактировать'),
+                            'class' => 'btn btn-xs btn-default',
+                        ]);
+                    },
                     'delete' => function ($url, $model) {
                         return Html::a('<i class="fa fa-trash-o"></i>', ['/ferrymen/delete-transport', 'id' => $model->id], [
                             'class' => 'btn btn-xs btn-danger',
@@ -51,7 +62,7 @@ use yii\grid\GridView;
                         ]);
                     }
                 ],
-                'options' => ['width' => '40'],
+                'options' => ['width' => '80'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],

@@ -301,8 +301,9 @@ ORDER BY ID_LIST_PROJECT_COMPANY';
     public static function assignFerryman($project_ids, $ferryman_id, $data)
     {
         $rows_affected = Yii::$app->db_mssql->createCommand()->update('CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY', [
-            'ADD_perevoz_new' => $ferryman_id,
-            'ADD_dannie' => $data,
+            'ID_PRIZNAK_PROJECT' => FreshOfficeAPI::PROJECT_STATE_ТРАНСПОРТ_ЗАКАЗАН, // статус "Транспорт заказан"
+            'ADD_perevoz_new' => $ferryman_id, // наименование перевозчика
+            'ADD_dannie' => $data, // данные автомобиля и водителя (тип, марка и номер авто, фио, паспорт и права водителя)
         ], [
             'ID_LIST_PROJECT_COMPANY' => $project_ids,
         ])->execute();

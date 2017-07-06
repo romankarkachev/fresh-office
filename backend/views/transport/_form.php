@@ -43,7 +43,6 @@ use common\models\TransportBrands;
                 'data' => TransportBrands::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
-                'hideSearch' => true,
             ]) ?>
 
         </div>

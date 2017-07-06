@@ -50,15 +50,50 @@ class DriversSearch extends Drivers
     }
 
     /**
+     * Возвращает набор атрибутов, по которым можно сортировать таблицу водителей.
+     * @return array
+     */
+    public static function sortAttributes()
+    {
+        return [
+            'id',
+            'ferryman_id',
+            'surname',
+            'name',
+            'patronymic',
+            'driver_license',
+            'driver_license_index',
+            'phone',
+            'ferrymanName' => [
+                'asc' => ['ferrymen.name' => SORT_ASC],
+                'desc' => ['ferrymen.name' => SORT_DESC],
+            ],
+        ];
+    }
+
+    /**
      * Creates data provider instance with search query applied
      *
      * @param array $params
-     *
+     * @param $defaultOrder array массив со значениями для сортировки по-умолчанию
      * @return ActiveDataProvider
      */
-    public function search($params)
+    public function search($params, $defaultOrder=null)
     {
+        if ($defaultOrder == null)
+            $defaultOrder = ['ferrymanName' => SORT_ASC];
+
         $query = Drivers::find();
+        $query->select([
+            '*',
+            'id' => 'drivers.id',
+            'name' => 'drivers.name',
+            'phone' => 'drivers.phone',
+            'instrCount' => '(
+                SELECT COUNT(id) FROM drivers_instructings
+                WHERE `drivers`.`id` = `drivers_instructings`.`driver_id`
+            )',
+        ]);
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
@@ -66,21 +101,8 @@ class DriversSearch extends Drivers
             ],
             'sort' => [
                 'route' => 'ferrymen-drivers',
-                'defaultOrder' => ['surname' => SORT_DESC],
-                'attributes' => [
-                    'id',
-                    'ferryman_id',
-                    'surname',
-                    'name',
-                    'patronymic',
-                    'driver_license',
-                    'driver_license_index',
-                    'phone',
-                    'ferrymanName' => [
-                        'asc' => ['ferrymen.name' => SORT_ASC],
-                        'desc' => ['ferrymen.name' => SORT_DESC],
-                    ],
-                ]
+                'defaultOrder' => $defaultOrder,
+                'attributes' => self::sortAttributes(),
             ]
         ]);
 

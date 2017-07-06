@@ -92,7 +92,7 @@ LEFT JOIN (
 	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
 	GROUP BY ID_COMPANY
 ) AS FINANCES ON FINANCES.ID_COMPANY = COMPANY.ID_COMPANY
-WHERE COUNT_FINANCE IS NULL' . $searchResponsible_condition;
+WHERE TRASH = 0 AND COUNT_FINANCE IS NULL' . $searchResponsible_condition;
 
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
 

@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use common\models\Transport;
+use yii\helpers\ArrayHelper;
 
 /**
  * TransportSearch represents the model behind the search form about `common\models\Transport`.
@@ -50,15 +51,56 @@ class TransportSearch extends Transport
     }
 
     /**
+     * Возвращает набор атрибутов, по которым можно сортировать таблицу транспорта.
+     * @return array
+     */
+    public static function sortAttributes()
+    {
+        return [
+            'id',
+            'vin',
+            'ferryman_id',
+            'tt_id',
+            'brand_id',
+            'rn',
+            'trailer_rn',
+            'comment',
+            'ferrymanName' => [
+                'asc' => ['ferrymen.name' => SORT_ASC],
+                'desc' => ['ferrymen.name' => SORT_DESC],
+            ],
+            'ttName' => [
+                'asc' => ['transport_types.name' => SORT_ASC],
+                'desc' => ['transport_types.name' => SORT_DESC],
+            ],
+            'brandName' => [
+                'asc' => ['transport_brands.name' => SORT_ASC],
+                'desc' => ['transport_brands.name' => SORT_DESC],
+            ],
+        ];
+    }
+
+    /**
      * Creates data provider instance with search query applied
      *
      * @param array $params
-     *
+     * @param $defaultOrder array массив со значениями для сортировки по-умолчанию
      * @return ActiveDataProvider
      */
-    public function search($params)
+    public function search($params, $defaultOrder=null)
     {
+        if ($defaultOrder == null)
+            $defaultOrder = ['ferrymanName' => SORT_ASC];
+
         $query = Transport::find();
+        $query->select([
+            '*',
+            'id' => 'transport.id',
+            'inspCount' => '(
+                SELECT COUNT(id) FROM transport_inspections
+                WHERE `transport`.`id` = `transport_inspections`.`transport_id`
+            )',
+        ]);
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
@@ -66,29 +108,8 @@ class TransportSearch extends Transport
             ],
             'sort' => [
                 'route' => 'ferrymen-transport',
-                'defaultOrder' => ['vin' => SORT_DESC],
-                'attributes' => [
-                    'id',
-                    'vin',
-                    'ferryman_id',
-                    'tt_id',
-                    'brand_id',
-                    'rn',
-                    'trailer_rn',
-                    'comment',
-                    'ferrymanName' => [
-                        'asc' => ['ferrymen.name' => SORT_ASC],
-                        'desc' => ['ferrymen.name' => SORT_DESC],
-                    ],
-                    'ttName' => [
-                        'asc' => ['transport_types.name' => SORT_ASC],
-                        'desc' => ['transport_types.name' => SORT_DESC],
-                    ],
-                    'brandName' => [
-                        'asc' => ['transport_brands.name' => SORT_ASC],
-                        'desc' => ['transport_brands.name' => SORT_DESC],
-                    ],
-                ],
+                'defaultOrder' => $defaultOrder,
+                'attributes' => self::sortAttributes(),
             ],
         ]);
 

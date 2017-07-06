@@ -38,6 +38,9 @@ $this->params['breadcrumbs'][] = 'Инструктажи водителя';
                         return Html::a('<i class="fa fa-trash-o"></i>', ['/ferrymen/delete-instructing', 'id' => $model->id], ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
                     }
                 ],
+                'visibleButtons' => [
+                    'delete' => Yii::$app->user->can('root'),
+                ],
                 'options' => ['width' => '80'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],

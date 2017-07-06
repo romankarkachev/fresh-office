@@ -111,7 +111,7 @@ class ReportTurnover extends Model
         // признак оплаты - Утилизация
         if (!isset($this->searchPaymentSign)) $this->searchPaymentSign = FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ;
         // условие для суммы оборотов - меньше или равно
-        if (!isset($this->searchSumCondition)) $this->searchSumCondition = '<=';
+        if (!isset($this->searchSumCondition) || $this->searchSumCondition == null) $this->searchSumCondition = '<=';
         // оборот с клиентом - не менее 30 млн
         if (!isset($this->searchSumLimit)) $this->searchSumLimit = 30000000;
         // записей на странице - все
@@ -133,7 +133,7 @@ LEFT JOIN (
 	GROUP BY ID_COMPANY
 ) AS LEAVINGS ON LEAVINGS.ID_COMPANY = COMPANY.ID_COMPANY
 LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
-WHERE DATE_MANY <= CONVERT(datetime, \'' . $this->searchPeriod . '\', 120) AND turnover ' . $this->searchSumCondition . ' ' . $this->searchSumLimit . '';
+WHERE TRASH = 0 AND DATE_MANY <= CONVERT(datetime, \'' . $this->searchPeriod . '\', 120) AND turnover ' . $this->searchSumCondition . ' ' . $this->searchSumLimit . '';
 
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
 

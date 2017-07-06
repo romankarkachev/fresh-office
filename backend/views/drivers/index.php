@@ -25,7 +25,19 @@ $this->params['breadcrumbs'][] = 'Водители';
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            'ferrymanName',
+            [
+                'attribute' => 'ferrymanName',
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\Drivers */
+
+                    return Html::a($model->{$column->attribute}, [
+                        '/ferrymen-drivers', 'DriversSearch' => ['ferryman_id' => $model->ferryman_id]
+                    ], [
+                        'title' => 'Отобрать по этому перевозчику',
+                    ]);
+                },
+            ],
             [
                 'attribute' => 'surname',
                 'label' => 'ФИО',
@@ -93,7 +105,10 @@ $this->params['breadcrumbs'][] = 'Водители';
                             ]);
                     },
                     'instructings' => function ($url, $model) {
-                        return Html::a('<i class="fa fa-comments"></i>', ['ferrymen/drivers-instructings', 'id' => $model->id], ['title' => Yii::t('yii', 'Инструктажи'), 'class' => 'btn btn-xs btn-default']);
+                        // количество инструктажей
+                        $instrCount = $model->instrCount == null || $model->instrCount == 0 ? '' : ' (' . $model->instrCount . ')';
+
+                        return Html::a('<i class="fa fa-comments"></i>', ['ferrymen/drivers-instructings', 'id' => $model->id], ['title' => Yii::t('yii', 'Инструктажи') . $instrCount, 'class' => 'btn btn-xs btn-default']);
                     },
                     'update' => function ($url, $model) {
                         return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-xs btn-default']);
@@ -101,6 +116,9 @@ $this->params['breadcrumbs'][] = 'Водители';
                     'delete' => function ($url, $model) {
                         return Html::a('<i class="fa fa-trash-o"></i>', $url, ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
                     }
+                ],
+                'visibleButtons' => [
+                    'delete' => Yii::$app->user->can('root'),
                 ],
                 'options' => ['width' => '150'],
                 'headerOptions' => ['class' => 'text-center'],

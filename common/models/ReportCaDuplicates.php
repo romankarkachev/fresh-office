@@ -94,6 +94,7 @@ SELECT
     COMPANY_NAME AS parameter,
     \'Количество повторений: \' + CAST(COUNT(*) AS VARCHAR) AS owners
 FROM COMPANY' . $searchResponsibleId_name_condition .'
+WHERE TRASH = 0
 GROUP BY COMPANY_NAME
 HAVING COUNT(*) > 1';
 
@@ -117,7 +118,7 @@ SELECT
     ,1,1,\'\') AS owners
 FROM LIST_TELEPHONES t1
 LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = t1.ID_COMPANY
-WHERE t1.TELEPHONE IS NOT NULL' . $searchResponsibleId_phoneemail_condition .'
+WHERE TRASH = 0 AND t1.TELEPHONE IS NOT NULL' . $searchResponsibleId_phoneemail_condition .'
 GROUP BY TELEPHONE
 HAVING COUNT(DISTINCT t1.ID_COMPANY) > 1';
 
@@ -141,7 +142,7 @@ SELECT
     ,1,1,\'\') AS owners
 FROM LIST_EMAIL_CLIENT t1
 LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = t1.ID_COMPANY
-WHERE t1.EMAIL IS NOT NULL' . $searchResponsibleId_phoneemail_condition .'
+WHERE TRASH = 0 AND t1.EMAIL IS NOT NULL' . $searchResponsibleId_phoneemail_condition .'
 GROUP BY EMAIL
 HAVING COUNT(DISTINCT t1.ID_COMPANY) > 1';
 

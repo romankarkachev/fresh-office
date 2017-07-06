@@ -14,6 +14,7 @@ use common\models\Ferrymen;
     <?php $form = ActiveForm::begin([
         'id' => 'frmAssignFerryman',
         'action' => '/projects/assign-ferryman',
+        'enableAjaxValidation' => true,
     ]); ?>
 
     <div class="row">

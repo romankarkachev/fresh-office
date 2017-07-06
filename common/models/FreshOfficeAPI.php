@@ -90,6 +90,12 @@ class FreshOfficeAPI extends Model
     const PROJECT_TYPE_САМОПРИВОЗ = 6;
     const PROJECT_TYPE_ДОКУМЕНТЫ = 12;
 
+    /**
+     * Статусы проектов.
+     * Таблица: LIST_SPR_PRIZNAK_PROJECT.
+     */
+    const PROJECT_STATE_ТРАНСПОРТ_ЗАКАЗАН = 30;
+
     const API_ID = 1335;
     const API_PASSWORD = 'g73tP8-Jx9puTLsnX_AjRa2RnRC8iCbq';
     const API_URL = 'https://api.myfreshcloud.com/';

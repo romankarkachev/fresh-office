@@ -143,14 +143,7 @@ class FerrymenController extends Controller
             $dpDrivers->pagination = false;
             $dpDrivers->sort = [
                 'defaultOrder' => ['surname' => SORT_ASC],
-                'attributes' => [
-                    'id',
-                    'surname',
-                    'name',
-                    'patronymic',
-                    'driver_license',
-                    'phone',
-                ],
+                'attributes' => DriversSearch::sortAttributes(),
             ];
 
             // транспорт
@@ -158,25 +151,8 @@ class FerrymenController extends Controller
             $dpTransport = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $id]]);
             $dpTransport->pagination = false;
             $dpTransport->sort = [
-                'defaultOrder' => ['vin' => SORT_ASC],
-                'attributes' => [
-                    'id',
-                    'vin',
-                    'ferryman_id',
-                    'tt_id',
-                    'tc_id',
-                    'rn',
-                    'trailer_rn',
-                    'comment',
-                    'ttName' => [
-                        'asc' => ['transport_types.name' => SORT_ASC],
-                        'desc' => ['transport_types.name' => SORT_DESC],
-                    ],
-                    'tcName' => [
-                        'asc' => ['technical_conditions.name' => SORT_ASC],
-                        'desc' => ['technical_conditions.name' => SORT_DESC],
-                    ],
-                ],
+                'defaultOrder' => ['ttName' => SORT_ASC],
+                'attributes' => TransportSearch::sortAttributes(),
             ];
 
             return $this->render('update', [

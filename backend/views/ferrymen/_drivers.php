@@ -34,7 +34,10 @@ use yii\grid\GridView;
                     $result .= ' ' . $model->patronymic;
                     $result = trim($result);
 
-                    $result .= '<p>' . Html::a('Инструктажи &rarr;', ['/ferrymen/drivers-instructings', 'id' => $model->id]) . '</p>';
+                    // количество инструктажей
+                    $instrCount = $model->instrCount == null || $model->instrCount == 0 ? '' : ' (<strong>' . $model->instrCount . '</strong>)';
+
+                    $result .= '<p>' . Html::a('Инструктажи' . $instrCount . ' &rarr;', ['/ferrymen/drivers-instructings', 'id' => $model->id]) . '</p>';
 
                     return $result;
                 },
@@ -53,8 +56,14 @@ use yii\grid\GridView;
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{delete}',
+                'template' => '{update} {delete}',
                 'buttons' => [
+                    'update' => function ($url, $model) {
+                        return Html::a('<i class="fa fa-pencil"></i>', ['/ferrymen-drivers/update', 'id' => $model->id], [
+                            'title' => Yii::t('yii', 'Редактировать'),
+                            'class' => 'btn btn-xs btn-default',
+                        ]);
+                    },
                     'delete' => function ($url, $model) {
                         return Html::a('<i class="fa fa-trash-o"></i>', ['/ferrymen/delete-driver', 'id' => $model->id], [
                             'class' => 'btn btn-xs btn-danger',
@@ -66,7 +75,7 @@ use yii\grid\GridView;
                         ]);
                     }
                 ],
-                'options' => ['width' => '40'],
+                'options' => ['width' => '80'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],

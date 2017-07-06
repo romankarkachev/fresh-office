@@ -10,6 +10,7 @@ use yii\helpers\ArrayHelper;
  *
  * @property integer $id
  * @property string $name
+ * @property integer $is_spec
  *
  * @property Transport[] $transports
  */
@@ -30,6 +31,7 @@ class TransportTypes extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
+            [['is_spec'], 'integer'],
             [['name'], 'string', 'max' => 30],
         ];
     }
@@ -42,6 +44,7 @@ class TransportTypes extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'name' => 'Наименование',
+            'is_spec' => 'Является спецтехникой',
         ];
     }
 

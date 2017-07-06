@@ -217,7 +217,7 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
                 }
 
                 $data = $model->transport->representation . ' ' . $driver;
-                if (DirectMSSQLQueries::assignFerryman($model->project_ids, $model->ferryman->fo_id, $data))
+                if (DirectMSSQLQueries::assignFerryman($model->project_ids, $model->ferryman->name, $data))
                     Yii::$app->session->setFlash('success', 'Перевозчик успешно назначен в проекты ' . implode(',', $model->project_ids) . '.');
                 else
                     Yii::$app->session->setFlash('error', 'Не удалось загрузить файлы.');

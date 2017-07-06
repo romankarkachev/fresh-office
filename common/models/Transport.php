@@ -20,6 +20,8 @@ use common\behaviors\IndexFieldBehavior;
  * @property string $comment
  *
  * @property string $brandName
+ * @property string $ttName
+ * @property integer $inspCount
  *
  * @property TransportBrands $brand
  * @property Ferrymen $ferryman
@@ -28,6 +30,13 @@ use common\behaviors\IndexFieldBehavior;
  */
 class Transport extends \yii\db\ActiveRecord
 {
+    /**
+     * Количество техосмотров, для вложенного подзапроса.
+     * Виртуальное поле.
+     * @var integer
+     */
+    public $inspCount;
+
     /**
      * @inheritdoc
      */
@@ -107,12 +116,41 @@ class Transport extends \yii\db\ActiveRecord
     }
 
     /**
+     * @inheritdoc
+     */
+    public function beforeDelete()
+    {
+        if (parent::beforeDelete()) {
+            // Удаление связанных объектов перед удалением документа
+
+            // удаляем возможные файлы
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $files = TransportFiles::find()->where(['transport_id' => $this->id])->all();
+            foreach ($files as $file) $file->delete();
+
+            // удаляем техсмотры
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $tis = TransportInspections::find()->where(['transport_id' => $this->id])->all();
+            foreach ($tis as $ti) $ti->delete();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Возвращает представление транспортного средства для вывода на экране.
      * @return string
      */
     public function getRepresentation()
     {
-        return $this->brandName . ' г/н ' . $this->rn;
+        $result = $this->ttName . ' ' . $this->brandName;
+        $result = trim($result);
+        $result .= ' г/н ' . $this->rn;
+        $result = trim($result);
+
+        return $result;
     }
 
     /**

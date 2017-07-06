@@ -20,7 +20,19 @@ $this->params['breadcrumbs'][] = 'Типы техники';
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            'name',
+            [
+                'attribute' => 'name',
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /** @var $model \common\models\TransportTypes */
+                    /** @var $column \yii\grid\DataColumn */
+
+                    $is_spec = '';
+                    if ($model->is_spec) $is_spec = ' <em class="text-muted">спецтехника</em>';
+
+                    return $model->{$column->attribute} . $is_spec;
+                },
+            ],
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

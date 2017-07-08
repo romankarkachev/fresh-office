@@ -30,6 +30,11 @@ return [
                             Yii::$app->response->redirect(['/projects'])->send();
                             Yii::$app->end();
                         }
+                        if (Yii::$app->user->can('sales_department_manager')) {
+                            // пользователя с правами логиста сразу переводим на страницу проектов
+                            Yii::$app->response->redirect(['/transport-requests'])->send();
+                            Yii::$app->end();
+                        }
                     }
                 ],
             ],

@@ -8,6 +8,7 @@ use common\models\FkkoSearch;
 use backend\models\FkkoImport;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 use yii\web\UploadedFile;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -26,11 +27,11 @@ class FkkoController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete', 'clear', 'import'],
+                'only' => ['index', 'create', 'update', 'delete', 'list-of-fkko-for-select2', 'clear', 'import'],
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root'],
+                        'roles' => ['root', 'logist', 'sales_department_manager'],
                     ],
                 ],
             ],
@@ -125,6 +126,34 @@ class FkkoController extends Controller
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
+    }
+
+    /**
+     * Функция выполняет поиск отходов по коду ФККО и наименованию от значения переданного в параметрах.
+     * Для виджетов Typeahead.
+     * @param $q string
+     * @param $counter integer|null
+     * @return array|\yii\db\ActiveRecord[]
+     */
+    public function actionListForSelect2($q, $counter = null)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $select = [
+            'id',
+            'text' => 'CONCAT(fkko_code, " - ", fkko_name)',
+        ];
+
+        if (isset($counter)) $select[] = $counter . ' AS `counter`';
+
+        $query = Fkko::find()->select($select)->andFilterWhere([
+            'or',
+            ['like', 'fkko_code', $q],
+            ['like', 'fkko_name', $q],
+        ]);
+        $result = ['results' => $query->asArray()->all()];
+
+        return $result;
     }
 
     /**

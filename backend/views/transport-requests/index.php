@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\grid\GridView;
+use common\models\TransportRequestsStates;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\TransportRequestsSearch */
@@ -25,19 +26,54 @@ $this->params['breadcrumbs'][] = 'Запросы на транспорт';
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            'created_at',
-            'created_by',
-            'finished_at',
-            'customer_id',
-            // 'customer_name',
-            // 'region_id',
+            'customer_name',
+            [
+                'attribute' => 'stateName',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\TransportRequests */
+                    if ($model->state_id == TransportRequestsStates::STATE_ЗАКРЫТ)
+                        return '<i class="fa fa-check-square-o text-success" aria-hidden="true"></i>';
+
+                    if ($model->state_id == TransportRequestsStates::STATE_НОВЫЙ)
+                        return '<strong>' . $model->{$column->attribute} . '</strong>';
+
+                    return $model->{$column->attribute};
+                },
+                'options' => ['width' => '100'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
+                'attribute' => 'created_at',
+                'label' => 'Создан',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\TransportRequests */
+                    return Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y в H:i');
+                },
+                'options' => ['width' => '150'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            'createdByName',
+            [
+                'attribute' => 'regionName',
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\TransportRequests */
+
+                    return $model->regionName . ' ' . $model->cityName;
+                },
+            ],
+            'periodicityName',
+            //'finished_at',
+            //'customer_id',
             // 'city_id',
             // 'address',
-            // 'state_id',
             // 'comment_manager:ntext',
             // 'comment_logist:ntext',
             // 'our_loading',
-            // 'periodicity_id',
+            //
             // 'special_conditions:ntext',
             // 'spec_free',
             // 'spec_hose',
@@ -62,3 +98,21 @@ $this->params['breadcrumbs'][] = 'Запросы на транспорт';
     ]); ?>
 
 </div>
+<?php
+$this->registerJs(<<<JS
+// Функция-обработчик изменения даты в любом из соответствующих полей.
+//
+function anyDateOnChange() {
+    //\$button = $("button[type='submit']");
+    \$button = $("#btnSearch");
+    \$button.attr("disabled", "disabled");
+    text = \$button.text();
+    \$button.text("Подождите...");
+    setTimeout(function () {
+        \$button.removeAttr("disabled");
+        \$button.text(text);
+    }, 1500);
+}
+JS
+, \yii\web\View::POS_BEGIN);
+?>

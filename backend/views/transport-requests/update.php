@@ -12,7 +12,7 @@ use kartik\file\FileInput;
 
 $this->title = '№ ' . $model->id . ' от ' . Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y') . HtmlPurifier::process(' &mdash; Запросы на транспорт | ') . Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']];
-$this->params['breadcrumbs'][] = '№ ' . $model->id . ' от ' . Yii::$app->formatter->asDate($model->created_at, 'php:d F Y H:i') . ' (автор: ' . $model->createdByName . ')';
+$this->params['breadcrumbs'][] = $model->representation . ' (автор: ' . $model->createdByName . ')';
 ?>
 <div class="transport-requests-update">
     <?= $this->render('_form', [

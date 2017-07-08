@@ -32,7 +32,7 @@ class ProjectsController extends Controller
                     [
                         'actions' => ['index', 'update', 'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman', 'direct-sql-counteragents-list'],
                         'allow' => true,
-                        'roles' => ['root', 'logist'],
+                        'roles' => ['root', 'logist', 'sales_department_manager'],
                     ],
                 ],
             ],

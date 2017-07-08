@@ -210,6 +210,10 @@ return result.text;
     <?php }; ?>
     <?php }; ?>
 
+    <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('logist')): ?>
+    <?= $form->field($model, 'closeRequest')->checkbox(['disabled' => $model->state_id == \common\models\TransportRequestsStates::STATE_ЗАКРЫТ])->label(null, ['style' => 'padding-left: 0px;']) ?>
+
+    <?php endif; ?>
     <?= $form->field($model, 'customer_name')->hiddenInput()->label(false) ?>
 
     <div class="form-group">
@@ -245,6 +249,10 @@ JS
 , \yii\web\View::POS_BEGIN);
 
 $this->registerJs(<<<JS
+$("input").iCheck({
+    checkboxClass: 'icheckbox_square-green',
+});
+
 // Обработчик щелчка по кнопке Добавить строку в табличной части Отходы.
 //
 function btnAddFkkoRowOnClick() {

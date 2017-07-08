@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use common\models\TransportRequests;
+use yii\helpers\ArrayHelper;
 
 /**
  * TransportRequestsSearch represents the model behind the search form about `common\models\TransportRequests`.
@@ -13,14 +14,60 @@ use common\models\TransportRequests;
 class TransportRequestsSearch extends TransportRequests
 {
     /**
+     * Поле отбора, определяющее начало периода даты движения.
+     * @var string
+     */
+    public $searchDateStart;
+
+    /**
+     * Поле отбора, определяющее окончания периода даты движения.
+     * @var string
+     */
+    public $searchDateEnd;
+
+    /**
+     * Поле для отбора по отходу (fkko_id).
+     * @var integer
+     */
+    public $searchFkko;
+
+    /**
+     * Поле для отбора по отходу (fkko_name).
+     * @var integer
+     */
+    public $searchFkkoName;
+
+    /**
+     * Поле для отбора по типу техники.
+     * @var integer
+     */
+    public $searchTransportType;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
-            [['id', 'created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free'], 'integer'],
-            [['customer_name', 'address', 'comment_manager', 'comment_logist', 'special_conditions', 'spec_hose', 'spec_cond'], 'safe'],
+            [['id', 'created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free', 'searchFkko', 'searchTransportType'], 'integer'],
+            [['customer_name', 'address', 'comment_manager', 'comment_logist', 'special_conditions', 'spec_hose', 'spec_cond', 'searchDateStart', 'searchDateEnd', 'searchFkkoName'], 'safe'],
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function attributeLabels()
+    {
+        $labels = parent::attributeLabels();
+
+        $labels['searchDateStart'] = 'Создан с';
+        $labels['searchDateEnd'] = 'По';
+        $labels['searchFkko'] = 'Отход';
+        $labels['searchFkkoName'] = 'Отход';
+        $labels['searchTransportType'] = 'Тип техники';
+
+        return $labels;
     }
 
     /**
@@ -47,9 +94,57 @@ class TransportRequestsSearch extends TransportRequests
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => [
+                'route' => 'transport-requests',
+            ],
+            'sort' => [
+                'route' => 'transport-requests',
+                'defaultOrder' => ['created_at' => SORT_DESC],
+                'attributes' => [
+                    'id',
+                    'created_at',
+                    'created_by',
+                    'finished_at',
+                    'customer_id',
+                    'customer_name',
+                    'region_id',
+                    'city_id',
+                    'address',
+                    'state_id',
+                    'comment_manager',
+                    'comment_logist',
+                    'our_loading',
+                    'periodicity_id',
+                    'special_conditions',
+                    'spec_free',
+                    'spec_hose',
+                    'spec_cond',
+                    'createdByName' => [
+                        'asc' => ['profile.name' => SORT_ASC],
+                        'desc' => ['profile.name' => SORT_DESC],
+                    ],
+                    'regionName' => [
+                        'asc' => ['region.name' => SORT_ASC],
+                        'desc' => ['region.name' => SORT_DESC],
+                    ],
+                    'cityName' => [
+                        'asc' => ['city.name' => SORT_ASC],
+                        'desc' => ['city.name' => SORT_DESC],
+                    ],
+                    'stateName' => [
+                        'asc' => ['transport_requests_states.name' => SORT_ASC],
+                        'desc' => ['transport_requests_states.name' => SORT_DESC],
+                    ],
+                    'periodicityName' => [
+                        'asc' => ['periodicity_kinds.name' => SORT_ASC],
+                        'desc' => ['periodicity_kinds.name' => SORT_DESC],
+                    ],
+                ],
+            ],
         ]);
 
         $this->load($params);
+        $query->joinWith(['createdByProfile', 'region', 'city', 'state', 'periodicity']);
 
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails
@@ -57,16 +152,65 @@ class TransportRequestsSearch extends TransportRequests
             return $dataProvider;
         }
 
-        // grid filtering conditions
+        if ($this->searchFkkoName != null || $this->searchTransportType != null) {
+            $subquery = [];
+            $subquery2 = [];
+            if ($this->searchFkkoName != null) {
+                // отбор по наименованию отхода, дополним условием основной запрос
+                $subquery = TransportRequestsWaste::find()
+                    ->select(['id' => 'tr_id'])
+                    ->andFilterWhere(['like', 'fkko_name', $this->searchFkkoName])
+                    ->asArray()
+                    ->column();
+            }
+
+            if ($this->searchTransportType != null) {
+                // отбор по наименованию отхода, дополним условием основной запрос
+                $subquery2 = TransportRequestsTransport::find()
+                    ->select(['id' => 'tr_id'])
+                    ->andFilterWhere(['tt_id' => $this->searchTransportType])
+                    ->asArray()
+                    ->column();
+            }
+
+            if ($this->searchFkkoName != null && $this->searchTransportType != null)
+                // если задано и то, и то, то массив объединяется только одинаковыми идентификаторами
+                $condition = array_intersect($subquery, $subquery2);
+            else
+                // иначе просто совмещаются
+                $condition = ArrayHelper::merge($subquery, $subquery2);
+
+            $query->andWhere(['in', 'transport_requests.id', $condition]);
+        }
+        else
+            $query->andFilterWhere([
+                'transport_requests.id' => $this->id,
+            ]);
+
+        if ($this->searchDateStart !== null || $this->searchDateEnd !== null) {
+            if ($this->searchDateStart !== '' && $this->searchDateEnd !== '') {
+                // если указаны обе даты
+                $query->andFilterWhere(['between', 'transport_requests.created_at', strtotime($this->searchDateStart . ' 00:00:00'), strtotime($this->searchDateEnd . ' 23:59:59')]);
+            } else if ($this->searchDateStart !== '' && $this->searchDateEnd === '') {
+                // если указано только начало периода
+                $query->andFilterWhere(['>=', 'transport_requests.created_at', strtotime($this->searchDateStart . ' 00:00:00')]);
+            } else if ($this->searchDateStart === '' && $this->searchDateEnd !== '') {
+                // если указан только конец периода
+                $query->andFilterWhere(['<=', 'transport_requests.created_at', strtotime($this->searchDateEnd . ' 23:59:59')]);
+            };
+        }
+        else
+            $query->andFilterWhere([
+                'created_at' => $this->created_at,
+            ]);
+
         $query->andFilterWhere([
-            'id' => $this->id,
-            'created_at' => $this->created_at,
-            'created_by' => $this->created_by,
+            'transport_requests.created_by' => $this->created_by,
             'finished_at' => $this->finished_at,
             'customer_id' => $this->customer_id,
-            'region_id' => $this->region_id,
+            'transport_requests.region_id' => $this->region_id,
             'city_id' => $this->city_id,
-            'state_id' => $this->state_id,
+            'transport_requests.state_id' => $this->state_id,
             'our_loading' => $this->our_loading,
             'periodicity_id' => $this->periodicity_id,
             'spec_free' => $this->spec_free,

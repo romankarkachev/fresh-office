@@ -2,6 +2,7 @@
 
 namespace common\models;
 
+use dektrium\user\models\Profile;
 use Yii;
 use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
@@ -28,8 +29,12 @@ use yii\helpers\ArrayHelper;
  * @property string $spec_hose
  * @property string $spec_cond
  *
+ * @property string $representation
  * @property string $createdByName
+ * @property string $regionName
+ * @property string $cityName
  * @property string $stateName
+ * @property string $periodicityName
  *
  * @property PeriodicityKinds $periodicity
  * @property Cities $city
@@ -47,6 +52,11 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     const VALUE_НЕТ = 0;
     const VALUE_ДА = 1;
+
+    /**
+     * Идентификатор России в базе данных.
+     */
+    const COUNTRIES_РОССИЯ = 3159;
 
     /**
      * Табличная часть "Отходы".
@@ -73,6 +83,12 @@ class TransportRequests extends \yii\db\ActiveRecord
     public $tpTransportErrors;
 
     /**
+     * Признак необходимости закрытия запроса.
+     * @var bool
+     */
+    public $closeRequest;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -87,7 +103,7 @@ class TransportRequests extends \yii\db\ActiveRecord
     {
         return [
             [['customer_id', 'region_id', 'city_id', 'state_id'], 'required'],
-            [['created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free'], 'integer'],
+            [['created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
             [['comment_manager', 'comment_logist', 'special_conditions', 'spec_cond'], 'string'],
             [['customer_name', 'address'], 'string', 'max' => 255],
             [['spec_hose'], 'string', 'max' => 50],
@@ -126,6 +142,13 @@ class TransportRequests extends \yii\db\ActiveRecord
             'spec_free' => 'Наличие свободного подъезда', // 0 - нет, 1 - да
             'spec_hose' => 'Длина шланга',
             'spec_cond' => 'Особые условия',
+            'closeRequest' => 'Закрыть запрос. Данные по транспорту предоставлены в полном объеме.',
+            // вычисляемые поля
+            'createdByName' => 'Менеджер',
+            'regionName' => 'Регион',
+            'cityName' => 'Город',
+            'stateName' => 'Статус',
+            'periodicityName' => 'Периодичность',
         ];
     }
 
@@ -178,6 +201,15 @@ class TransportRequests extends \yii\db\ActiveRecord
             return true;
         }
         return false;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        return true;
     }
 
     /**
@@ -304,6 +336,16 @@ class TransportRequests extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает выборку регионов России и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfRegionsForSelect2()
+    {
+        return ArrayHelper::map(Regions::find()->select(['id' => 'region_id', 'name'])->where(['country_id' => self::COUNTRIES_РОССИЯ])->all(), 'id', 'name');
+    }
+
+    /**
      * Делает выборку городов текущего региона и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array
@@ -314,19 +356,12 @@ class TransportRequests extends \yii\db\ActiveRecord
     }
 
     /**
-     * @return \yii\db\ActiveQuery
+     * Возвращает представление запроса на транспорт.
+     * @return string
      */
-    public function getPeriodicity()
+    public function getRepresentation()
     {
-        return $this->hasOne(PeriodicityKinds::className(), ['id' => 'periodicity_id']);
-    }
-
-    /**
-     * @return \yii\db\ActiveQuery
-     */
-    public function getCity()
-    {
-        return $this->hasOne(Cities::className(), ['city_id' => 'city_id']);
+        return '№ ' . $this->id . ' от ' . Yii::$app->formatter->asDate($this->created_at, 'php:d F Y H:i');
     }
 
     /**
@@ -335,6 +370,14 @@ class TransportRequests extends \yii\db\ActiveRecord
     public function getCreatedBy()
     {
         return $this->hasOne(User::className(), ['id' => 'created_by']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedByProfile()
+    {
+        return $this->hasOne(Profile::className(), ['user_id' => 'created_by']);
     }
 
     /**
@@ -347,11 +390,49 @@ class TransportRequests extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает запрос с целью установления наименования контрагента по имеющемуся идентификатору.
+     * @param $ca_id integer идентификатор контрагента
+     * @return string
+     */
+    public static function getCustomerName($ca_id)
+    {
+        $ca = DirectMSSQLQueries::fetchCounteragent($ca_id);
+        if (is_array($ca)) if (count($ca) > 0) return $ca[0]['caName'];
+        return '';
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getRegion()
     {
         return $this->hasOne(Regions::className(), ['region_id' => 'region_id']);
+    }
+
+    /**
+     * Возвращает наименование региона.
+     * @return string
+     */
+    public function getRegionName()
+    {
+        return $this->region != null ? $this->region->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCity()
+    {
+        return $this->hasOne(Cities::className(), ['city_id' => 'city_id']);
+    }
+
+    /**
+     * Возвращает наименование города.
+     * @return string
+     */
+    public function getCityName()
+    {
+        return $this->city != null ? $this->city->name : '';
     }
 
     /**
@@ -369,6 +450,23 @@ class TransportRequests extends \yii\db\ActiveRecord
     public function getStateName()
     {
         return $this->state != null ? $this->state->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getPeriodicity()
+    {
+        return $this->hasOne(PeriodicityKinds::className(), ['id' => 'periodicity_id']);
+    }
+
+    /**
+     * Возвращает наименование периодичности.
+     * @return string
+     */
+    public function getPeriodicityName()
+    {
+        return $this->periodicity != null ? $this->periodicity->name : '';
     }
 
     /**

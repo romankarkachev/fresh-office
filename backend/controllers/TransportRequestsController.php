@@ -12,7 +12,9 @@ use common\models\TransportRequestsTransport;
 use common\models\TransportRequestsWaste;
 use common\models\Fkko;
 use common\models\PackingTypes;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
+use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 use yii\filters\AccessControl;
@@ -35,12 +37,12 @@ class TransportRequestsController extends Controller
                     'index', 'create', 'update', 'delete', 'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
                     'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
                     'compose-region-fields',
-                    'upload-files', 'download-file', 'delete-file'
+                    'upload-files', 'download-file', 'delete-file',
                 ],
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root'],
+                        'roles' => ['root', 'logist', 'sales_department_manager'],
                     ],
                 ],
             ],
@@ -76,7 +78,21 @@ class TransportRequestsController extends Controller
     public function actionIndex()
     {
         $searchModel = new TransportRequestsSearch();
-        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        // для менеджеров отбор только собственных объектов (где он является автором)
+        $conditions = [];
+        if (Yii::$app->user->can('sales_department_manager')) {
+            $conditions = [
+                $searchModel->formName() => [
+                    'created_by' => Yii::$app->user->id,
+                ],
+            ];
+        }
+
+        $dataProvider = $searchModel->search(ArrayHelper::merge(
+            $conditions,
+            Yii::$app->request->queryParams
+        ));
 
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
@@ -111,10 +127,26 @@ class TransportRequestsController extends Controller
      * If update is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
+     * @throws ForbiddenHttpException если доступа к запрошенному объекту нет
      */
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+
+        // проверим наличие доступа у текущего пользователя к договору
+        // если, конечно, это не пользователь с полными правами или логист
+        if (Yii::$app->user->can('sales_department_manager')) {
+            if ($model->created_by != Yii::$app->user->id) {
+                return $this->render('/common/forbidden_foreign', [
+                    'details' => [
+                        'breadcrumbs' => ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+                        'modelRep' => $model->representation,
+                        'buttonCaption' => 'Запросы на транспорт',
+                        'buttonUrl' => ['/transport-requests'],
+                    ],
+                ]);
+            }
+        }
 
         if ($model->load(Yii::$app->request->post())) {
             // пришедшие снаружи идентификаторы переводим в модели строк табличной части "Отходы"
@@ -122,6 +154,14 @@ class TransportRequestsController extends Controller
 
             // формируем массив моделей табличной части "Транспорт"
             $postTransport = $model->makeTransportModelsFromPostArray();
+
+            // если изменился статус на "Закрыто", то зафиксируем время
+            if ($model->closeRequest)
+                if (isset($model->oldAttributes['state_id']))
+                    if ($model->oldAttributes['state_id'] != TransportRequestsStates::STATE_ЗАКРЫТ) {
+                        $model->state_id = TransportRequestsStates::STATE_ЗАКРЫТ;
+                        $model->finished_at = time();
+                    }
 
             if ($model->validate() && $model->save(false)) {
                 // записываем заново табличную часть "Отходы"
@@ -171,8 +211,13 @@ class TransportRequestsController extends Controller
                 'transport' => $postTransport,
                 'dpFiles' => $this->fetchFiles(),
             ]);
-
         } else {
+            // при открытии запроса логистом запрос ставится в статус "В обработке"
+            if (Yii::$app->user->can('logist')) {
+                $model->state_id = TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ;
+                $model->save(false);
+            }
+
             // табличная часть с отходами
             $waste = TransportRequestsWaste::find()->where(['tr_id' => $model->id])->all();
 

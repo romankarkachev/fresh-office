@@ -63,6 +63,7 @@ if (Yii::$app->user->can('root'))
             'url' => '#',
             'items' => [
                 ['label' => '<i class="fa fa-briefcase"></i> Проекты', 'url' => ['/projects']],
+                ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
                 '<li class="divider"></li>',
                 ['label' => 'Перевозчики', 'url' => ['/ferrymen']],
                 ['label' => 'Водители', 'url' => ['/ferrymen-drivers']],
@@ -129,6 +130,10 @@ elseif (Yii::$app->user->can('sales_department_head'))
             ],
         ],
     ];
+elseif (Yii::$app->user->can('sales_department_manager'))
+    $items = [
+        ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+    ];
 elseif (Yii::$app->user->can('operator'))
     $items = [
         ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create']],
@@ -137,6 +142,7 @@ elseif (Yii::$app->user->can('operator'))
 elseif (Yii::$app->user->can('logist'))
     $items = [
         ['label' => '<i class="fa fa-briefcase"></i> Проекты', 'url' => ['/projects'], 'linkOptions' => ['title' => 'Проекты']],
+        ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
         [
             'label' => 'Справочники',
             'url' => '#',

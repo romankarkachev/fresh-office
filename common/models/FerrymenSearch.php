@@ -86,9 +86,9 @@ class FerrymenSearch extends Ferrymen
             'pc_id' => $this->pc_id,
         ]);
 
-        $query->andFilterWhere(['like', 'name', $this->name])
-            ->andFilterWhere(['like', 'phone', $this->phone])
-            ->andFilterWhere(['like', 'email', $this->email])
+        $query->andFilterWhere(['like', 'ferrymen.name', $this->name])
+            ->andFilterWhere(['like', 'ferrymen.phone', $this->phone])
+            ->andFilterWhere(['like', 'ferrymen.email', $this->email])
             ->andFilterWhere(['like', 'contact_person', $this->contact_person]);
 
         return $dataProvider;

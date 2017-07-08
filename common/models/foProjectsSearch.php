@@ -55,6 +55,7 @@ class foProjectsSearch extends foProjects
     {
         return [
             // для отбора
+            'ca_id' => 'Контрагент',
             'searchGroupProjectTypes' => 'Типы проектов',
             'searchProjectStates' => 'Статус проектов',
             'searchPerPage' => 'Записей', // на странице
@@ -216,6 +217,9 @@ class foProjectsSearch extends foProjects
             if ($this->searchProjectStates != null)
                 $query->andFilterWhere(['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', $this->searchProjectStates]);
         }
+
+        if ($this->ca_id != null)
+            $query->andFilterWhere(['in', 'LIST_PROJECT_COMPANY.ID_COMPANY', $this->ca_id]);
 
         return $dataProvider;
     }

@@ -115,9 +115,12 @@ WHERE COMPANY.ID_COMPANY=' . intval($id);
     {
         $query_text = '
 SELECT
+    1 AS custom,
     COMPANY.ID_COMPANY AS id, COMPANY_NAME AS text
 FROM CBaseCRM_Fresh_7x.dbo.COMPANY
-WHERE COMPANY.COMPANY_NAME LIKE \'%' . $name . '%\'
+WHERE
+    TRASH = 0
+    AND COMPANY.COMPANY_NAME LIKE \'%' . $name . '%\'
 ORDER BY COMPANY_NAME';
 
         return Yii::$app->db_mssql->createCommand($query_text)->queryAll();

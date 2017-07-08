@@ -10,6 +10,8 @@ use yii\helpers\ArrayHelper;
  *
  * @property integer $id
  * @property string $name
+ *
+ * @property TransportRequestsWaste[] $transportRequestsWastes
  */
 class Units extends \yii\db\ActiveRecord
 {
@@ -43,6 +45,17 @@ class Units extends \yii\db\ActiveRecord
     }
 
     /**
+     * Выполняет проверку, используется ли запись в других элементах.
+     * @return bool
+     */
+    public function checkIfUsed()
+    {
+        if ($this->getTransportRequestsWastes()->count() > 0) return true;
+
+        return false;
+    }
+
+    /**
      * Делает выборку единиц измерения и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array
@@ -50,5 +63,13 @@ class Units extends \yii\db\ActiveRecord
     public static function arrayMapForSelect2()
     {
         return ArrayHelper::map(self::find()->all(), 'id', 'name');
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTransportRequestsWastes()
+    {
+        return $this->hasMany(TransportRequestsWaste::className(), ['unit_id' => 'id']);
     }
 }

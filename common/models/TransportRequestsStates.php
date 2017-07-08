@@ -14,6 +14,13 @@ use yii\helpers\ArrayHelper;
 class TransportRequestsStates extends \yii\db\ActiveRecord
 {
     /**
+     * Статусы запросов
+     */
+    const STATE_НОВЫЙ = 1;
+    const STATE_ОБРАБАТЫВАЕТСЯ = 2;
+    const STATE_ЗАКРЫТ = 3;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()

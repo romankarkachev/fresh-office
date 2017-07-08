@@ -94,15 +94,15 @@ class FerrymenTransportController extends Controller
         } else {
             // файлы к объекту
             $searchModel = new TransportFilesSearch();
-            $dp_files = $searchModel->search([$searchModel->formName() => ['transport_id' => $model->id]]);
-            $dp_files->setSort([
+            $dpFiles = $searchModel->search([$searchModel->formName() => ['transport_id' => $model->id]]);
+            $dpFiles->setSort([
                 'defaultOrder' => ['uploaded_at' => SORT_DESC],
             ]);
-            $dp_files->pagination = false;
+            $dpFiles->pagination = false;
 
             return $this->render('/transport/update', [
                 'model' => $model,
-                'files' => $dp_files,
+                'files' => $dpFiles,
             ]);
         }
     }

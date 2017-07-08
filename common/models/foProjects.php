@@ -28,6 +28,8 @@ use Yii;
  * @property string $vivozdate
  * @property string $date_start
  * @property string $date_end
+ *
+ * @property string $customerName
  */
 class foProjects extends \yii\db\ActiveRecord
 {
@@ -112,5 +114,18 @@ class foProjects extends \yii\db\ActiveRecord
             'manager_name' => 'Менеджер',
             'ca_name' => 'Контрагент',
         ];
+    }
+
+    /**
+     * Делает запрос с целью установления наименования контрагента по имеющемуся идентификатору.
+     * @return string
+     */
+    public function getCustomerName()
+    {
+        if ($this->ca_id == null) return '';
+
+        $ca = DirectMSSQLQueries::fetchCounteragent($this->ca_id);
+        if (is_array($ca)) if (count($ca) > 0) return $ca[0]['caName'];
+        return '';
     }
 }

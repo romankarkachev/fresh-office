@@ -3,17 +3,17 @@
 namespace backend\controllers;
 
 use Yii;
-use common\models\PackingTypes;
-use common\models\PackingTypesSearch;
+use common\models\Units;
+use common\models\UnitsSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
 /**
- * PackingTypesController implements the CRUD actions for PackingTypes model.
+ * UnitsController implements the CRUD actions for Units model.
  */
-class PackingTypesController extends Controller
+class UnitsController extends Controller
 {
     /**
      * @inheritdoc
@@ -41,12 +41,12 @@ class PackingTypesController extends Controller
     }
 
     /**
-     * Lists all PackingTypes models.
+     * Lists all Units models.
      * @return mixed
      */
     public function actionIndex()
     {
-        $searchModel = new PackingTypesSearch();
+        $searchModel = new UnitsSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
@@ -59,16 +59,16 @@ class PackingTypesController extends Controller
     }
 
     /**
-     * Creates a new PackingTypes model.
+     * Creates a new Units model.
      * If creation is successful, the browser will be redirected to the 'index' page.
      * @return mixed
      */
     public function actionCreate()
     {
-        $model = new PackingTypes();
+        $model = new Units();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/packing-types']);
+            return $this->redirect(['/units']);
         } else {
             return $this->render('create', [
                 'model' => $model,
@@ -77,7 +77,7 @@ class PackingTypesController extends Controller
     }
 
     /**
-     * Updates an existing PackingTypes model.
+     * Updates an existing Units model.
      * If update is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
@@ -87,7 +87,7 @@ class PackingTypesController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/packing-types']);
+            return $this->redirect(['/units']);
         } else {
             return $this->render('update', [
                 'model' => $model,
@@ -96,7 +96,7 @@ class PackingTypesController extends Controller
     }
 
     /**
-     * Deletes an existing PackingTypes model.
+     * Deletes an existing Units model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
@@ -107,28 +107,28 @@ class PackingTypesController extends Controller
         if ($model->checkIfUsed())
             return $this->render('/common/cannot_delete', [
                 'details' => [
-                    'breadcrumbs' => ['label' => 'Виды упаковки', 'url' => ['/packing-types']],
+                    'breadcrumbs' => ['label' => 'Единицы измерения', 'url' => ['/units']],
                     'modelRep' => $model->name,
-                    'buttonCaption' => 'Виды упаковки',
-                    'buttonUrl' => ['/packing-types'],
+                    'buttonCaption' => 'Единицы измерения',
+                    'buttonUrl' => ['/units'],
                 ],
             ]);
 
         $model->delete();
 
-        return $this->redirect(['/packing-types']);
+        return $this->redirect(['/units']);
     }
 
     /**
-     * Finds the PackingTypes model based on its primary key value.
+     * Finds the Units model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param integer $id
-     * @return PackingTypes the loaded model
+     * @return Units the loaded model
      * @throws NotFoundHttpException if the model cannot be found
      */
     protected function findModel($id)
     {
-        if (($model = PackingTypes::findOne($id)) !== null) {
+        if (($model = Units::findOne($id)) !== null) {
             return $model;
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');

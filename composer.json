@@ -27,7 +27,9 @@
         "kartik-v/yii2-widget-datepicker": "@dev",
         "hiqdev/yii2-asset-icheck": "1.0.2.5",
         "kartik-v/yii2-money": "*",
-        "keltstr/yii2-simplehtmldom": "dev-master"
+        "keltstr/yii2-simplehtmldom": "dev-master",
+        "kartik-v/yii2-widget-fileinput": "@dev",
+        "kartik-v/yii2-widget-typeahead": "*"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.0.0",

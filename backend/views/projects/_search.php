@@ -1,8 +1,10 @@
 <?php
 
-use yii\helpers\Html;
 use yii\helpers\ArrayHelper;
+use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
+use yii\web\JsExpression;
 use kartik\select2\Select2;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjectsSearch;
@@ -29,6 +31,28 @@ use common\models\foProjectsSearch;
 
                 </div>
                 <div class="col-md-2">
+                    <?= $form->field($model, 'ca_id')->widget(Select2::className(), [
+                        'initValueText' => $model->customerName,
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'language' => 'ru',
+                        'options' => ['placeholder' => 'Введите наименование'],
+                        'pluginOptions' => [
+                            'minimumInputLength' => 1,
+                            'language' => 'ru',
+                            'ajax' => [
+                                'url' => Url::to(['projects/direct-sql-counteragents-list']),
+                                'delay' => 500,
+                                'dataType' => 'json',
+                                'data' => new JsExpression('function(params) { return {q:params.term}; }')
+                            ],
+                            'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
+                            'templateResult' => new JsExpression('function(result) { return result.text; }'),
+                            'templateSelection' => new JsExpression('function (result) { return result.text; }'),
+                        ],
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
                     <?= $form->field($model, 'searchProjectStates')->widget(Select2::className(), [
                         'data' => DirectMSSQLQueries::arrayMapOfProjectsStatesForSelect2(DirectMSSQLQueries::PROJECTS_STATES_LOGIST_LIMIT),
                         'theme' => Select2::THEME_BOOTSTRAP,
@@ -38,7 +62,7 @@ use common\models\foProjectsSearch;
                     ]) ?>
 
                 </div>
-                <div class="col-md-9">
+                <div class="col-md-6">
                     <?= $form->field($model, 'searchGroupProjectTypes', [
                         'inline' => true,
                     ])->radioList(ArrayHelper::map(foProjectsSearch::fetchGroupProjectTypesIds(), 'id', 'name'), [

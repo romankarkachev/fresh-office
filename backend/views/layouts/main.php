@@ -76,6 +76,7 @@ if (Yii::$app->user->can('root'))
                 //['label' => 'Агрегатные состояния', 'url' => ['/aggregate-states']],
                 //['label' => 'Виды периодичности', 'url' => ['/periodicity-kinds']],
                 ['label' => 'Единицы измерения', 'url' => ['/units']],
+                //['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
             ],
         ],
         [

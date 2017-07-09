@@ -66,6 +66,16 @@ $this->params['breadcrumbs'][] = 'Запросы на транспорт';
                 },
             ],
             'periodicityName',
+            [
+                'attribute' => 'tpWasteLinear',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\TransportRequests */
+
+                    return nl2br($model->tpWasteLinear);
+                },
+            ],
+            'tpTransportLinear',
             //'finished_at',
             //'customer_id',
             // 'city_id',

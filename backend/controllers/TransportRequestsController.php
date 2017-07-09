@@ -12,6 +12,7 @@ use common\models\TransportRequestsTransport;
 use common\models\TransportRequestsWaste;
 use common\models\Fkko;
 use common\models\PackingTypes;
+use yii\data\ActiveDataProvider;
 use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\ForbiddenHttpException;
@@ -36,7 +37,7 @@ class TransportRequestsController extends Controller
                 'only' => [
                     'index', 'create', 'update', 'delete', 'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
                     'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
-                    'compose-region-fields',
+                    'similar-statements', 'compose-region-fields',
                     'upload-files', 'download-file', 'delete-file',
                 ],
                 'rules' => [
@@ -114,7 +115,7 @@ class TransportRequestsController extends Controller
         $model->state_id = TransportRequestsStates::STATE_НОВЫЙ;
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/transport-requests']);
+            return $this->redirect(['/transport-requests', 'id' => $model->id]);
         } else {
             return $this->render('create', [
                 'model' => $model,
@@ -213,7 +214,7 @@ class TransportRequestsController extends Controller
             ]);
         } else {
             // при открытии запроса логистом запрос ставится в статус "В обработке"
-            if (Yii::$app->user->can('logist')) {
+            if (Yii::$app->user->can('logist') && $model->state_id == TransportRequestsStates::STATE_НОВЫЙ) {
                 $model->state_id = TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ;
                 $model->save(false);
             }
@@ -271,19 +272,21 @@ class TransportRequestsController extends Controller
      */
     public function actionListOfFkkoForTypeahead($q, $counter = null)
     {
-        Yii::$app->response->format = Response::FORMAT_JSON;
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $query = Fkko::find()->select([
-            'id',
-            'value' => 'CONCAT(fkko_code, " - ", fkko_name)',
-            $counter . ' AS `counter`',
-        ])->andFilterWhere([
-            'or',
-            ['like', 'fkko_code', $q],
-            ['like', 'fkko_name', $q],
-        ]);
+            $query = Fkko::find()->select([
+                'id',
+                'value' => 'CONCAT(fkko_code, " - ", fkko_name)',
+                $counter . ' AS `counter`',
+            ])->andFilterWhere([
+                'or',
+                ['like', 'fkko_code', $q],
+                ['like', 'fkko_name', $q],
+            ]);
 
-        return $query->asArray()->all();
+            return $query->asArray()->all();
+        }
     }
 
     /**
@@ -295,16 +298,61 @@ class TransportRequestsController extends Controller
      */
     public function actionListOfPackingTypesForTypeahead($q, $counter = null)
     {
-        Yii::$app->response->format = Response::FORMAT_JSON;
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $query = PackingTypes::find()->select([
-            'id',
-            'value' => 'name',
-            $counter . ' AS `counter`',
-        ])
-            ->andFilterWhere(['like', 'name', $q]);
+            $query = PackingTypes::find()->select([
+                'id',
+                'value' => 'name',
+                $counter . ' AS `counter`',
+            ])
+                ->andFilterWhere(['like', 'name', $q]);
 
-        return $query->asArray()->all();
+            return $query->asArray()->all();
+        }
+    }
+
+    /**
+     * Формирует и отдает форму с похожими движениями.
+     * @param $request_id integer запрос на транспорт
+     * @param $ca_id integer идентификатор контрагента
+     * @return mixed
+     */
+    public function actionSimilarStatements($request_id, $ca_id)
+    {
+        $ca_id = intval($ca_id);
+        $request_id = intval($request_id);
+        if ($request_id > 0 && $ca_id > 0) {
+            $query = TransportRequests::find()
+                ->select([
+                    '*',
+                    'id' => 'transport_requests.id',
+                    'tpWasteLinear' => '(
+	                    SELECT GROUP_CONCAT(CONCAT(transport_requests_waste.fkko_name, " (", FORMAT(transport_requests_waste.measure, 0, "ru_RU"), " ", units.name, ")") SEPARATOR "\n") FROM transport_requests_waste
+	                    INNER JOIN units ON units.id = transport_requests_waste.unit_id
+	                    WHERE transport_requests_waste.tr_id = transport_requests.id
+                    )',
+                    'tpTransportLinear' => '(
+	                    SELECT GROUP_CONCAT(CONCAT(transport_types.name, " ", FORMAT(transport_requests_transport.amount, 0, "ru_RU"), " р.") SEPARATOR ", ") FROM transport_types
+	                    INNER JOIN transport_requests_transport ON transport_requests_transport.tt_id = transport_types.id
+	                    WHERE transport_requests_transport.tr_id = transport_requests.id
+                    )',
+                ])
+                ->where(['customer_id' => $ca_id])
+                ->andWhere(['state_id' => TransportRequestsStates::STATE_ЗАКРЫТ])
+                ->andWhere('transport_requests.id <> ' . $request_id) // кроме текущего запроса
+                ->orderBy('created_at DESC');
+
+            $requests = new ActiveDataProvider([
+                'query' => $query,
+                'pagination' => false,
+                'sort' => false,
+            ]);
+
+            return $this->renderAjax('_similar_statements', [
+                'dataProvider' => $requests,
+            ]);
+        }
     }
 
     /**

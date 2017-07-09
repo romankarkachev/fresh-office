@@ -71,6 +71,12 @@ class TransportRequests extends \yii\db\ActiveRecord
     public $tpWasteErrors;
 
     /**
+     * Представление табличной части "Отходы" в строковом виде.
+     * @var string
+     */
+    public $tpWasteLinear;
+
+    /**
      * Табличная часть "Транспорт".
      * @var array
      */
@@ -81,6 +87,12 @@ class TransportRequests extends \yii\db\ActiveRecord
      * @var array
      */
     public $tpTransportErrors;
+
+    /**
+     * Представление табличной части "Транспорт" в строковом виде.
+     * @var string
+     */
+    public $tpTransportLinear;
 
     /**
      * Признак необходимости закрытия запроса.
@@ -149,6 +161,10 @@ class TransportRequests extends \yii\db\ActiveRecord
             'cityName' => 'Город',
             'stateName' => 'Статус',
             'periodicityName' => 'Периодичность',
+            'tpWaste' => 'Отходы',
+            'tpWasteLinear' => 'Отходы',
+            'tpTransport' => 'Транспорт',
+            'tpTransportLinear' => 'Транспорт',
         ];
     }
 

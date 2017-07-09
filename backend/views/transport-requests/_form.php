@@ -218,6 +218,7 @@ return result.text;
 
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Запросы на транспорт', ['/transport-requests'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
+        <?= Html::a('Подобные запросы', '#', ['class' => 'btn btn-default btn-lg', 'id' => 'btnShowSimilar', 'title' => 'Показать в модальном окне список подобных запросов (закрытые по этому же контрагенту)']) ?>
 
         <?php if ($model->isNewRecord): ?>
         <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
@@ -237,6 +238,7 @@ $url_add_transport = Url::to(['/transport-requests/render-transport-row']);
 $url_del_transport = Url::to(['/transport-requests/delete-transport-row']);
 
 $url_fields = Url::to(['/transport-requests/compose-region-fields']);
+$url_similar = Url::to(['/transport-requests/similar-statements']);
 $this->registerJs(<<<JS
 function regionOnChange() {
     $("#block-city").html("<p><i class=\"fa fa-cog fa-spin fa-2x text-muted\"></i><span class=\"sr-only\">Подождите...</span></p>");
@@ -253,7 +255,7 @@ $("input").iCheck({
     checkboxClass: 'icheckbox_square-green',
 });
 
-// Обработчик щелчка по кнопке Добавить строку в табличной части Отходы.
+// Обработчик щелчка по кнопке "Добавить строку" в табличной части "Отходы".
 //
 function btnAddFkkoRowOnClick() {
     counter = parseInt($(this).attr("data-count"));
@@ -271,7 +273,7 @@ function btnAddFkkoRowOnClick() {
     return false;
 } // btnAddFkkoRowOnClick()
 
-// Обработчик щелчка по кнопке Удалить строку в табличной части Отходы.
+// Обработчик щелчка по кнопке "Удалить строку" в табличной части "Отходы".
 //
 function btnDeleteFkkoRowClick(event) {
     var message = "Удаление строки из табличной части производится сразу и безвозвратно. Продолжить?";
@@ -303,7 +305,7 @@ function btnDeleteFkkoRowClick(event) {
     return false;
 } // btnDeleteFkkoRowClick()
 
-// Обработчик щелчка по кнопке Добавить строку в табличной части Транспорт.
+// Обработчик щелчка по кнопке "Добавить строку" в табличной части "Транспорт".
 //
 function btnAddTransportRowOnClick() {
     counter = parseInt($(this).attr("data-count"));
@@ -321,7 +323,7 @@ function btnAddTransportRowOnClick() {
     return false;
 } // btnAddTransportRowOnClick()
 
-// Обработчик щелчка по кнопке Удалить строку в табличной части Транспорт.
+// Обработчик щелчка по кнопке "Удалить строку" в табличной части "Транспорт".
 //
 function btnDeleteTransportRowClick(event) {
     var message = "Удаление строки из табличной части производится сразу и безвозвратно. Продолжить?";
@@ -353,11 +355,25 @@ function btnDeleteTransportRowClick(event) {
     return false;
 } // btnDeleteTransportRowClick()
 
+// Обработчик щелчка по кнопке "Показать подобные".
+//
+function btnShowSimilar() {
+    id = $("#transportrequests-customer_id").val();
+    $("#modal_title").text("Подобные запросы");
+    $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+    $("#mw_summary").modal();
+    $("#modal_body").load("$url_similar?request_id=$model->id&ca_id=" + id);
+
+    return false;
+} // btnShowSimilar()
+
 $(document).on("click", "#btnAddFkkoRow", btnAddFkkoRowOnClick);
 $(document).on("click", "a[id ^= 'btnDeleteFkkoRow']", btnDeleteFkkoRowClick);
 
 $(document).on("click", "#btnAddTransportRow", btnAddTransportRowOnClick);
 $(document).on("click", "a[id ^= 'btnDeleteTransportRow']", btnDeleteTransportRowClick);
+
+$(document).on("click", "#btnShowSimilar", btnShowSimilar);
 JS
 , \yii\web\View::POS_READY);
 ?>

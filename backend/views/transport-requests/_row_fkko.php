@@ -194,27 +194,25 @@ if (!$model->isNewRecord)
             <div class="col-md-2">
                 <div class="form-group field-<?= $formName ?>-measure">
                     <label class="control-label" for="<?= $formName ?>-measure"><?= $model->getAttributeLabel('measure') ?></label>
-                    <div class="input-group">
-                        <?= MaskedInput::widget([
-                            'name' => $trFormName . '[tpWaste]['.$counter.'][measure]',
-                            'value' => $model->measure,
-                            'options' => [
-                                'id' => $formName . '-measure-'.$counter,
-                                'class' => 'form-control input-sm',
-                                'placeholder' => '0',
-                                'title' => 'Объем, количество, мера измерения отходов'
-                            ],
-                            'clientOptions' => [
-                                'alias' =>  'numeric',
-                                'digitsOptional' => true,
-                                'radixPoint' => '.',
-                                'groupSeparator' => '',
-                                'autoGroup' => true,
-                                'removeMaskOnSubmit' => true,
-                            ],
-                        ]) ?>
+                    <?= MaskedInput::widget([
+                        'name' => $trFormName . '[tpWaste]['.$counter.'][measure]',
+                        'value' => $model->measure,
+                        'options' => [
+                            'id' => $formName . '-measure-'.$counter,
+                            'class' => 'form-control input-sm',
+                            'placeholder' => '0',
+                            'title' => 'Объем, количество, мера измерения отходов'
+                        ],
+                        'clientOptions' => [
+                            'alias' =>  'numeric',
+                            'digitsOptional' => true,
+                            'radixPoint' => '.',
+                            'groupSeparator' => '',
+                            'autoGroup' => true,
+                            'removeMaskOnSubmit' => true,
+                        ],
+                    ]) ?>
 
-                        <span class="input-group-addon"><i class="fa fa-rub" aria-hidden="true"></i></span></div>
                     <p class="help-block help-block-error"></p>
                 </div>
             </div>

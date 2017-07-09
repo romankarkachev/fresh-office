@@ -237,7 +237,7 @@ class TransportRequests extends \yii\db\ActiveRecord
         if (parent::beforeDelete()) {
             // удаляем возможные файлы
             // deleteAll не вызывает beforeDelete, поэтому делаем перебор
-            $files = TransportFiles::find()->where(['transport_id' => $this->id])->all();
+            $files = TransportRequestsFiles::find()->where(['tr_id' => $this->id])->all();
             foreach ($files as $file) $file->delete();
 
             // удаляем табличную часть "Отходы"

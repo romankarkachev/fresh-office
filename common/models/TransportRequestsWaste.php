@@ -70,7 +70,7 @@ class TransportRequestsWaste extends \yii\db\ActiveRecord
             'id' => 'ID',
             'tr_id' => 'Запрос на транспорт',
             'fkko_id' => 'Код ФККО',
-            'fkko_name' => 'ФККО',
+            'fkko_name' => 'Наименование отходов',
             'dc_id' => 'Класс опасности',
             'packing_id' => 'Тип упаковки',
             'ags_id' => 'Агрегатное состояние',

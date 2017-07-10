@@ -15,6 +15,7 @@ use common\models\PeriodicityKinds;
 /* @var $waste common\models\TransportRequestsWaste[] */
 /* @var $transport common\models\TransportRequestsTransport[] */
 
+$labelRegion = $model->getAttributeLabel('region_id');
 $add_row_prompt = '<p class="text-muted">Табличная часть пуста.</p>';
 ?>
 
@@ -56,7 +57,7 @@ return result.text;
                 'pluginEvents' => [
                     'change' => new JsExpression('function() { regionOnChange(); }'),
                 ],
-            ]) ?>
+            ])->label($labelRegion, ['id' => 'lblRegion']) ?>
 
         </div>
         <div id="block-city"><?php if ($model->region_id != null) echo $this->render('_city_field', [
@@ -69,12 +70,14 @@ return result.text;
             <?= $form->field($model, 'address')->textInput(['maxlength' => true, 'placeholder' => 'Введите адрес']) ?>
 
         </div>
+        <?php if (!$model->isNewRecord): ?>
         <div class="col-md-2">
             <div class="form-group field-<?= $model->formName() ?>-state_id">
                 <label class="control-label" for="<?= $model->formName() ?>-state_id"><?= $model->getAttributeLabel('state_id') ?></label>
                 <p><?= $model->stateName ?></p>
             </div>
         </div>
+        <?php endif; ?>
     </div>
     <div class="row">
         <div class="col-md-2">
@@ -106,10 +109,7 @@ return result.text;
     </div>
 
 
-    <?php
-    if (!$model->isNewRecord) {
-        $count = count($waste)-1;
-    ?>
+    <?php $count = count($waste)-1; ?>
     <div class="panel panel-danger">
         <div class="panel-heading">
             Отходы <span id="waste-preloader" class="collapse"><i class="fa fa-cog fa-spin text-muted"></i></span>
@@ -135,10 +135,7 @@ return result.text;
             </div>
         </div>
     </div>
-    <?php
-        if (Yii::$app->user->can('root') || Yii::$app->user->can('logist')) {
-            $count = count($transport)-1;
-    ?>
+    <?php $count = count($transport)-1; ?>
     <div class="panel panel-primary">
         <div class="panel-heading">
             <h4>Транспорт <span id="transport-preloader" class="collapse"><i class="fa fa-cog fa-spin text-muted"></i></span>
@@ -207,10 +204,7 @@ return result.text;
     </div>
     <?= $form->field($model, 'comment_logist')->textarea(['rows' => 3, 'placeholder' => 'Введите комментарий']) ?>
 
-    <?php }; ?>
-    <?php }; ?>
-
-    <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('logist')): ?>
+    <?php if ((Yii::$app->user->can('root') || Yii::$app->user->can('logist')) && !$model->isNewRecord): ?>
     <?= $form->field($model, 'closeRequest')->checkbox(['disabled' => $model->state_id == \common\models\TransportRequestsStates::STATE_ЗАКРЫТ])->label(null, ['style' => 'padding-left: 0px;']) ?>
 
     <?php endif; ?>
@@ -241,10 +235,13 @@ $url_fields = Url::to(['/transport-requests/compose-region-fields']);
 $url_similar = Url::to(['/transport-requests/similar-statements']);
 $this->registerJs(<<<JS
 function regionOnChange() {
-    $("#block-city").html("<p><i class=\"fa fa-cog fa-spin fa-2x text-muted\"></i><span class=\"sr-only\">Подождите...</span></p>");
+    \$label = $("#lblRegion");
+    \$label.html("$labelRegion &nbsp;<i class=\"fa fa-cog fa-spin text-muted\"></i>");
     region_id = $("#transportrequests-region_id").val();
     if (region_id != 0 && region_id != "" && region_id != undefined)
-        $("#block-city").load("$url_fields?region_id=" + region_id);
+        $("#block-city").load("$url_fields?region_id=" + region_id, function() {
+            \$label.html("$labelRegion");
+        });
 } // regionOnChange()
 
 JS
@@ -359,10 +356,15 @@ function btnDeleteTransportRowClick(event) {
 //
 function btnShowSimilar() {
     id = $("#transportrequests-customer_id").val();
-    $("#modal_title").text("Подобные запросы");
-    $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
-    $("#mw_summary").modal();
-    $("#modal_body").load("$url_similar?request_id=$model->id&ca_id=" + id);
+    request_id = "$model->id";
+    if (id != "" && id != undefined) {
+        url = "$url_similar?ca_id=" + id;
+        if (request_id != "") url += "&request_id=" + request_id;
+        $("#modal_title").text("Подобные запросы");
+        $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+        $("#mw_summary").modal();
+        $("#modal_body").load(url);
+    }
 
     return false;
 } // btnShowSimilar()

@@ -45,6 +45,7 @@ if (!$model->isNewRecord)
             </div>
         </div>
         <div class="col-md-2">
+            <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('logist')): ?>
             <div class="form-group field-<?= $formName ?>-amount">
                 <label class="control-label" for="<?= $formName ?>-amount"><?= $model->getAttributeLabel('amount') ?></label>
                 <div class="input-group">
@@ -70,6 +71,10 @@ if (!$model->isNewRecord)
                     <span class="input-group-addon"><i class="fa fa-rub" aria-hidden="true"></i></span></div>
                 <p class="help-block help-block-error"></p>
             </div>
+            <?php else: ?>
+                <label class="control-label" for="<?= $formName ?>-amount"><?= $model->getAttributeLabel('amount') ?></label>
+                <p><?= Yii::$app->formatter->asCurrency($model->amount == null ? 0 : $model->amount) ?></p>
+            <?php endif; ?>
         </div>
         <div class="col-md-1">
             <label class="control-label" for="<?= 'btnDeleteTransportRow-' . $counter ?>">&nbsp;</label>

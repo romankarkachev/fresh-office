@@ -2,6 +2,8 @@
 
 namespace backend\controllers;
 
+use common\models\TransportRequestsDialogs;
+use common\models\TransportRequestsDialogsSearch;
 use Yii;
 use common\models\TransportRequests;
 use common\models\TransportRequestsSearch;
@@ -38,6 +40,7 @@ class TransportRequestsController extends Controller
                     'index', 'create', 'update', 'delete', 'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
                     'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
                     'similar-statements', 'compose-region-fields',
+                    'dialog-messages-list', 'add-dialog-message',
                     'upload-files', 'download-file', 'delete-file',
                 ],
                 'rules' => [
@@ -57,13 +60,28 @@ class TransportRequestsController extends Controller
     }
 
     /**
-     * Делает выборку файлов, приаттаченных к запросу на транспорт
+     * Делает выборку сообщений менеджеров и логистов в запросе.
+     * @param $model TransportRequests
      * @return \yii\data\ActiveDataProvider
      */
-    private function fetchFiles()
+    private function fetchDialogs($model)
+    {
+        $searchModel = new TransportRequestsDialogsSearch();
+        $dataProvider = $searchModel->search([$searchModel->formName() => ['tr_id' => $model->id]]);
+        $dataProvider->pagination = false;
+
+        return $dataProvider;
+    }
+
+    /**
+     * Делает выборку файлов, приаттаченных к запросу на транспорт.
+     * @param $model TransportRequests
+     * @return \yii\data\ActiveDataProvider
+     */
+    private function fetchFiles($model)
     {
         $searchModel = new TransportRequestsFilesSearch();
-        $dpFiles = $searchModel->search([$searchModel->formName() => ['tr_id' => $this->id]]);
+        $dpFiles = $searchModel->search([$searchModel->formName() => ['tr_id' => $model->id]]);
         $dpFiles->setSort([
             'defaultOrder' => ['uploaded_at' => SORT_DESC],
         ]);
@@ -114,13 +132,60 @@ class TransportRequestsController extends Controller
         $model = new TransportRequests();
         $model->state_id = TransportRequestsStates::STATE_НОВЫЙ;
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/transport-requests', 'id' => $model->id]);
+        if ($model->load(Yii::$app->request->post())) {
+            // пришедшие снаружи идентификаторы переводим в модели строк табличной части "Отходы"
+            $postWaste = $model->makeWasteModelsFromPostArray();
+
+            // формируем массив моделей табличной части "Транспорт"
+            $postTransport = $model->makeTransportModelsFromPostArray();
+
+            if ($model->validate() && $model->save(false)) {
+                // записываем заново табличную часть "Отходы"
+                $successWaste = true;
+                foreach ($postWaste as $tp) {
+                    $row = new TransportRequestsWaste();
+                    $row->attributes = $tp->attributes;
+                    if (!$row->save()) {
+                        $successWaste = false;
+                        $details = '';
+                        foreach ($row->errors as $error)
+                            foreach ($error as $detail)
+                                $details .= '<p>'.$detail.'</p>';
+
+                        Yii::$app->getSession()->setFlash('error', $details);
+                        break;
+                    }
+                }
+
+                // записываем заново табличную часть "Транспорт"
+                $successTransport = true;
+                foreach ($postTransport as $tp) {
+                    $row = new TransportRequestsTransport();
+                    $row->attributes = $tp->attributes;
+                    if (!$row->save()) {
+                        $successTransport = false;
+                        $details = '';
+                        foreach ($row->errors as $error)
+                            foreach ($error as $detail)
+                                $details .= '<p>'.$detail.'</p>';
+
+                        Yii::$app->getSession()->setFlash('error', $details);
+                        break;
+                    }
+                }
+
+                if ($successWaste && $successTransport) return $this->redirect(['/transport-requests/update', 'id' => $model->id]);
+            }
         } else {
-            return $this->render('create', [
-                'model' => $model,
-            ]);
+            $postWaste = [];
+            $postTransport = [];
         }
+
+        return $this->render('create', [
+            'model' => $model,
+            'waste' => $postWaste,
+            'transport' => $postTransport,
+        ]);
     }
 
     /**
@@ -210,7 +275,7 @@ class TransportRequestsController extends Controller
                 'model' => $model,
                 'waste' => $postWaste,
                 'transport' => $postTransport,
-                'dpFiles' => $this->fetchFiles(),
+                'dpFiles' => $this->fetchFiles($model),
             ]);
         } else {
             // при открытии запроса логистом запрос ставится в статус "В обработке"
@@ -229,7 +294,8 @@ class TransportRequestsController extends Controller
                 'model' => $model,
                 'waste' => $waste,
                 'transport' => $transport,
-                'dpFiles' => $this->fetchFiles(),
+                'dpDialogs' => $this->fetchDialogs($model),
+                'dpFiles' => $this->fetchFiles($model),
             ]);
         }
     }
@@ -314,15 +380,15 @@ class TransportRequestsController extends Controller
 
     /**
      * Формирует и отдает форму с похожими движениями.
-     * @param $request_id integer запрос на транспорт
      * @param $ca_id integer идентификатор контрагента
+     * @param $request_id integer запрос на транспорт
      * @return mixed
      */
-    public function actionSimilarStatements($request_id, $ca_id)
+    public function actionSimilarStatements($ca_id, $request_id=null)
     {
         $ca_id = intval($ca_id);
         $request_id = intval($request_id);
-        if ($request_id > 0 && $ca_id > 0) {
+        if ($ca_id > 0) {
             $query = TransportRequests::find()
                 ->select([
                     '*',
@@ -340,8 +406,10 @@ class TransportRequestsController extends Controller
                 ])
                 ->where(['customer_id' => $ca_id])
                 ->andWhere(['state_id' => TransportRequestsStates::STATE_ЗАКРЫТ])
-                ->andWhere('transport_requests.id <> ' . $request_id) // кроме текущего запроса
                 ->orderBy('created_at DESC');
+
+            if ($request_id > 0)
+                $query->andWhere('transport_requests.id <> ' . $request_id); // кроме текущего запроса
 
             $requests = new ActiveDataProvider([
                 'query' => $query,
@@ -446,6 +514,42 @@ class TransportRequestsController extends Controller
         }
 
         return '';
+    }
+
+    /**
+     * Отображает список диалогов запроса, идентификатор которого передается в параметрах.
+     * @param $id integer идентификатор запроса
+     * @return mixed
+     */
+    public function actionDialogMessagesList($id)
+    {
+        $newMessage = new TransportRequestsDialogs();
+        $newMessage->tr_id = $id;
+        $newMessage->created_by = Yii::$app->user->id;
+
+        return $this->render('_dialogs', [
+            'dataProvider' => $this->fetchDialogs($this->findModel($id)),
+            'model' => $newMessage,
+        ]);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function actionAddDialogMessage()
+    {
+        $model = new TransportRequestsDialogs();
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            $newMessage = new TransportRequestsDialogs();
+            $newMessage->tr_id = $model->tr->id;
+            $newMessage->created_by = Yii::$app->user->id;
+
+            return $this->render('_dialogs', [
+                'dataProvider' => $this->fetchDialogs($model->tr),
+                'model' => $newMessage,
+            ]);
+        }
     }
 
     /**

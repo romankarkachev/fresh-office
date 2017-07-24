@@ -38,6 +38,7 @@ $this->params['breadcrumbs'][] = 'Транспорт';
                     ]);
                 },
             ],
+            'stateName',
             'brandName',
             'ttName',
             [

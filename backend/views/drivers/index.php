@@ -38,6 +38,7 @@ $this->params['breadcrumbs'][] = 'Водители';
                     ]);
                 },
             ],
+            'stateName',
             [
                 'attribute' => 'surname',
                 'label' => 'ФИО',

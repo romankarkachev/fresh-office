@@ -25,7 +25,7 @@ class TransportSearch extends Transport
     public function rules()
     {
         return [
-            [['id', 'ferryman_id', 'tt_id', 'brand_id'], 'integer'],
+            [['id', 'ferryman_id', 'state_id', 'tt_id', 'brand_id'], 'integer'],
             [['vin', 'rn', 'trailer_rn', 'comment', 'searchEntire'], 'safe'],
         ];
     }
@@ -96,6 +96,7 @@ class TransportSearch extends Transport
         $query->select([
             '*',
             'id' => 'transport.id',
+            'state_id' => 'transport.state_id',
             'inspCount' => '(
                 SELECT COUNT(id) FROM transport_inspections
                 WHERE `transport`.`id` = `transport_inspections`.`transport_id`
@@ -126,6 +127,7 @@ class TransportSearch extends Transport
         $query->andFilterWhere([
             'id' => $this->id,
             'ferryman_id' => $this->ferryman_id,
+            'state_id' => $this->state_id,
             'tt_id' => $this->tt_id,
             'brand_id' => $this->brand_id,
         ]);

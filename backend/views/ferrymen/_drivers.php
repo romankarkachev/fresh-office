@@ -42,6 +42,7 @@ use yii\grid\GridView;
                     return $result;
                 },
             ],
+            'stateName',
             [
                 'attribute' => 'driver_license',
                 'label' => 'Вод. удост.',

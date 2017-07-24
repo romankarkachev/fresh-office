@@ -28,6 +28,7 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
             'name',
             'ftName',
             'pcName',
+            'stateName',
             [
                 'attribute' => 'phone',
                 'value' => function($model, $key, $index, $column) {

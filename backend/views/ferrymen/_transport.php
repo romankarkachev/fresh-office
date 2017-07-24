@@ -40,6 +40,7 @@ use yii\grid\GridView;
                 },
             ],
             'trailer_rn',
+            'stateName',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

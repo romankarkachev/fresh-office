@@ -10,6 +10,7 @@ use common\behaviors\IndexFieldBehavior;
  *
  * @property integer $id
  * @property integer $ferryman_id
+ * @property integer $state_id
  * @property string $surname
  * @property string $name
  * @property string $patronymic
@@ -52,7 +53,7 @@ class Drivers extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'surname', 'name', 'driver_license', 'phone'], 'required'],
-            [['ferryman_id'], 'integer'],
+            [['ferryman_id', 'state_id'], 'integer'],
             [['dl_issued_at', 'pass_issued_at'], 'safe'],
             [['surname', 'name', 'patronymic'], 'string', 'max' => 50],
             [['driver_license', 'driver_license_index'], 'string', 'max' => 30],
@@ -74,6 +75,7 @@ class Drivers extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'ferryman_id' => 'Перевозчик',
+            'state_id' => 'Статус', // 1 - нареканий нет, 2 - есть замечания, 3 - черный список
             'surname' => 'Фамилия',
             'name' => 'Имя',
             'patronymic' => 'Отчество',
@@ -86,6 +88,7 @@ class Drivers extends \yii\db\ActiveRecord
             'pass_issued_by' => 'Кем выдан',
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
+            'stateName' => 'Статус',
         ];
     }
 
@@ -175,6 +178,23 @@ class Drivers extends \yii\db\ActiveRecord
 
         // не удалось преобразовать в человеческий вид - отображаем как есть
         return $phone;
+    }
+
+    /**
+     * Возвращает наименование статуса.
+     * @return string
+     */
+    public function getStateName()
+    {
+        if (null === $this->state_id) {
+            return '<не определен>';
+        }
+
+        $sourceTable = Ferrymen::fetchStates();
+        $key = array_search($this->state_id, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
     }
 
     /**

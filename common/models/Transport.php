@@ -10,6 +10,7 @@ use common\behaviors\IndexFieldBehavior;
  *
  * @property integer $id
  * @property integer $ferryman_id
+ * @property integer $state_id
  * @property integer $tt_id
  * @property integer $brand_id
  * @property string $vin
@@ -52,7 +53,7 @@ class Transport extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id'], 'required'],
-            [['ferryman_id', 'tt_id', 'brand_id'], 'integer'],
+            [['ferryman_id', 'state_id', 'tt_id', 'brand_id'], 'integer'],
             [['comment'], 'string'],
             [['vin', 'vin_index'], 'string', 'max' => 50],
             [['rn', 'rn_index', 'trailer_rn'], 'string', 'max' => 30],
@@ -72,6 +73,7 @@ class Transport extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'ferryman_id' => 'Перевозчик',
+            'state_id' => 'Статус', // 1 - нареканий нет, 2 - есть замечания, 3 - черный список
             'tt_id' => 'Тип',
             'brand_id' => 'Марка',
             'vin' => 'VIN',
@@ -80,6 +82,7 @@ class Transport extends \yii\db\ActiveRecord
             'comment' => 'Примечание',
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
+            'stateName' => 'Статус',
             'ttName' => 'Тип',
             'brandName' => 'Марка',
         ];
@@ -137,6 +140,23 @@ class Transport extends \yii\db\ActiveRecord
         }
 
         return false;
+    }
+
+    /**
+     * Возвращает наименование статуса.
+     * @return string
+     */
+    public function getStateName()
+    {
+        if (null === $this->state_id) {
+            return '<не определен>';
+        }
+
+        $sourceTable = Ferrymen::fetchStates();
+        $key = array_search($this->state_id, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
     }
 
     /**

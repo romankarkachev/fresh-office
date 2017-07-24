@@ -24,7 +24,7 @@ class DriversSearch extends Drivers
     public function rules()
     {
         return [
-            [['id', 'ferryman_id'], 'integer'],
+            [['id', 'ferryman_id', 'state_id'], 'integer'],
             [['surname', 'name', 'patronymic', 'driver_license', 'dl_issued_at', 'phone', 'pass_serie', 'pass_num', 'pass_issued_at', 'pass_issued_by', 'searchEntire'], 'safe'],
         ];
     }
@@ -87,6 +87,7 @@ class DriversSearch extends Drivers
         $query->select([
             '*',
             'id' => 'drivers.id',
+            'state_id' => 'drivers.state_id',
             'name' => 'drivers.name',
             'phone' => 'drivers.phone',
             'instrCount' => '(
@@ -119,6 +120,7 @@ class DriversSearch extends Drivers
         $query->andFilterWhere([
             'id' => $this->id,
             'ferryman_id' => $this->ferryman_id,
+            'state_id' => $this->state_id,
         ]);
 
         if ($this->searchEntire != null && $this->searchEntire != '')

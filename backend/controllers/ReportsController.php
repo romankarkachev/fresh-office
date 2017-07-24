@@ -171,11 +171,45 @@ class ReportsController extends Controller
 
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
-        return $this->render('emptycustomers', [
-            'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
-            'searchApplied' => $searchApplied,
-        ]);
+        if (Yii::$app->request->get('export') != null) {
+            if ($dataProvider->getTotalCount() == 0) {
+                Yii::$app->getSession()->setFlash('error', 'Нет данных для экспорта.');
+                $this->redirect(['/reports/emptycustomers']);
+                return false;
+            }
+
+            Excel::export([
+                'models' => $dataProvider->getModels(),
+                'fileName' => 'Пустые клиенты (сформирован '.date('Y-m-d в H i').').xlsx',
+                'format' => 'Excel2007',
+                'columns' => [
+                    [
+                        'attribute' => 'id',
+                        'header' => $searchModel->attributeLabels()['id'],
+                    ],
+                    [
+                        'attribute' => 'name',
+                        'header' => $searchModel->attributeLabels()['name'],
+                    ],
+                    [
+                        'attribute' => 'responsible',
+                        'header' => $searchModel->attributeLabels()['responsible'],
+                    ],
+                ],
+            ]);
+        }
+        else {
+            // в кнопку Экспорт в Excel встраиваем строку запроса
+            $queryString = '';
+            if (Yii::$app->request->queryString != '') $queryString = '&' . Yii::$app->request->queryString;
+
+            return $this->render('emptycustomers', [
+                'searchModel' => $searchModel,
+                'dataProvider' => $dataProvider,
+                'searchApplied' => $searchApplied,
+                'queryString' => $queryString,
+            ]);
+        }
     }
 
     /**

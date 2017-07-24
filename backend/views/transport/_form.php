@@ -29,6 +29,15 @@ use common\models\TransportBrands;
 
         </div>
         <?php endif ?>
+        <div class="col-md-3 col-lg-2">
+            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+                'data' => Ferrymen::arrayMapOfStatesForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+                'hideSearch' => true,
+            ]) ?>
+
+        </div>
         <div class="col-md-2">
             <?= $form->field($model, 'tt_id')->widget(Select2::className(), [
                 'data' => TransportTypes::arrayMapForSelect2(),

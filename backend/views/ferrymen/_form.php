@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
+use common\models\Ferrymen;
 use common\models\FerrymenTypes;
 use common\models\PaymentConditions;
 
@@ -19,6 +20,15 @@ use common\models\PaymentConditions;
     <div class="row">
         <div class="col-md-4">
             <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+                'data' => Ferrymen::arrayMapOfStatesForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+                'hideSearch' => true,
+            ]) ?>
 
         </div>
         <div class="col-md-2">

@@ -40,6 +40,15 @@ use common\models\Ferrymen;
             <?= $form->field($model, 'patronymic')->textInput(['maxlength' => true, 'placeholder' => 'Отчество']) ?>
 
         </div>
+        <div class="col-md-3 col-lg-2">
+            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+                'data' => Ferrymen::arrayMapOfStatesForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+                'hideSearch' => true,
+            ]) ?>
+
+        </div>
     </div>
     <div class="row">
         <div class="col-md-2">

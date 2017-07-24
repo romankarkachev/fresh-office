@@ -1,5 +1,7 @@
 <?php
 
+use yii\helpers\Html;
+
 /* @var $this yii\web\View */
 /* @var $model common\models\TransportRequests */
 /* @var $waste common\models\TransportRequestsWaste[] */
@@ -8,8 +10,17 @@
 $this->title = 'Новый запрос на транспорт | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']];
 $this->params['breadcrumbs'][] = 'Новый *';
+$this->params['breadcrumbs'][] = Html::a('<i class="fa fa-question-circle"></i> Подсказка', ['#frmHelp'], ['class' => 'btn btn-default btn-xs pull-right', 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frmHelp', 'title' => 'Показать подсказку']);
 ?>
 <div class="transport-requests-create">
+    <div id="frmHelp" class="collapse">
+        <div class="panel panel-default">
+            <div class="panel-body">
+                <?= $this->render('_help') ?>
+
+            </div>
+        </div>
+    </div>
     <?= $this->render('_form', [
         'model' => $model,
         'waste' => $waste,

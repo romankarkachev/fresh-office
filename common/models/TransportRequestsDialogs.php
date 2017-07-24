@@ -14,6 +14,7 @@ use dektrium\user\models\Profile;
  * @property integer $created_by
  * @property integer $tr_id
  * @property string $message
+ * @property integer $read_at
  *
  * @property string $createdByName
  *
@@ -22,6 +23,12 @@ use dektrium\user\models\Profile;
  */
 class TransportRequestsDialogs extends \yii\db\ActiveRecord
 {
+    /**
+     * Роль автора сообщения.
+     * @var string
+     */
+    public $roleName;
+
     /**
      * @inheritdoc
      */
@@ -37,7 +44,7 @@ class TransportRequestsDialogs extends \yii\db\ActiveRecord
     {
         return [
             [['tr_id', 'message'], 'required'],
-            [['created_at', 'created_by', 'tr_id'], 'integer'],
+            [['created_at', 'created_by', 'tr_id', 'read_at'], 'integer'],
             [['message'], 'string'],
             [['tr_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportRequests::className(), 'targetAttribute' => ['tr_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
@@ -55,8 +62,10 @@ class TransportRequestsDialogs extends \yii\db\ActiveRecord
             'created_by' => 'Автор создания',
             'tr_id' => 'Запрос на транспорт',
             'message' => 'Текст сообщения',
+            'read_at' => 'Прочитано',
             // для вычисляемых полей
             'createdByName' => 'Автор',
+            'roleName' => 'Роль',
         ];
     }
 

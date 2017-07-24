@@ -1,5 +1,6 @@
 <?php
 
+use yii\helpers\Html;
 use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
 use kartik\file\FileInput;
@@ -19,15 +20,19 @@ $this->params['breadcrumbs'][] = $model->representation . ' (автор: ' . $mo
 $newMessage = new TransportRequestsDialogs();
 $newMessage->tr_id = $model->id;
 $newMessage->created_by = Yii::$app->user->id;
+
+$favoriteGs = '/images/favorite24gs.png';
+$favorite = '/images/favorite24.png';
 ?>
 <div class="transport-requests-update">
     <div class="panel with-nav-tabs panel-success">
         <div class="panel-heading">
             <ul class="nav nav-pills" role="tablist">
                 <li role="presentation" class="active"><a href="#common" aria-controls="common" role="tab" data-toggle="tab">Общие</a></li>
-                <li role="presentation"><a href="#messages" aria-controls="messages" role="tab" data-toggle="tab">Диалоги</a></li>
+                <li role="presentation"><a href="#messages" aria-controls="messages" role="tab" data-toggle="tab" data-id="<?= $model->id ?>">Диалоги<?= $model->messagesUnread == 0 ? '' : ' <strong id="messages-count">' . $model->messagesUnread . '</strong>' ?></a></li>
                 <li role="presentation"><a href="#files" aria-controls="files" role="tab" data-toggle="tab">Файлы</a></li>
                 <li role="presentation"><a href="#help" aria-controls="help" role="tab" data-toggle="tab"><i class="fa fa-info-circle" aria-hidden="true"></i> Подсказка</a></li>
+                <li class="pull-right"><?= Html::a(Html::img($model->is_favorite == true ? $favorite : $favoriteGs), '#', ['id' => 'btnFavorite', 'data-id' => $model->id]) ?></li>
             </ul>
         </div>
         <div class="panel-body">
@@ -48,7 +53,6 @@ $newMessage->created_by = Yii::$app->user->id;
 
                 </div>
                 <div role="tabpanel" class="tab-pane fade" id="files">
-    <!--<div class="page-header"><h3>Файлы</h3></div>-->
                     <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 
                     <?= FileInput::widget([
@@ -67,41 +71,8 @@ $newMessage->created_by = Yii::$app->user->id;
 
                 </div>
                 <div role="tabpanel" class="tab-pane fade" id="help">
-                    <p><strong>Общая информация.</strong> Автором запроса является авторизованный пользователь, который его создал. Изменение авторства в течение жизни запроса не предусмотрено. Менеждер видит в списке только собственные запросы, логист - все.</p>
-                    <p>
-                        <strong>Табличная часть &laquo;Отходы&raquo;</strong>. Нажмите кнопку &laquo;Добавить строку&raquo;. Обязательно необходимо
-                        заполнить поле &laquo;Наименование отходов&raquo;, &laquo;Единица измерения&raquo;, &laquo;Количество&raquo;. Текст в поле &laquo;Наименование
-                        отходов&raquo; вводится всегда вручную, но если система выдает в результате выборки подходящий отход,
-                        то Вы должны выбрать его обязательно. Не выбирать отход можно только в том случае, если он
-                        отсутствует в справочнике или из предложенных вариантов ни один не подходит. Текст в поле
-                        &laquo;Вид упаковки&raquo; тоже всегда вводится вручную, но при работе с этим полем необходимо быть внимательным,
-                        поскольку если Вы напишете &laquo;картон&raquo;, но не выберете из списка предложенных &laquo;Картон&raquo;, то в
-                        справочнике видов упаковки будет создан еще один элемент &laquo;картон&raquo;, что недопустимо. А после
-                        этого, когда снова начнете набирать слово &laquo;картон&raquo; в другой строке табличной части,
-                        система предложит уже два варианта - &laquo;картон&raquo; и
-                        &laquo;Картон&raquo;. Такого допускать нельзя. Всегда выполняйте выбор предлагаемых элементов, если среди
-                        них есть подходящий. Количество вводится всегда только целыми числами, поэтому, если необходимо
-                        ввести граммы, а есть только тонны, то необходимо заблаговременно создать соответствующую
-                        единицу измерения и вводить ее меру только целым числом.
-                    </p>
-                    <p>
-                        <strong>Табличная часть &laquo;Транспорт&raquo;</strong>. Нажмите кнопку &laquo;Добавить строку&raquo;. Табличную часть наполняет менеджер,
-                        логист дополняет стоимостью. Если при наполнении этой табличной части система автоматически
-                        подставляет стоимость, это поведение считается нормальным. Когда логист откроет запрос, он увидит,
-                        что стоимость необходимо либо утвердить (не менять) либо изменит ее по своему усмотрению. Утверждение
-                        цены &mdash; это просто закрытие запроса через установленную галочку внизу формы на закладке
-                        Общие.
-                    </p>
-                    <p>
-                        <strong>Закладка &laquo;Диалоги&raquo;</strong>. Добавление комментария и сортировка таблицы
-                        осуществяется по технологии &laquo;pjax&raquo;, без перезагрузки страницы. Но автоматическое
-                        обновление списка сообщений не предусмотрена. Для этих целей применяется обыкновенная перезагрузка
-                        страницы.
-                    </p>
-                    <p>
-                        <strong>Прочие замечания. </strong>
-                        Закрытую заявку можно вернуть в статус &laquo;В обработке&raquo;, если добавить любой комментарий.
-                    </p>
+                    <?= $this->render('_help') ?>
+
                 </div>
             </div>
         </div>
@@ -124,10 +95,43 @@ $newMessage->created_by = Yii::$app->user->id;
     </div>
 </div>
 <?php
+$url_toggle = Url::to(['/transport-requests/toggle-favorite']);
+$url_mark_read = Url::to(['/transport-requests/mark-as-read']);
+
 $this->registerJs(<<<JS
+// Обработчик щелчка по кнопке "Избранный". Выполняет переключение этого признака.
+//
+function btnFavoriteOnClick() {
+    \$btn = $(this);
+    \$btn.html("<i class=\"fa fa-cog fa-spin fa-2x text-muted\"></i>");
+    id = \$btn.attr("data-id");
+    if (id != "" && id != undefined)
+        $.get("$url_toggle?id=" + id, function(result) {
+            if (result == true)
+                \$btn.html("<img src=\"$favorite\" />");
+            else
+                \$btn.html("<img src=\"$favoriteGs\" />");
+        });
+
+    return false;
+} // btnFavoriteOnClick()
+
 $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
     $.pjax.reload({container:"#afs"});
 });
+
+$('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+    var target = $(e.target).attr("href");
+    if ((target == '#messages')) {
+        id = $(this).attr("data-id");
+        if (id != "" && id != undefined && $("#messages-count").length > 0)
+            $.get("$url_mark_read?id=" + id, function(result) {
+                $("#messages-count").remove();
+            });
+    }
+});
+
+$(document).on("click", "#btnFavorite", btnFavoriteOnClick);
 JS
 , \yii\web\View::POS_READY);
 ?>

@@ -16,6 +16,7 @@ use Yii;
  * @property integer $ags_id
  * @property integer $unit_id
  * @property string $measure
+ * @property string $comment
  *
  * @property string $fkkoCode
  * @property string $fkkoName
@@ -48,10 +49,11 @@ class TransportRequestsWaste extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['tr_id', 'fkko_name', 'unit_id', 'measure'], 'required'],
+            [['tr_id', 'fkko_name'], 'required'],
             [['tr_id', 'fkko_id', 'dc_id', 'packing_id', 'ags_id', 'unit_id'], 'integer'],
             [['measure'], 'number'],
             [['fkko_name'], 'string', 'max' => 255],
+            [['comment'], 'string', 'max' => 50],
             [['unit_id'], 'exist', 'skipOnError' => true, 'targetClass' => Units::className(), 'targetAttribute' => ['unit_id' => 'id']],
             [['ags_id'], 'exist', 'skipOnError' => true, 'targetClass' => AggregateStates::className(), 'targetAttribute' => ['ags_id' => 'id']],
             [['dc_id'], 'exist', 'skipOnError' => true, 'targetClass' => DangerClasses::className(), 'targetAttribute' => ['dc_id' => 'id']],
@@ -76,6 +78,7 @@ class TransportRequestsWaste extends \yii\db\ActiveRecord
             'ags_id' => 'Агрегатное состояние',
             'unit_id' => 'Единица измерения',
             'measure' => 'Количество',
+            'comment' => 'Примечание',
         ];
     }
 

@@ -49,6 +49,10 @@ $current_user_id = Yii::$app->user->id;
                     },
                     'options' => ['width' => '200'],
                 ],
+                [
+                    'attribute' => 'roleName',
+                    'options' => ['width' => '200'],
+                ],
                 'message',
             ],
         ]); ?>

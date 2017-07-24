@@ -39,6 +39,7 @@ class TransportRequestsController extends Controller
                 'only' => [
                     'index', 'create', 'update', 'delete', 'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
                     'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
+                    'toggle-favorite', 'mark-as-read',
                     'similar-statements', 'compose-region-fields',
                     'dialog-messages-list', 'add-dialog-message',
                     'upload-files', 'download-file', 'delete-file',
@@ -145,6 +146,7 @@ class TransportRequestsController extends Controller
                 foreach ($postWaste as $tp) {
                     $row = new TransportRequestsWaste();
                     $row->attributes = $tp->attributes;
+                    $row->tr_id = $model->id;
                     if (!$row->save()) {
                         $successWaste = false;
                         $details = '';
@@ -162,6 +164,7 @@ class TransportRequestsController extends Controller
                 foreach ($postTransport as $tp) {
                     $row = new TransportRequestsTransport();
                     $row->attributes = $tp->attributes;
+                    $row->tr_id = $model->id;
                     if (!$row->save()) {
                         $successTransport = false;
                         $details = '';
@@ -225,6 +228,7 @@ class TransportRequestsController extends Controller
             if ($model->closeRequest)
                 if (isset($model->oldAttributes['state_id']))
                     if ($model->oldAttributes['state_id'] != TransportRequestsStates::STATE_ЗАКРЫТ) {
+                        // закрываем запрос только один первый раз, если он закрывается повторно, то не важно уже это
                         $model->state_id = TransportRequestsStates::STATE_ЗАКРЫТ;
                         $model->finished_at = time();
                     }
@@ -275,6 +279,7 @@ class TransportRequestsController extends Controller
                 'model' => $model,
                 'waste' => $postWaste,
                 'transport' => $postTransport,
+                'dpDialogs' => $this->fetchDialogs($model),
                 'dpFiles' => $this->fetchFiles($model),
             ]);
         } else {
@@ -376,6 +381,48 @@ class TransportRequestsController extends Controller
 
             return $query->asArray()->all();
         }
+    }
+
+    /**
+     * Переключает нахождение запроса в избранных.
+     * @param $id integer идентификатор запроса
+     * @return bool
+     */
+    public function actionToggleFavorite($id)
+    {
+        $id = intval($id);
+        if ($id > 0) {
+            $request = TransportRequests::findOne($id);
+            if ($request != null) {
+                $request->is_favorite = !$request->is_favorite;
+                if ($request->save(false)) return $request->is_favorite;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Помечает непрочитанные сообщения запроса прочитанными.
+     * @param $id integer идентификатор запроса
+     * @return bool
+     */
+    public function actionMarkAsRead($id)
+    {
+        $id = intval($id);
+        if ($id > 0) {
+            $request = TransportRequests::findOne($id);
+            if ($request != null) {
+                TransportRequestsDialogs::updateAll([
+                    'read_at' => time(),
+                ], [
+                    'tr_id' => $id,
+                    'read_at' => null,
+                ]);
+            }
+        }
+
+        return false;
     }
 
     /**

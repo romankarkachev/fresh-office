@@ -20,6 +20,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $city_id
  * @property string $address
  * @property integer $state_id
+ * @property integer $is_favorite
  * @property string $comment_manager
  * @property string $comment_logist
  * @property integer $our_loading
@@ -29,6 +30,7 @@ use yii\helpers\ArrayHelper;
  * @property string $spec_hose
  * @property string $spec_cond
  *
+ * @property integer $messagesUnread
  * @property string $representation
  * @property string $createdByName
  * @property string $regionName
@@ -95,6 +97,12 @@ class TransportRequests extends \yii\db\ActiveRecord
     public $tpTransportLinear;
 
     /**
+     * Количество непрочитанных сообщений в диалогах запроса.
+     * @var integer
+     */
+    public $unreadMessagesCount;
+
+    /**
      * Признак необходимости закрытия запроса.
      * @var bool
      */
@@ -115,7 +123,7 @@ class TransportRequests extends \yii\db\ActiveRecord
     {
         return [
             [['customer_id', 'region_id', 'city_id', 'state_id'], 'required'],
-            [['created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
+            [['created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'is_favorite', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
             [['comment_manager', 'comment_logist', 'special_conditions', 'spec_cond'], 'string'],
             [['customer_name', 'address'], 'string', 'max' => 255],
             [['spec_hose'], 'string', 'max' => 50],
@@ -146,6 +154,7 @@ class TransportRequests extends \yii\db\ActiveRecord
             'city_id' => 'Город',
             'address' => 'Адрес',
             'state_id' => 'Статус',
+            'is_favorite' => 'Избранный',
             'comment_manager' => 'Комментарий менеджера',
             'comment_logist' => 'Комментарий логиста',
             'our_loading' => 'Необходимость нашей погрузки', // 0 - нет, 1 - да
@@ -244,6 +253,8 @@ class TransportRequests extends \yii\db\ActiveRecord
             TransportRequestsWaste::deleteAll(['tr_id' => $this->id]);
             // удаляем табличную часть "Транспорт"
             TransportRequestsTransport::deleteAll(['tr_id' => $this->id]);
+            // удаляем диалоги
+            TransportRequestsDialogs::deleteAll(['tr_id' => $this->id]);
 
             return true;
         }
@@ -262,7 +273,7 @@ class TransportRequests extends \yii\db\ActiveRecord
             foreach ($this->tpWaste as $index => $item) {
                 $model = new TransportRequestsWaste();
                 $model->attributes  = $item;
-                if (!$model->validate(['fkko_name', 'unit_id', 'measure'])) {
+                if (!$model->validate(['fkko_name'])) {
                     $row_numbers[] = $iterator;
                 }
                 $iterator++;
@@ -287,7 +298,7 @@ class TransportRequests extends \yii\db\ActiveRecord
                 }
                 $iterator++;
             }
-            if (count($row_numbers) > 0) $this->addError('tpTransport', 'Не все обязательные поля в табличной части заполнены! Строки: '.implode(', ', $row_numbers).'.');
+            if (count($row_numbers) > 0) $this->addError('tpTransportErrors', 'Не все обязательные поля в табличной части заполнены! Строки: '.implode(', ', $row_numbers).'.');
         }
     }
 
@@ -299,6 +310,7 @@ class TransportRequests extends \yii\db\ActiveRecord
     {
         $result = [];
         if (is_array($this->tpWaste)) if (count($this->tpWaste) > 0) {
+            // в цикле заполним массив моделями строк
             foreach ($this->tpWaste as $index => $item) {
                 $newPacktingType = trim($item['newPacktingType']);
                 // проверим необходимость создания вида упаковки
@@ -317,6 +329,12 @@ class TransportRequests extends \yii\db\ActiveRecord
                 $dtp->tr_id = $this->id;
                 $result[] = $dtp;
             }
+
+            // проверим, есть ли изменения
+            $ex = TransportRequestsWaste::find()->where(['tr_id' => $this->id])->all();
+            // если изменения есть, то изменим статус запроса
+            if (md5(json_encode($ex)) != md5(json_encode($result)) && $this->state_id != TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ)
+                $this->state_id = TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ;
         }
 
         return $result;
@@ -336,6 +354,12 @@ class TransportRequests extends \yii\db\ActiveRecord
                 $dtp->tr_id = $this->id;
                 $result[] = $dtp;
             }
+
+            // проверим, есть ли изменения
+            $ex = TransportRequestsTransport::find()->where(['tr_id' => $this->id])->all();
+            // если изменения есть, то изменим статус запроса
+            if (md5(json_encode($ex)) != md5(json_encode($result)) && $this->state_id != TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ)
+                $this->state_id = TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ;
         }
 
         return $result;
@@ -369,6 +393,24 @@ class TransportRequests extends \yii\db\ActiveRecord
     public function arrayMapOfCitiesForSelect2()
     {
         return ArrayHelper::map(Cities::find()->select(['id' => 'city_id', 'name'])->where(['region_id' => $this->region_id])->all(), 'id', 'name');
+    }
+
+    /**
+     * @return integer
+     */
+    public function getMessagesUnread()
+    {
+        $current_role = Yii::$app->authManager->getRolesByUser(Yii::$app->user->id);
+        if (is_array($current_role))
+            return TransportRequestsDialogs::find()
+                ->leftJoin('auth_assignment', 'auth_assignment.user_id = transport_requests_dialogs.created_by')
+                ->leftJoin('auth_item', 'auth_item.name = auth_assignment.item_name')
+                ->where(['tr_id' => $this->id])
+                ->andWhere('auth_assignment.item_name <> "' . array_shift($current_role)->name . '"')
+                ->andWhere(['read_at' => null])
+                ->count();
+        else
+            return 0;
     }
 
     /**

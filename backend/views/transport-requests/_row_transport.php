@@ -23,7 +23,7 @@ if (!$model->isNewRecord)
     <div class="row" id="transport-row-<?= $counter ?>">
         <div class="col-md-2">
             <div class="form-group field-<?= $formName ?>-tt_id required">
-                <label class="control-label" for="<?= $formName ?>-tt_id"><?= $model->getAttributeLabel('tt_id') ?></label>
+                <label class="control-label" for="<?= $formName ?>-tt_id"><?= $model->getAttributeLabel('tt_id') ?> *</label>
                 <?= Select2::widget([
                     'model' => $model,
                     'name' => $trFormName . '[tpTransport]['.$counter.'][tt_id]',

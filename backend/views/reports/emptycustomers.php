@@ -1,5 +1,6 @@
 <?php
 
+use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\grid\GridView;
 
@@ -24,6 +25,10 @@ $this->params['breadcrumbs'][] = 'Отчет по пустым клиентам'
 
         </div>
     </div>
+    <p>
+        <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Экспорт в Excel', '/reports/emptycustomers?export=true' . $queryString, ['class' => 'btn btn-default pull-right']) ?>
+
+    </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'id' => 'gw-ca-nf',

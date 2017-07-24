@@ -202,8 +202,10 @@ return result.text;
             </div>
         </div>
     </div>
+    <?php if ((Yii::$app->user->can('root') || Yii::$app->user->can('logist'))): ?>
     <?= $form->field($model, 'comment_logist')->textarea(['rows' => 3, 'placeholder' => 'Введите комментарий']) ?>
 
+    <?php endif; ?>
     <?php if ((Yii::$app->user->can('root') || Yii::$app->user->can('logist')) && !$model->isNewRecord): ?>
     <?= $form->field($model, 'closeRequest')->checkbox(['disabled' => $model->state_id == \common\models\TransportRequestsStates::STATE_ЗАКРЫТ])->label(null, ['style' => 'padding-left: 0px;']) ?>
 
@@ -323,7 +325,7 @@ function btnAddTransportRowOnClick() {
 // Обработчик щелчка по кнопке "Удалить строку" в табличной части "Транспорт".
 //
 function btnDeleteTransportRowClick(event) {
-    var message = "Удаление строки из табличной части производится сразу и безвозвратно. Продолжить?";
+    var message = "Удаление строки из табличной части производится сразу и безвозвратно. Также после удаления нет необходимости сохранять запрос. Продолжить?";
     var id = $(this).attr("data-id");
     var counter = $(this).attr("data-counter");
 

@@ -42,6 +42,16 @@ class TransportRequestsDialogsSearch extends TransportRequestsDialogs
     public function search($params)
     {
         $query = TransportRequestsDialogs::find();
+        $query->select([
+            '*',
+            'transport_requests_dialogs.id',
+            'roleName' => '(
+                SELECT description FROM auth_item
+                INNER JOIN auth_assignment aa ON aa.item_name = auth_item.name
+                WHERE aa.user_id = transport_requests_dialogs.created_by
+            )',
+        ]);
+
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
@@ -56,6 +66,7 @@ class TransportRequestsDialogsSearch extends TransportRequestsDialogs
                         'asc' => ['profile.name' => SORT_ASC],
                         'desc' => ['profile.name' => SORT_DESC],
                     ],
+                    'roleName',
                     'message',
                 ],
             ],

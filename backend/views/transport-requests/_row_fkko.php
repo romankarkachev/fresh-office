@@ -29,7 +29,7 @@ if (!$model->isNewRecord)
         <div class="col-md-4">
             <div class="col-md-12">
                 <div class="form-group field-<?= $formName ?>-fkko_name required">
-                    <label class="control-label" for="<?= $formName ?>-fkko_name"><?= $model->getAttributeLabel('fkko_name') ?></label>
+                    <label class="control-label" for="<?= $formName ?>-fkko_name"><?= $model->getAttributeLabel('fkko_name') ?> *</label>
                     <?= Typeahead::widget([
                         'model' => $model,
                         'name' => $trFormName . '[tpWaste]['.$counter.'][fkko_name]',
@@ -170,7 +170,7 @@ if (!$model->isNewRecord)
             </div>
             <div class="col-md-2">
                 <div class="form-group field-<?= $formName ?>-unit_id required">
-                    <label class="control-label" for="<?= $formName ?>-unit_id"><?= $model->getAttributeLabel('unit_id') ?></label>
+                    <label class="control-label" for="<?= $formName ?>-unit_id">Ед. изм.</label>
                     <?= Select2::widget([
                         'model' => $model,
                         'name' => $trFormName . '[tpWaste]['.$counter.'][unit_id]',
@@ -191,7 +191,7 @@ if (!$model->isNewRecord)
                     <p class="help-block help-block-error"></p>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-1">
                 <div class="form-group field-<?= $formName ?>-measure">
                     <label class="control-label" for="<?= $formName ?>-measure"><?= $model->getAttributeLabel('measure') ?></label>
                     <?= MaskedInput::widget([
@@ -204,14 +204,31 @@ if (!$model->isNewRecord)
                             'title' => 'Объем, количество, мера измерения отходов'
                         ],
                         'clientOptions' => [
-                            'alias' =>  'numeric',
-                            'digitsOptional' => true,
+                            'alias' =>  'decimal',
+                            //'digits' => 2,
+                            //'digitsOptional' => true,
                             'radixPoint' => '.',
-                            'groupSeparator' => '',
+                            'groupSeparator' => ' ',
                             'autoGroup' => true,
                             'removeMaskOnSubmit' => true,
                         ],
                     ]) ?>
+
+                    <p class="help-block help-block-error"></p>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="form-group field-<?= $formName ?>-comment">
+                    <label class="control-label" for="<?= $formName ?>-comment"><?= $model->getAttributeLabel('comment') ?></label>
+                    <?= Html::input('text',
+                        $trFormName . '[tpWaste]['.$counter.'][comment]',
+                        $model->comment,
+                        [
+                            'id' => $formName . '-comment-'.$counter,
+                            'class' => 'form-control input-sm',
+                            'placeholder' => 'Примечание',
+                            'title' => 'Примечание к строке (объем)'
+                        ]) ?>
 
                     <p class="help-block help-block-error"></p>
                 </div>

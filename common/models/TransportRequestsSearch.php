@@ -89,7 +89,8 @@ class TransportRequestsSearch extends TransportRequests
     public function search($params)
     {
         $query = TransportRequests::find();
-        $query->select([
+
+        $select = [
             '*',
             'id' => 'transport_requests.id',
             'tpWasteLinear' => '(
@@ -102,7 +103,19 @@ class TransportRequestsSearch extends TransportRequests
                 INNER JOIN transport_requests_transport ON transport_requests_transport.tt_id = transport_types.id
                 WHERE transport_requests_transport.tr_id = transport_requests.id
             )',
-        ]);
+        ];
+        $current_role = Yii::$app->authManager->getRolesByUser(Yii::$app->user->id);
+        if (is_array($current_role))
+            $select['unreadMessagesCount'] = '(
+                SELECT COUNT(transport_requests_dialogs.id) FROM `transport_requests_dialogs`
+                LEFT JOIN auth_assignment ON auth_assignment.user_id = transport_requests_dialogs.created_by
+                LEFT JOIN auth_item ON auth_item.name = auth_assignment.item_name
+                WHERE auth_assignment.item_name <> "' . array_shift($current_role)->name . '" AND tr_id=transport_requests.id AND read_at IS NULL
+            )';
+        else
+            $select['unreadMessagesCount'] = 0;
+
+        $query->select($select);
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [

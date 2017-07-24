@@ -186,6 +186,7 @@ NavBar::end();
 <div class="container-fluid main">
     <?= Breadcrumbs::widget([
         'links' => isset($this->params['breadcrumbs']) ? $this->params['breadcrumbs'] : [],
+        'encodeLabels' => false,
     ]) ?>
 
     <?= Alert::widget() ?>

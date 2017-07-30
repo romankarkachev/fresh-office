@@ -17,16 +17,23 @@ class foProjectsSearch extends foProjects
     const CLAUSE_GROUP_PROJECT_TYPES_III = 3; // фото/видео 7
 
     /**
+     * Идентификаторы проектов, которые необходимо исключить из выборки.
+     * @var array
+     */
+    public $searchExcludeIds;
+
+    /**
+     * Период создания с ... по.
+     * @var string
+     */
+    public $searchCreatedFrom;
+    public $searchCreatedTo;
+
+    /**
      * Группа типов проектов.
      * @var string
      */
     public $searchGroupProjectTypes;
-
-    /**
-     * Статусы проектов.
-     * @var string
-     */
-    public $searchProjectStates;
 
     /**
      * Количество записей на странице.
@@ -42,9 +49,9 @@ class foProjectsSearch extends foProjects
     {
         return [
             [['type_name', 'ca_name', 'manager_name', 'state_name', 'perevoz', 'proizodstvo', 'oplata', 'adres', 'dannie', 'ttn', 'weight'], 'string'],
-            [['id', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchPerPage'], 'integer'],
+            [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchPerPage'], 'integer'],
             [['amount', 'cost'], 'number'],
-            [['vivozdate', 'date_start', 'date_end', 'searchGroupProjectTypes', 'searchProjectStates'], 'safe'],
+            [['vivozdate', 'date_start', 'date_end', 'searchExcludeIds', 'searchGroupProjectTypes', 'searchCreatedFrom', 'searchCreatedTo'], 'safe'],
         ];
     }
 
@@ -56,8 +63,11 @@ class foProjectsSearch extends foProjects
         return [
             // для отбора
             'ca_id' => 'Контрагент',
+            'state_id' => 'Статус',
+            'searchExcludeIds' => 'Исключаемые проекты',
             'searchGroupProjectTypes' => 'Типы проектов',
-            'searchProjectStates' => 'Статус проектов',
+            'searchCreatedFrom' => 'Период с',
+            'searchCreatedTo' => 'Период по',
             'searchPerPage' => 'Записей', // на странице
         ];
     }
@@ -97,26 +107,27 @@ class foProjectsSearch extends foProjects
         $query = foProjects::find();
         $query->select([
             'id' => 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY',
-             'type_id' => 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT',
-             'type_name' => 'LIST_SPR_PROJECT.NAME_PROJECT',
-             'vivozdate' => 'ADD_vivozdate',
-             'date_start' => 'DATE_START_PROJECT',
-             'date_end' => 'DATE_FINAL_PROJECT',
-             'ca_id' => 'LIST_PROJECT_COMPANY.ID_COMPANY',
-             'ca_name' => 'COMPANY.COMPANY_NAME',
-             'manager_id' => 'LIST_PROJECT_COMPANY.ID_MANAGER_VED',
-             'manager_name' => 'MANAGERS.MANAGER_NAME',
-             'payment.amount',
-             'payment.cost',
-             'state_id' => 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT',
-             'state_name' => 'LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT',
-             'perevoz' => 'ADD_perevoz_new',
-             'proizodstvo' => 'ADD_proizodstvo',
-             'oplata' => 'ADD_oplata',
-             'adres' => 'ADD_adres',
-             'dannie' => 'ADD_dannie',
-             'ttn' => 'ADD_ttn',
-             'weight' => 'ADD_wieght',
+            'created_at' => 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT',
+            'type_id' => 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT',
+            'type_name' => 'LIST_SPR_PROJECT.NAME_PROJECT',
+            'vivozdate' => 'ADD_vivozdate',
+            'date_start' => 'DATE_START_PROJECT',
+            'date_end' => 'DATE_FINAL_PROJECT',
+            'ca_id' => 'LIST_PROJECT_COMPANY.ID_COMPANY',
+            'ca_name' => 'COMPANY.COMPANY_NAME',
+            'manager_id' => 'LIST_PROJECT_COMPANY.ID_MANAGER_VED',
+            'manager_name' => 'MANAGERS.MANAGER_NAME',
+            'payment.amount',
+            'payment.cost',
+            'state_id' => 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT',
+            'state_name' => 'LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT',
+            'perevoz' => 'ADD_perevoz_new',
+            'proizodstvo' => 'ADD_proizodstvo',
+            'oplata' => 'ADD_oplata',
+            'adres' => 'ADD_adres',
+            'dannie' => 'ADD_dannie',
+            'ttn' => 'ADD_ttn',
+            'weight' => 'ADD_wieght',
         ]);
         $query->leftJoin('LIST_SPR_PROJECT', 'LIST_SPR_PROJECT.ID_LIST_SPR_PROJECT = LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT');
         $query->leftJoin('LIST_SPR_PRIZNAK_PROJECT', 'LIST_SPR_PRIZNAK_PROJECT.ID_PRIZNAK_PROJECT = LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT');
@@ -138,6 +149,7 @@ class foProjectsSearch extends foProjects
                         'asc' => ['LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => SORT_ASC],
                         'desc' => ['LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => SORT_DESC],
                     ],
+                    'created_at',
                     'type_id',
                     'type_name' => [
                         'asc' => ['LIST_SPR_PROJECT.NAME_PROJECT' => SORT_ASC],
@@ -197,7 +209,13 @@ class foProjectsSearch extends foProjects
             'pageSize' => $this->searchPerPage,
         ];
 
-        if ($this->searchGroupProjectTypes == null && $this->searchProjectStates == null)
+        $query->andFilterWhere([
+            //'id' => $this->id,
+            'LIST_PROJECT_COMPANY.ID_COMPANY' => $this->ca_id,
+            'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $this->state_id,
+        ]);
+
+        if ($this->searchGroupProjectTypes === null && $this->state_id === null)
             $query->andFilterWhere([
                 'and',
                 ['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', explode(',', DirectMSSQLQueries::PROJECTS_STATES_LOGIST_LIMIT)],
@@ -205,7 +223,7 @@ class foProjectsSearch extends foProjects
             ]);
         else {
             // проверим параметры отбора, которые может применять пользователь
-            if ($this->searchGroupProjectTypes != null) {
+            if ($this->searchGroupProjectTypes !== null) {
                 // указана группа типов проектов
                 $groupsOfTypes = $this->fetchGroupProjectTypesIds();
                 $key = array_search($this->searchGroupProjectTypes, array_column($groupsOfTypes, 'id'));
@@ -213,13 +231,23 @@ class foProjectsSearch extends foProjects
                     $query->andFilterWhere(['in', 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT', explode(',', $groupsOfTypes[$key]['types'])]);
                 }
             }
-
-            if ($this->searchProjectStates != null)
-                $query->andFilterWhere(['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', $this->searchProjectStates]);
         }
 
-        if ($this->ca_id != null)
-            $query->andFilterWhere(['in', 'LIST_PROJECT_COMPANY.ID_COMPANY', $this->ca_id]);
+        if ($this->searchCreatedFrom !== null || $this->searchCreatedTo !== null) {
+            if ($this->searchCreatedFrom !== '' && $this->searchCreatedTo !== '') {
+                // если указаны обе даты
+                $query->andFilterWhere(['between', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedFrom) .'T00:00:00.000\', 126)'), new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedTo) .'T23:59:59.999\', 126)')]);
+            } else if ($this->searchCreatedFrom !== '' && $this->searchCreatedTo === '') {
+                // если указано только начало периода
+                $query->andFilterWhere(['>=', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedFrom) .'T00:00:00.000\', 126)')]);
+            } else if ($this->searchCreatedFrom === '' && $this->searchCreatedTo !== '') {
+                // если указан только конец периода
+                $query->andFilterWhere(['<=', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedTo) .'T23:59:59.999\', 126)')]);
+            };
+        }
+
+        if ($this->searchExcludeIds !== null)
+            $query->andFilterWhere(['not in', 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY', $this->searchExcludeIds]);
 
         return $dataProvider;
     }

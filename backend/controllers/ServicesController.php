@@ -2,12 +2,19 @@
 
 namespace backend\controllers;
 
+use common\models\PadKinds;
+use common\models\ProjectsTypes;
 use Yii;
+use yii\db\Expression;
 use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use common\models\DirectMSSQLQueries;
 use common\models\MailingProjects;
 use common\models\ResponsibleByProjectTypes;
+use common\models\foProjects;
+use common\models\foProjectsSearch;
+use common\models\ProjectsStates;
+use common\models\CorrespondencePackages;
 
 class ServicesController extends Controller
 {
@@ -127,6 +134,74 @@ class ServicesController extends Controller
             // не выполнится и отправка не произойдет по этой причине
             $emails = explode("\n", ArrayHelper::getValue($receivers, $current_type));
             if (count($projects_sent) > 0) $this->sendLetter($emails, $projects_sent);
+        }
+    }
+
+    /**
+     * Модуль делает выборку проектов в статусе "Отдано на отправку" из базы Fresh Office и помещает их в базу текущего
+     * веб-приложения. Загруженные проекты получают новый статус "Формирование документов на отправку".
+     */
+    public function actionFetchProjectsToCorrespondence()
+    {
+        $time_ago = date('Y-m-d', (time() - 7*24*3600)); // загруженные не более семи дней назад
+
+        // загруженные проекты берем не старше одной недели
+        $projects_exclude = CorrespondencePackages::find()->distinct('fo_project_id')->select('fo_project_id')->where('created_at > ' . strtotime($time_ago.' 00:00:00'))->asArray()->column();
+
+        $searchModel = new foProjectsSearch();
+        $dataProvider = $searchModel->search([
+            $searchModel->formName() => [
+                'state_id' => ProjectsStates::STATE_ОТДАНО_НА_ОТПРАВКУ,
+                'searchCreatedFrom' => $time_ago,
+                'searchExcludeIds' => $projects_exclude,
+            ]
+        ]);
+
+//        echo \yii\grid\GridView::widget([
+//            'dataProvider' => $dataProvider,
+//            'layout' => '{items}{pager}',
+//            'tableOptions' => ['class' => 'table table-striped table-hover'],
+//            'columns' => [
+//                'id',
+//                'created_at',
+//                'ca_name',
+//                'state_name',
+//                'type_id',
+//                'type_name',
+//            ],
+//        ]);
+
+        // типы проектов
+        $types = ArrayHelper::map(ProjectsTypes::find()->asArray()->all(), 'id', 'name');
+
+        // виды документов, доступные на данный момент
+        $padKinds = PadKinds::find()->select(['id', 'name', 'name_full', 'is_provided' => new Expression(0)])->orderBy('name_full')->asArray()->all();
+
+        $successIds = []; // идентификаторы успешно загруженных в веб-приложение проектов
+        foreach ($dataProvider->getModels() as $project) {
+            /* @var \common\models\foProjects $project */
+
+            $model = new CorrespondencePackages([
+                'fo_project_id' => $project->id,
+                'customer_name' => $project->ca_name,
+                'state_id' => ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ,
+                'pad' => json_encode($padKinds),
+            ]);
+
+            if (ArrayHelper::keyExists($project->type_id, $types)) $model->type_id = $project->type_id;
+
+            if ($model->save()) $successIds[] = (string)$project->id;
+        }
+
+        if (count($successIds) < -30) {
+        //if (count($successIds) > 0) {
+            foProjects::updateAll([
+                // статус, который необходимо выставить
+                'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ,
+            ], [
+                // идентификаторы проектов, которые подлежат обновлению
+                'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => $successIds,
+            ]);
         }
     }
 }

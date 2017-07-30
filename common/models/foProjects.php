@@ -8,6 +8,7 @@ use Yii;
  * Модель для выборки из таблицы проектов Fresh Office.
  *
  * @property integer $id
+ * @property integer $created_at
  * @property integer $type_id
  * @property integer $ca_id
  * @property integer $manager_id
@@ -36,6 +37,7 @@ class foProjects extends \yii\db\ActiveRecord
     public $isNewRecord;
 
     public $id;
+    public $created_at;
     public $type_id;
     public $ca_id;
     public $manager_id;
@@ -80,7 +82,7 @@ class foProjects extends \yii\db\ActiveRecord
     {
         return [
             [['type_name', 'ca_name', 'manager_name', 'state_name', 'perevoz', 'proizodstvo', 'oplata', 'adres', 'dannie', 'ttn', 'weight'], 'string'],
-            [['id', 'type_id', 'ca_id', 'manager_id', 'state_id'], 'integer'],
+            [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id'], 'integer'],
             [['amount', 'cost'], 'number'],
             [['vivozdate', 'date_start', 'date_end'], 'safe'],
         ];
@@ -93,6 +95,7 @@ class foProjects extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
+            'created_at' => 'Создан',
             'type_id' => 'Тип',
             'state_id' => 'Статус',
             'manager_id' => 'Менеджер',

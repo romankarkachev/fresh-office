@@ -120,6 +120,9 @@ return result.text;
             <?= $form->field($model, 'tpWasteErrors', ['template' => "{error}"])->staticControl() ?>
 
             <div id="block-tpWaste">
+                <p class="lead text-danger"><strong>Внимание, девочки!</strong> Вы не соблюдаете методику работы, описанную в разделе поддержки.</p>
+                <p>Напоминаю, что когда набираете вид упаковки и система отображает подходящий вид в списке, то вы обязаны его выбрать (щелкнуть мышью на него). Если нет подходящего (или система ничего не предлагает), тогда нормально, можете не щелкать. Каждый раз, когда Вам предлагается выбрать например, &laquo;Контейнер&raquo;, а Вы его не выбираете, она создает новый вид, у нас их уже десятки одинаковых. Это недопустимо.</p>
+                <p>А так - умницы, все правильно. Телефон для связи +7 928 12 12 863 Роман Каркачёв.</p>
                 <?php
                 if (count($waste) == 0) echo $add_row_prompt;
 
@@ -180,7 +183,7 @@ return result.text;
                             </div>
                             <div class="col-md-2">
                                 <?= $form->field($model, 'spec_hose', [
-                                    'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub" aria-hidden="true"></i></span></div>{error}'
+                                    'template' => '{label}<div class="input-group">{input}<span class="input-group-addon">м</span></div>{error}'
                                 ])->widget(yii\widgets\MaskedInput::className(), [
                                     'clientOptions' => [
                                         'alias' => 'decimal',

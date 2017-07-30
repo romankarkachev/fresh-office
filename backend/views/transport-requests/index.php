@@ -57,7 +57,7 @@ $favorite = '/images/favorite16.png';
                 'label' => 'Создан',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\TransportRequests */
-                    return Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y в H:i');
+                    return Yii::$app->formatter->asDate($model->{$column->attribute}, 'php:d.m.Y в H:i');
                 },
                 'options' => ['width' => '150'],
                 'headerOptions' => ['class' => 'text-center'],

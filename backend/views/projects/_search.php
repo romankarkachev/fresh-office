@@ -53,7 +53,7 @@ use common\models\foProjectsSearch;
 
                 </div>
                 <div class="col-md-2">
-                    <?= $form->field($model, 'searchProjectStates')->widget(Select2::className(), [
+                    <?= $form->field($model, 'state_id')->widget(Select2::className(), [
                         'data' => DirectMSSQLQueries::arrayMapOfProjectsStatesForSelect2(DirectMSSQLQueries::PROJECTS_STATES_LOGIST_LIMIT),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],

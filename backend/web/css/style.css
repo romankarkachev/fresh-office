@@ -136,3 +136,15 @@ a.desc:after {
 .main .page-header {
     margin-top: 0;
 }
+
+/* ссылки с подчеркиванием */
+a.link-ajax {
+    text-decoration: none !important;
+    border-bottom: 1px dashed #20a8d8 !important;
+}
+
+a.link-ajax:hover {
+    text-decoration: none !important;
+    color: #f00000 !important;
+}
+/* -- */

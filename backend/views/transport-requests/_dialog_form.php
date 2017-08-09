@@ -6,11 +6,12 @@ use yii\bootstrap\ActiveForm;
 /* @var $this yii\web\View */
 /* @var $model common\models\TransportRequestsDialogs */
 /* @var $form yii\bootstrap\ActiveForm */
+/* @var $action string */
 ?>
 
 <div class="transport-requests-dialogs-form">
     <?php $form = ActiveForm::begin([
-        'action' => ['/transport-requests/add-dialog-message'],
+        'action' => ['/transport-requests/' . $action],
         'options' => ['data-pjax' => true],
     ]); ?>
 

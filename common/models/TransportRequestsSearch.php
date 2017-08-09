@@ -105,15 +105,33 @@ class TransportRequestsSearch extends TransportRequests
             )',
         ];
         $current_role = Yii::$app->authManager->getRolesByUser(Yii::$app->user->id);
-        if (is_array($current_role))
+        if (is_array($current_role)) {
+            $roleName = array_shift($current_role)->name;
             $select['unreadMessagesCount'] = '(
                 SELECT COUNT(transport_requests_dialogs.id) FROM `transport_requests_dialogs`
                 LEFT JOIN auth_assignment ON auth_assignment.user_id = transport_requests_dialogs.created_by
                 LEFT JOIN auth_item ON auth_item.name = auth_assignment.item_name
-                WHERE auth_assignment.item_name <> "' . array_shift($current_role)->name . '" AND tr_id=transport_requests.id AND read_at IS NULL
+                WHERE
+                    auth_assignment.item_name <> "' . $roleName . '"
+                    AND tr_id=transport_requests.id
+                    AND is_private = ' . TransportRequestsDialogs::DIALOGS_PUBLIC . '
+                    AND read_at IS NULL
             )';
-        else
+            $select['unreadPrivateMessagesCount'] = '(
+                SELECT COUNT(transport_requests_dialogs.id) FROM `transport_requests_dialogs`
+                LEFT JOIN auth_assignment ON auth_assignment.user_id = transport_requests_dialogs.created_by
+                LEFT JOIN auth_item ON auth_item.name = auth_assignment.item_name
+                WHERE
+                    auth_assignment.item_name <> "' . $roleName . '"
+                    AND tr_id=transport_requests.id
+                    AND is_private = ' . TransportRequestsDialogs::DIALOGS_PRIVATE . '
+                    AND read_at IS NULL
+            )';
+        }
+        else {
             $select['unreadMessagesCount'] = 0;
+            $select['unreadPrivateMessagesCount'] = 0;
+        }
 
         $query->select($select);
         $dataProvider = new ActiveDataProvider([

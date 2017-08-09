@@ -61,9 +61,9 @@ class foProjectsSearch extends foProjects
     public function attributeLabels()
     {
         return [
-            // для отбора
             'ca_id' => 'Контрагент',
             'state_id' => 'Статус',
+            // для отбора
             'searchExcludeIds' => 'Исключаемые проекты',
             'searchGroupProjectTypes' => 'Типы проектов',
             'searchCreatedFrom' => 'Период с',

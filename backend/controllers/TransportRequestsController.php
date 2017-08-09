@@ -41,7 +41,7 @@ class TransportRequestsController extends Controller
                     'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
                     'toggle-favorite', 'mark-as-read',
                     'similar-statements', 'compose-region-fields',
-                    'dialog-messages-list', 'add-dialog-message',
+                    'dialog-messages-list', 'dialog-private-messages-list', 'add-dialog-message', 'add-private-dialog-message',
                     'upload-files', 'download-file', 'delete-file',
                 ],
                 'rules' => [
@@ -68,7 +68,31 @@ class TransportRequestsController extends Controller
     private function fetchDialogs($model)
     {
         $searchModel = new TransportRequestsDialogsSearch();
-        $dataProvider = $searchModel->search([$searchModel->formName() => ['tr_id' => $model->id]]);
+        $dataProvider = $searchModel->search([
+            $searchModel->formName() => [
+                'tr_id' => $model->id,
+                'is_private' => TransportRequestsDialogs::DIALOGS_PUBLIC,
+            ]
+        ]);
+        $dataProvider->pagination = false;
+
+        return $dataProvider;
+    }
+
+    /**
+     * Делает выборку сообщений логистов и руководителей в запросе.
+     * @param $model TransportRequests
+     * @return \yii\data\ActiveDataProvider
+     */
+    private function fetchPrivateDialogs($model)
+    {
+        $searchModel = new TransportRequestsDialogsSearch();
+        $dataProvider = $searchModel->search([
+            $searchModel->formName() => [
+                'tr_id' => $model->id,
+                'is_private' => TransportRequestsDialogs::DIALOGS_PRIVATE,
+            ]
+        ]);
         $dataProvider->pagination = false;
 
         return $dataProvider;
@@ -280,6 +304,7 @@ class TransportRequestsController extends Controller
                 'waste' => $postWaste,
                 'transport' => $postTransport,
                 'dpDialogs' => $this->fetchDialogs($model),
+                'dpPrivateDialogs' => $this->fetchPrivateDialogs($model),
                 'dpFiles' => $this->fetchFiles($model),
             ]);
         } else {
@@ -300,6 +325,7 @@ class TransportRequestsController extends Controller
                 'waste' => $waste,
                 'transport' => $transport,
                 'dpDialogs' => $this->fetchDialogs($model),
+                'dpPrivateDialogs' => $this->fetchPrivateDialogs($model),
                 'dpFiles' => $this->fetchFiles($model),
             ]);
         }
@@ -405,11 +431,13 @@ class TransportRequestsController extends Controller
     /**
      * Помечает непрочитанные сообщения запроса прочитанными.
      * @param $id integer идентификатор запроса
+     * @param $private bool признак приватности диалога
      * @return bool
      */
-    public function actionMarkAsRead($id)
+    public function actionMarkAsRead($id, $private)
     {
         $id = intval($id);
+        $private = intval($private);
         if ($id > 0) {
             $request = TransportRequests::findOne($id);
             if ($request != null) {
@@ -417,6 +445,7 @@ class TransportRequestsController extends Controller
                     'read_at' => time(),
                 ], [
                     'tr_id' => $id,
+                    'is_private' => $private,
                     'read_at' => null,
                 ]);
             }
@@ -577,6 +606,25 @@ class TransportRequestsController extends Controller
         return $this->render('_dialogs', [
             'dataProvider' => $this->fetchDialogs($this->findModel($id)),
             'model' => $newMessage,
+            'action' => 'add-dialog-message',
+        ]);
+    }
+
+    /**
+     * Отображает список приватных диалогов запроса, идентификатор которого передается в параметрах.
+     * @param $id integer идентификатор запроса
+     * @return mixed
+     */
+    public function actionDialogPrivateMessagesList($id)
+    {
+        $newMessage = new TransportRequestsDialogs();
+        $newMessage->tr_id = $id;
+        $newMessage->created_by = Yii::$app->user->id;
+
+        return $this->render('_dialogs', [
+            'dataProvider' => $this->fetchPrivateDialogs($this->findModel($id)),
+            'model' => $newMessage,
+            'action' => 'add-private-dialog-message',
         ]);
     }
 
@@ -595,6 +643,28 @@ class TransportRequestsController extends Controller
             return $this->render('_dialogs', [
                 'dataProvider' => $this->fetchDialogs($model->tr),
                 'model' => $newMessage,
+                'action' => 'add-dialog-message',
+            ]);
+        }
+    }
+
+    /**
+     * @return mixed
+     */
+    public function actionAddPrivateDialogMessage()
+    {
+        $model = new TransportRequestsDialogs();
+        $model->is_private = TransportRequestsDialogs::DIALOGS_PRIVATE;
+
+        if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            $newMessage = new TransportRequestsDialogs();
+            $newMessage->tr_id = $model->tr->id;
+            $newMessage->created_by = Yii::$app->user->id;
+
+            return $this->render('_dialogs', [
+                'dataProvider' => $this->fetchPrivateDialogs($model->tr),
+                'model' => $newMessage,
+                'action' => 'add-private-dialog-message',
             ]);
         }
     }

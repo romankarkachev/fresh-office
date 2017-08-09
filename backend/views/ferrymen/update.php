@@ -53,13 +53,46 @@ $this->params['breadcrumbs'][] = $model->name;
         ]
     ]) ?>
 
+    <div id="mw_preview" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-info" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 id="modal_title" class="modal-title">Modal title</h4>
+                </div>
+                <div id="modal_body" class="modal-body">
+                    <p>One fine body…</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <?php endif; ?>
 </div>
 <?php
+$url = Url::to(['/ferrymen/preview-file']);
+
 $this->registerJs(<<<JS
 $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
     $.pjax.reload({container:"#afs"});
 });
+
+// Обработчик щелчка по ссылкам в колонке "Наименование" в таблице файлов.
+//
+function previewFileOnClick() {
+    id = $(this).attr("data-id");
+    if (id != "") {
+        $("#modal_title").text("Предпросмотр изображения");
+        $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+        $("#mw_preview").modal();
+        $("#modal_body").load("$url?id=" + id);
+    }
+
+    return false;
+} // previewFileOnClick()
+
+$(document).on("click", "a[id ^= 'previewFile']", previewFileOnClick);
 JS
 , \yii\web\View::POS_READY);
 ?>

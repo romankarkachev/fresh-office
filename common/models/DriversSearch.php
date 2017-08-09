@@ -24,7 +24,7 @@ class DriversSearch extends Drivers
     public function rules()
     {
         return [
-            [['id', 'ferryman_id', 'state_id'], 'integer'],
+            [['id', 'ferryman_id', 'state_id', 'has_smartphone'], 'integer'],
             [['surname', 'name', 'patronymic', 'driver_license', 'dl_issued_at', 'phone', 'pass_serie', 'pass_num', 'pass_issued_at', 'pass_issued_by', 'searchEntire'], 'safe'],
         ];
     }
@@ -121,6 +121,7 @@ class DriversSearch extends Drivers
             'id' => $this->id,
             'ferryman_id' => $this->ferryman_id,
             'state_id' => $this->state_id,
+            'has_smartphone' => $this->has_smartphone,
         ]);
 
         if ($this->searchEntire != null && $this->searchEntire != '')
@@ -131,13 +132,21 @@ class DriversSearch extends Drivers
                 ['like', 'patronymic', $this->searchEntire],
                 ['like', 'driver_license', $this->searchEntire],
                 ['like', 'phone', $this->searchEntire],
+                // не уверен, что это нужно:
+                //['like', 'pass_serie', $this->searchEntire],
+                //['like', 'pass_num', $this->searchEntire],
+                //['like', 'pass_issued_by', $this->searchEntire],
             ]);
         else
             $query->andFilterWhere(['like', 'surname', $this->surname])
                 ->andFilterWhere(['like', 'name', $this->name])
                 ->andFilterWhere(['like', 'patronymic', $this->patronymic])
                 ->andFilterWhere(['like', 'driver_license', $this->driver_license])
-                ->andFilterWhere(['like', 'phone', $this->phone]);
+                ->andFilterWhere(['like', 'phone', $this->phone])
+                ->andFilterWhere(['like', 'driver_license', $this->driver_license])
+                ->andFilterWhere(['like', 'pass_serie', $this->pass_serie])
+                ->andFilterWhere(['like', 'pass_num', $this->pass_num])
+                ->andFilterWhere(['like', 'pass_issued_by', $this->pass_issued_by]);
 
         return $dataProvider;
     }

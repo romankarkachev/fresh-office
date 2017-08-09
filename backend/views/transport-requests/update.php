@@ -11,6 +11,7 @@ use common\models\TransportRequestsDialogs;
 /* @var $waste common\models\TransportRequestsWaste[] */
 /* @var $transport common\models\TransportRequestsTransport[] */
 /* @var $dpDialogs \yii\data\ActiveDataProvider */
+/* @var $dpPrivateDialogs \yii\data\ActiveDataProvider */
 /* @var $dpFiles \yii\data\ActiveDataProvider */
 
 $this->title = '№ ' . $model->id . ' от ' . Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y') . HtmlPurifier::process(' &mdash; Запросы на транспорт | ') . Yii::$app->name;
@@ -30,6 +31,9 @@ $favorite = '/images/favorite24.png';
             <ul class="nav nav-pills" role="tablist">
                 <li role="presentation" class="active"><a href="#common" aria-controls="common" role="tab" data-toggle="tab">Общие</a></li>
                 <li role="presentation"><a href="#messages" aria-controls="messages" role="tab" data-toggle="tab" data-id="<?= $model->id ?>">Диалоги<?= $model->messagesUnread == 0 ? '' : ' <strong id="messages-count">' . $model->messagesUnread . '</strong>' ?></a></li>
+                <?php if (Yii::$app->user->can('logist') || Yii::$app->user->can('root')): ?>
+                <li role="presentation"><a href="#privatemessages" aria-controls="privatemessages" role="tab" data-toggle="tab" data-id="<?= $model->id ?>"><i class="fa fa-user-secret" aria-hidden="true"></i> Приватные диалоги<?= $model->privateMessagesUnread == 0 ? '' : ' <strong id="privatemessages-count">' . $model->privateMessagesUnread . '</strong>' ?></a></li>
+                <?php endif; ?>
                 <li role="presentation"><a href="#files" aria-controls="files" role="tab" data-toggle="tab">Файлы</a></li>
                 <li role="presentation"><a href="#help" aria-controls="help" role="tab" data-toggle="tab"><i class="fa fa-info-circle" aria-hidden="true"></i> Подсказка</a></li>
                 <li class="pull-right"><?= Html::a(Html::img($model->is_favorite == true ? $favorite : $favoriteGs), '#', ['id' => 'btnFavorite', 'data-id' => $model->id]) ?></li>
@@ -49,6 +53,15 @@ $favorite = '/images/favorite24.png';
                     <?= $this->render('_dialogs', [
                         'dataProvider' => $dpDialogs,
                         'model' => $newMessage,
+                        'action' => 'add-dialog-message',
+                    ]); ?>
+
+                </div>
+                <div role="tabpanel" class="tab-pane fade" id="privatemessages">
+                    <?= $this->render('_dialogs', [
+                        'dataProvider' => $dpPrivateDialogs,
+                        'model' => $newMessage,
+                        'action' => 'add-private-dialog-message',
                     ]); ?>
 
                 </div>
@@ -95,6 +108,9 @@ $favorite = '/images/favorite24.png';
     </div>
 </div>
 <?php
+$publicAttr = TransportRequestsDialogs::DIALOGS_PUBLIC;
+$privateAttr = TransportRequestsDialogs::DIALOGS_PRIVATE;
+
 $url_toggle = Url::to(['/transport-requests/toggle-favorite']);
 $url_mark_read = Url::to(['/transport-requests/mark-as-read']);
 
@@ -125,11 +141,22 @@ $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
     if ((target == '#messages')) {
         id = $(this).attr("data-id");
         if (id != "" && id != undefined && $("#messages-count").length > 0)
-            $.get("$url_mark_read?id=" + id, function(result) {
+            $.get("$url_mark_read?id=" + id + "&private=" + $publicAttr, function(result) {
                 $("#messages-count").remove();
             });
     }
+    else if ((target == '#privatemessages')) {
+        id = $(this).attr("data-id");
+        if (id != "" && id != undefined && $("#privatemessages-count").length > 0)
+            $.get("$url_mark_read?id=" + id + "&private=" + $privateAttr, function(result) {
+                $("#privatemessages-count").remove();
+            });
+    }
 });
+
+var url = window.location.href;
+var activeTab = url.substring(url.indexOf("#") + 1);
+$('a[href="#'+ activeTab +'"]').tab("show");
 
 $(document).on("click", "#btnFavorite", btnFavoriteOnClick);
 JS

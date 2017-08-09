@@ -23,6 +23,18 @@ use yii\widgets\Pjax;
                     'attribute' => 'ofn',
                     'label' => 'Имя файла',
                     'contentOptions' => ['style' => 'vertical-align: middle;'],
+                    'format' => 'raw',
+                    'value' => function ($model, $key, $index, $column) {
+                        /** @var $model \common\models\Ferrymen */
+                        /** @var $column \yii\grid\DataColumn */
+                        return Html::a($model->{$column->attribute}, '#', [
+                            'class' => 'link-ajax',
+                            'id' => 'previewFile-' . $model->id,
+                            'data-id' => $model->id,
+                            'title' => 'Предварительный просмотр',
+                            'data-pjax' => 0,
+                        ]);
+                    },
                 ],
                 [
                     'label' => 'Скачать',

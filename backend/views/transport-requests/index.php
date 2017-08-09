@@ -38,15 +38,19 @@ $favorite = '/images/favorite16.png';
                     /* @var $model \common\models\TransportRequests */
                     $newMessages = '';
                     if ($model->unreadMessagesCount > 0)
-                        $newMessages = '<p title="Новых сообщений: ' . $model->unreadMessagesCount . '"><i class="fa fa-commenting text-primary" aria-hidden="true"></i></p>';
+                        $newMessages = '<p>' . Html::a('<i class="fa fa-commenting text-primary" aria-hidden="true"></i>', ['update', 'id' => $model->id, '#' => 'messages'], ['title' => 'Новых сообщений: ' . $model->unreadMessagesCount]) . '</p>';
+
+                    $newPrivateMessages = '';
+                    if ($model->unreadPrivateMessagesCount > 0)
+                        $newPrivateMessages = '<p>' . Html::a('<i class="fa fa-comments text-warning" aria-hidden="true"></i>', ['update', 'id' => $model->id, '#' => 'privatemessages'], ['title' => 'Новые приватные сообщения: ' . $model->unreadPrivateMessagesCount]) . '</p>';
 
                     if ($model->state_id == TransportRequestsStates::STATE_ЗАКРЫТ)
-                        return '<i class="fa fa-check-square-o text-success" aria-hidden="true"></i>' . $newMessages;
+                        return '<i class="fa fa-check-square-o text-success" aria-hidden="true"></i>' . $newMessages . $newPrivateMessages;
 
                     if ($model->state_id == TransportRequestsStates::STATE_НОВЫЙ)
-                        return '<strong>' . $model->{$column->attribute} . '</strong>' . $newMessages;
+                        return '<strong>' . $model->{$column->attribute} . '</strong>' . $newMessages . $newPrivateMessages;
 
-                    return $model->{$column->attribute} . $newMessages;
+                    return $model->{$column->attribute} . $newMessages . $newPrivateMessages;
                 },
                 'options' => ['width' => '100'],
                 'headerOptions' => ['class' => 'text-center'],

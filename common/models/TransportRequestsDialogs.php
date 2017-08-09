@@ -13,6 +13,7 @@ use dektrium\user\models\Profile;
  * @property integer $created_at
  * @property integer $created_by
  * @property integer $tr_id
+ * @property integer $is_private
  * @property string $message
  * @property integer $read_at
  *
@@ -23,6 +24,12 @@ use dektrium\user\models\Profile;
  */
 class TransportRequestsDialogs extends \yii\db\ActiveRecord
 {
+    /**
+     * Приватность диалогов
+     */
+    const DIALOGS_PUBLIC = 0;
+    const DIALOGS_PRIVATE = 1;
+
     /**
      * Роль автора сообщения.
      * @var string
@@ -44,7 +51,7 @@ class TransportRequestsDialogs extends \yii\db\ActiveRecord
     {
         return [
             [['tr_id', 'message'], 'required'],
-            [['created_at', 'created_by', 'tr_id', 'read_at'], 'integer'],
+            [['created_at', 'created_by', 'tr_id', 'is_private', 'read_at'], 'integer'],
             [['message'], 'string'],
             [['tr_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportRequests::className(), 'targetAttribute' => ['tr_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
@@ -61,6 +68,7 @@ class TransportRequestsDialogs extends \yii\db\ActiveRecord
             'created_at' => 'Дата и время создания',
             'created_by' => 'Автор создания',
             'tr_id' => 'Запрос на транспорт',
+            'is_private' => 'Приватный', // между логистом и руководителем
             'message' => 'Текст сообщения',
             'read_at' => 'Прочитано',
             // для вычисляемых полей

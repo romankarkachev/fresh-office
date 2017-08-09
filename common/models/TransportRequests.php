@@ -31,6 +31,7 @@ use yii\helpers\ArrayHelper;
  * @property string $spec_cond
  *
  * @property integer $messagesUnread
+ * @property integer $privateMessagesUnread
  * @property string $representation
  * @property string $createdByName
  * @property string $regionName
@@ -101,6 +102,12 @@ class TransportRequests extends \yii\db\ActiveRecord
      * @var integer
      */
     public $unreadMessagesCount;
+
+    /**
+     * Количество непрочитанных сообщений в диалогах запроса.
+     * @var integer
+     */
+    public $unreadPrivateMessagesCount;
 
     /**
      * Признак необходимости закрытия запроса.
@@ -406,6 +413,26 @@ class TransportRequests extends \yii\db\ActiveRecord
                 ->leftJoin('auth_assignment', 'auth_assignment.user_id = transport_requests_dialogs.created_by')
                 ->leftJoin('auth_item', 'auth_item.name = auth_assignment.item_name')
                 ->where(['tr_id' => $this->id])
+                ->andWhere(['is_private' => TransportRequestsDialogs::DIALOGS_PUBLIC])
+                ->andWhere('auth_assignment.item_name <> "' . array_shift($current_role)->name . '"')
+                ->andWhere(['read_at' => null])
+                ->count();
+        else
+            return 0;
+    }
+
+    /**
+     * @return integer
+     */
+    public function getPrivateMessagesUnread()
+    {
+        $current_role = Yii::$app->authManager->getRolesByUser(Yii::$app->user->id);
+        if (is_array($current_role))
+            return TransportRequestsDialogs::find()
+                ->leftJoin('auth_assignment', 'auth_assignment.user_id = transport_requests_dialogs.created_by')
+                ->leftJoin('auth_item', 'auth_item.name = auth_assignment.item_name')
+                ->where(['tr_id' => $this->id])
+                ->andWhere(['is_private' => TransportRequestsDialogs::DIALOGS_PRIVATE])
                 ->andWhere('auth_assignment.item_name <> "' . array_shift($current_role)->name . '"')
                 ->andWhere(['read_at' => null])
                 ->count();

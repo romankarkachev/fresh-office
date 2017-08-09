@@ -16,6 +16,7 @@ use common\models\DriversInstructingsSearch;
 use common\models\TransportInspections;
 use common\models\TransportInspectionsSearch;
 use common\models\DirectMSSQLQueries;
+use yii\helpers\Html;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -37,7 +38,7 @@ class FerrymenController extends Controller
             'access' => [
                 'class' => AccessControl::className(),
                 'only' => [
-                    'index', 'create', 'update', 'delete', 'upload-files', 'download-file', 'delete-file',
+                    'index', 'create', 'update', 'delete', 'upload-files', 'download-file', 'preview-file', 'delete-file',
                     'create-driver', 'delete-driver', 'create-transport', 'delete-transport',
                     'drivers-instructings', 'create-instructing', 'delete-instructing',
                     'transports-inspections', 'create-inspection', 'delete-inspection',
@@ -100,10 +101,13 @@ class FerrymenController extends Controller
 
             return $this->redirect(['update', 'id' => $model->id]);
         } else {
-            return $this->render('create', [
-                'model' => $model,
-            ]);
+            $model->post = 'Диспетчер';
+            $model->post_dir = 'Руководитель';
         }
+
+        return $this->render('create', [
+            'model' => $model,
+        ]);
     }
 
     /**
@@ -246,6 +250,19 @@ class FerrymenController extends Controller
             else
                 throw new NotFoundHttpException('Файл не обнаружен.');
         };
+    }
+
+    /**
+     * Выполняет предварительный показ изображения.
+     */
+    public function actionPreviewFile($id)
+    {
+        $model = FerrymenFiles::findOne($id);
+        if ($model != null) {
+            return Html::img(Yii::getAlias('@uploads-ferrymen') . '/' . $model->fn, ['width' => 600]);
+        }
+
+        return false;
     }
 
     /**

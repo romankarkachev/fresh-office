@@ -18,7 +18,7 @@ class TransportRequestsDialogsSearch extends TransportRequestsDialogs
     public function rules()
     {
         return [
-            [['id', 'created_at', 'created_by', 'tr_id'], 'integer'],
+            [['id', 'created_at', 'created_by', 'tr_id', 'is_private', 'read_at'], 'integer'],
             [['message'], 'safe'],
         ];
     }
@@ -87,6 +87,8 @@ class TransportRequestsDialogsSearch extends TransportRequestsDialogs
             'created_at' => $this->created_at,
             'created_by' => $this->created_by,
             'tr_id' => $this->tr_id,
+            'is_private' => $this->is_private,
+            'read_at' => $this->read_at,
         ]);
 
         $query->andFilterWhere(['like', 'message', $this->message]);

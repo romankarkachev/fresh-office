@@ -22,11 +22,13 @@ use common\behaviors\IndexFieldBehavior;
  * @property string $pass_num
  * @property string $pass_issued_at
  * @property string $pass_issued_by
+ * @property integer $has_smartphone
  *
  * @property string $ferrymanName
  * @property integer $instrCount
  *
  * @property Ferrymen $ferryman
+ * @property DriversFiles[] $driversFiles
  * @property DriversInstructings[] $driversInstructings
  */
 class Drivers extends \yii\db\ActiveRecord
@@ -53,7 +55,7 @@ class Drivers extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'surname', 'name', 'driver_license', 'phone'], 'required'],
-            [['ferryman_id', 'state_id'], 'integer'],
+            [['ferryman_id', 'state_id', 'has_smartphone'], 'integer'],
             [['dl_issued_at', 'pass_issued_at'], 'safe'],
             [['surname', 'name', 'patronymic'], 'string', 'max' => 50],
             [['driver_license', 'driver_license_index'], 'string', 'max' => 30],
@@ -86,6 +88,7 @@ class Drivers extends \yii\db\ActiveRecord
             'pass_num' => 'Номер',
             'pass_issued_at' => 'Дата выдачи',
             'pass_issued_by' => 'Кем выдан',
+            'has_smartphone' => 'Смартфон с камерой',
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
             'stateName' => 'Статус',
@@ -212,6 +215,14 @@ class Drivers extends \yii\db\ActiveRecord
     public function getFerrymanName()
     {
         return $this->ferryman != null ? $this->ferryman->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDriversFiles()
+    {
+        return $this->hasMany(DriversFiles::className(), ['driver_id' => 'id']);
     }
 
     /**

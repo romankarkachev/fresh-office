@@ -7,17 +7,19 @@ use yii\widgets\Pjax;
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 /* @var $model common\models\TransportRequestsDialogs */
+/* @var $action string */
 
 $current_user_id = Yii::$app->user->id;
 ?>
 
 <div class="transport-requests-dialogs">
     <div class="table-responsive">
-        <?php Pjax::begin(['id' => 'pjax-dialogs', 'timeout' => 5000, 'enableReplaceState' => false, 'enablePushState' => false]); ?>
+        <?php Pjax::begin(['id' => 'pjax-dialogs' . $action, 'timeout' => 5000, 'enableReplaceState' => false, 'enablePushState' => false]); ?>
 
         <?= $this->render('_dialog_form', [
             'dataProvider' => $dataProvider,
             'model' => $model,
+            'action' => $action,
         ]); ?>
 
         <?= GridView::widget([

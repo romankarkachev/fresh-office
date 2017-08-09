@@ -49,7 +49,7 @@ class FerrymenSearch extends Ferrymen
             ],
             'sort' => [
                 'route' => 'ferrymen',
-                'defaultOrder' => ['name' => SORT_DESC],
+                'defaultOrder' => ['name' => SORT_ASC],
                 'attributes' => [
                     'id',
                     'name',

@@ -16,3 +16,4 @@ Yii::setAlias('@uploads-transport-requests-fs', '@backend/../uploads/transport-r
 
 Yii::setAlias('uploads-appeals', '/uploads/appeals/'); // файлы к обращениям, относительный путь
 Yii::setAlias('uploads-ferrymen-transport', '/uploads/ferrymen-transport/'); // файлы к автомобилям перевозчиков, относительный путь
+Yii::setAlias('uploads-ferrymen', '/uploads/ferrymen/'); // файлы к перевозчикам, относительный путь

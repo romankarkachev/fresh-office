@@ -30,14 +30,59 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
             'pcName',
             'stateName',
             [
-                'attribute' => 'phone',
+                'header' => 'Диспетчер',
+                'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Ferrymen */
-                    return \common\models\Ferrymen::normalizePhone($model->{$column->attribute});
+                    $result = '';
+                    if ($model->contact_person != null) {
+                        if ($result != '') $result .= '<br />';
+                        $result .= $model->contact_person;
+                        if ($model->post != null) {
+                            $result .= ' (' . $model->post . ')';
+                        }
+                    }
+
+                    if ($model->phone != null) {
+                        if ($result != '') $result .= '<br />';
+                        $result .= \common\models\Ferrymen::normalizePhone($model->phone);
+                    }
+
+                    if ($model->email != null) {
+                        if ($result != '') $result .= '<br />';
+                        $result .= $model->email;
+                    }
+
+                    return $result;
                 }
             ],
-            'email:email',
-            'contact_person',
+            [
+                'header' => 'Руководитель',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Ferrymen */
+                    $result = '';
+                    if ($model->contact_person_dir != null) {
+                        if ($result != '') $result .= '<br />';
+                        $result .= $model->contact_person_dir;
+                        if ($model->post_dir != null) {
+                            $result .= ' (' . $model->post_dir . ')';
+                        }
+                    }
+
+                    if ($model->phone_dir != null) {
+                        if ($result != '') $result .= '<br />';
+                        $result .= \common\models\Ferrymen::normalizePhone($model->phone_dir);
+                    }
+
+                    if ($model->email_dir != null) {
+                        if ($result != '') $result .= '<br />';
+                        $result .= $model->email_dir;
+                    }
+
+                    return $result;
+                }
+            ],
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

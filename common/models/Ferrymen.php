@@ -11,26 +11,41 @@ use yii\helpers\ArrayHelper;
  * @property integer $id
  * @property integer $fo_id
  * @property string $name
+ * @property integer $opfh_id
+ * @property integer $tax_kind
  * @property integer $ft_id
  * @property integer $pc_id
  * @property integer $state_id
  * @property string $phone
  * @property string $email
  * @property string $contact_person
+ * @property string $post
+ * @property string $phone_dir
+ * @property string $email_dir
+ * @property string $contact_person_dir
+ * @property string $post_dir
  *
- * @property PaymentConditions $pc
+ * @property Opfh $opfh
  * @property FerrymenTypes $ft
+ * @property PaymentConditions $pc
  * @property Drivers[] $drivers
  * @property Transport[] $transport
+ * @property FerrymenFiles[] $ferrymenFiles
  */
 class Ferrymen extends \yii\db\ActiveRecord
 {
     /**
      * Статусы перевозчиков, водителей, транспорта
      */
-    CONST STATE_НЕТ_НАРЕКАНИЙ = 1;
-    CONST STATE_ЕСТЬ_ЗАМЕЧАНИЯ = 2;
-    CONST STATE_ЧЕРНЫЙ_СПИСОК = 3;
+    const STATE_НЕТ_НАРЕКАНИЙ = 1;
+    const STATE_ЕСТЬ_ЗАМЕЧАНИЯ = 2;
+    const STATE_ЧЕРНЫЙ_СПИСОК = 3;
+
+    /**
+     * Статусы плательщиков НДС
+     */
+    const TAX_KIND_НЕПЛАТЕЛЬЩИК = 0;
+    const TAX_KIND_ПЛАТЕЛЬЩИК = 1;
 
     /**
      * @inheritdoc
@@ -47,9 +62,11 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
-            [['fo_id', 'ft_id', 'pc_id', 'state_id'], 'integer'],
-            [['name', 'email'], 'string', 'max' => 255],
-            [['phone', 'contact_person'], 'string', 'max' => 50],
+            [['fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id'], 'integer'],
+            [['name', 'email', 'email_dir'], 'string', 'max' => 255],
+            [['phone', 'contact_person', 'phone_dir', 'contact_person_dir'], 'string', 'max' => 50],
+            [['post', 'post_dir'], 'string', 'max' => 100],
+            [['opfh_id'], 'exist', 'skipOnError' => true, 'targetClass' => Opfh::className(), 'targetAttribute' => ['opfh_id' => 'id']],
             [['pc_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentConditions::className(), 'targetAttribute' => ['pc_id' => 'id']],
             [['ft_id'], 'exist', 'skipOnError' => true, 'targetClass' => FerrymenTypes::className(), 'targetAttribute' => ['ft_id' => 'id']],
         ];
@@ -64,12 +81,19 @@ class Ferrymen extends \yii\db\ActiveRecord
             'id' => 'ID',
             'fo_id' => 'Идентификатор в Fresh Office',
             'name' => 'Наименование',
+            'opfh_id' => 'ОПФХ',
+            'tax_kind' => 'Плательщик НДС', // 0 - нет, 1 - да
             'ft_id' => 'Тип',
             'pc_id' => 'Условия оплаты',
             'state_id' => 'Статус', // 1 - нареканий нет, 2 - есть замечания, 3 - черный список
             'phone' => 'Телефоны',
             'email' => 'E-mail',
-            'contact_person' => 'Контактное лицо',
+            'contact_person' => 'Имя',
+            'post' => 'Должность',
+            'phone_dir' => 'Телефоны',
+            'email_dir' => 'E-mail',
+            'contact_person_dir' => 'Имя',
+            'post_dir' => 'Должность',
             // для сортировки
             'ftName' => 'Тип',
             'pcName' => 'Условия оплаты',
@@ -170,6 +194,24 @@ class Ferrymen extends \yii\db\ActiveRecord
     }
 
     /**
+     * Возвращает в виде массива разновидности плательщиков НДС.
+     * @return array
+     */
+    public static function fetchTaxKinds()
+    {
+        return [
+            [
+                'id' => self::TAX_KIND_НЕПЛАТЕЛЬЩИК,
+                'name' => 'Неплательщик',
+            ],
+            [
+                'id' => self::TAX_KIND_ПЛАТЕЛЬЩИК,
+                'name' => 'Плательщик',
+            ],
+        ];
+    }
+
+    /**
      * Делает выборку статусов и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array
@@ -177,6 +219,16 @@ class Ferrymen extends \yii\db\ActiveRecord
     public static function arrayMapOfStatesForSelect2()
     {
         return ArrayHelper::map(self::fetchStates(), 'id', 'name');
+    }
+
+    /**
+     * Делает выборку плательщиков НДС и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfTaxKindsForSelect2()
+    {
+        return ArrayHelper::map(self::fetchTaxKinds(), 'id', 'name');
     }
 
     /**
@@ -245,6 +297,23 @@ class Ferrymen extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getOpfh()
+    {
+        return $this->hasOne(Opfh::className(), ['id' => 'opfh_id']);
+    }
+
+    /**
+     * Возвращает наименование организационно-правовой формы хозяйствования.
+     * @return string
+     */
+    public function getOpfhName()
+    {
+        return $this->opfh != null ? $this->opfh->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getFt()
     {
         return $this->hasOne(FerrymenTypes::className(), ['id' => 'ft_id']);
@@ -290,5 +359,13 @@ class Ferrymen extends \yii\db\ActiveRecord
     public function getTransport()
     {
         return $this->hasMany(Transport::className(), ['ferryman_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFerrymenFiles()
+    {
+        return $this->hasMany(FerrymenFiles::className(), ['ferryman_id' => 'id']);
     }
 }

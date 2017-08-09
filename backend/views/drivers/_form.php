@@ -80,6 +80,11 @@ use common\models\Ferrymen;
             ])->textInput(['maxlength' => true, 'placeholder' => 'Введите номер телефона']) ?>
 
         </div>
+        <div class="col-md-2">
+            <label for="<?= strtolower($model->formName()) ?>-has_smartphone" class="control-label"><?= $model->getAttributeLabel('has_smartphone') ?></label>
+            <?= $form->field($model, 'has_smartphone')->checkbox()->label(false) ?>
+
+        </div>
     </div>
     <div class="row">
         <div class="col-md-2">
@@ -140,3 +145,11 @@ use common\models\Ferrymen;
     <?php ActiveForm::end(); ?>
 
 </div>
+<?php
+$this->registerJs(<<<JS
+$("input").iCheck({
+    checkboxClass: "icheckbox_square-green",
+});
+JS
+, yii\web\View::POS_READY);
+?>

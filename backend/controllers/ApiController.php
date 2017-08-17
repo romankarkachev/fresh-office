@@ -140,12 +140,12 @@ class ApiController extends Controller
         $ca_ids = [];
         foreach ($appeals as $appeal)
             /* @var $appeal Appeals */
-            if (!in_array($appeal->fo_id_company, $ca_ids)) $ca_ids[] = $appeal->fo_id_company;
+            if (!in_array($appeal->fo_id_company, $ca_ids) && $appeal->fo_id_company != null) $ca_ids[] = $appeal->fo_id_company;
 
         // если в результате сбора идентификаторов контрагентов массив не пустой, то приступим к выборке из MS SQL
         if (count($ca_ids) > 0) {
             $query_text = '
-SELECT COMPANY.ID_COMPANY AS id, ID_MANAGER AS manager_id, ISNULL(COUNT_FINANCE, 0) AS financeCount
+SELECT COMPANY.ID_COMPANY AS id, ID_MANAGER AS manager_id, ISNULL(COUNT_FINANCE, 0) AS finance_count
 FROM COMPANY
 LEFT JOIN (
 	SELECT ID_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE

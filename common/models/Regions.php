@@ -62,7 +62,7 @@ class Regions extends \yii\db\ActiveRecord
      */
     public static function arrayMapOnlyRussiaForSelect2()
     {
-        return ArrayHelper::map(self::find()->select(['id' => 'region_id', 'name'])->where(['country_id' => 3159])->all(), 'id', 'name');
+        return ArrayHelper::map(self::find()->select(['id' => 'region_id', 'name'])->where(['country_id' => 3159])->orderBy('name')->all(), 'id', 'name');
     }
 
     /**

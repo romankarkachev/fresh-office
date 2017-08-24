@@ -233,18 +233,16 @@ class foProjectsSearch extends foProjects
             }
         }
 
-        if ($this->searchCreatedFrom !== null || $this->searchCreatedTo !== null) {
-            if ($this->searchCreatedFrom !== '' && $this->searchCreatedTo !== '') {
-                // если указаны обе даты
-                $query->andFilterWhere(['between', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedFrom) .'T00:00:00.000\', 126)'), new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedTo) .'T23:59:59.999\', 126)')]);
-            } else if ($this->searchCreatedFrom !== '' && $this->searchCreatedTo === '') {
-                // если указано только начало периода
-                $query->andFilterWhere(['>=', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedFrom) .'T00:00:00.000\', 126)')]);
-            } else if ($this->searchCreatedFrom === '' && $this->searchCreatedTo !== '') {
-                // если указан только конец периода
-                $query->andFilterWhere(['<=', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', $this->searchCreatedTo) .'T23:59:59.999\', 126)')]);
-            };
-        }
+        if ($this->searchCreatedFrom != null && $this->searchCreatedTo != null) {
+            // если указаны обе даты
+            $query->andFilterWhere(['between', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. $this->searchCreatedFrom .'T00:00:00.000\', 126)'), new \yii\db\Expression('CONVERT(datetime, \''. $this->searchCreatedTo .'T23:59:59.999\', 126)')]);
+        } else if ($this->searchCreatedFrom != null && $this->searchCreatedTo == null) {
+            // если указано только начало периода
+            $query->andFilterWhere(['>=', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. $this->searchCreatedFrom .'T00:00:00.000\', 126)')]);
+        } else if ($this->searchCreatedFrom == null && $this->searchCreatedTo != null) {
+            // если указан только конец периода
+            $query->andFilterWhere(['<=', 'LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT', new \yii\db\Expression('CONVERT(datetime, \''. $this->searchCreatedTo .'T23:59:59.999\', 126)')]);
+        };
 
         if ($this->searchExcludeIds !== null)
             $query->andFilterWhere(['not in', 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY', $this->searchExcludeIds]);

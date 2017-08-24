@@ -39,7 +39,7 @@ class TransportRequestsController extends Controller
                 'only' => [
                     'index', 'create', 'update', 'delete', 'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
                     'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
-                    'toggle-favorite', 'mark-as-read',
+                    'return-to-process', 'meignored', 'toggle-favorite', 'mark-as-read',
                     'similar-statements', 'compose-region-fields',
                     'dialog-messages-list', 'dialog-private-messages-list', 'add-dialog-message', 'add-private-dialog-message',
                     'upload-files', 'download-file', 'delete-file',
@@ -47,7 +47,7 @@ class TransportRequestsController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root', 'logist', 'sales_department_manager'],
+                        'roles' => ['root', 'logist', 'sales_department_head', 'sales_department_manager'],
                     ],
                 ],
             ],
@@ -410,6 +410,51 @@ class TransportRequestsController extends Controller
     }
 
     /**
+     * Возвращает запрос в обработку принудительно.
+     * @param $id integer идентификатор запроса на транспорт
+     * @return bool
+     */
+    public function actionReturnToProcess($id)
+    {
+        $tr = TransportRequests::findOne($id);
+        if ($tr != null) {
+            $tr->state_id = TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ;
+            return $tr->save(false);
+        }
+
+        return false;
+    }
+
+    /**
+     * Отправляет руководству письмо с просьбой помочь в разрешении запроса на транспорт.
+     * @param $id integer идентификатор запроса
+     * @return bool
+     */
+    public function actionMeignored($id)
+    {
+        $id = intval($id);
+        if ($id > 0) {
+            $request = TransportRequests::findOne($id);
+            if ($request != null) {
+                $params['requestId'] = $id;
+                $params['user_name'] = Yii::$app->user->identity->profile->name;
+
+                $letter = Yii::$app->mailer->compose([
+                    'html' => 'requestIgnoredForALongTime-html',
+                ], $params)
+                    ->setFrom(Yii::$app->params['senderEmail'])
+                    ->setTo(Yii::$app->params['receiverEmail'])
+                    //->setTo('post@romankarkachev.ru')
+                    ->setSubject('Запрос продолжительное время игнорируется');
+
+                return $letter->send();
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Переключает нахождение запроса в избранных.
      * @param $id integer идентификатор запроса
      * @return bool
@@ -438,7 +483,7 @@ class TransportRequestsController extends Controller
     {
         $id = intval($id);
         $private = intval($private);
-        if ($id > 0) {
+        if ($id > 0 && (!Yii::$app->user->can('root') && $private == 0)) {
             $request = TransportRequests::findOne($id);
             if ($request != null) {
                 TransportRequestsDialogs::updateAll([
@@ -636,6 +681,13 @@ class TransportRequestsController extends Controller
         $model = new TransportRequestsDialogs();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // возвращаем статус "В обработке", если запрос не находится в обработке
+            $tr = TransportRequests::findOne($model->tr->id);
+            if ($tr != null && $tr->state_id != TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ) {
+                $tr->state_id = TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ;
+                $tr->save(false);
+            }
+
             $newMessage = new TransportRequestsDialogs();
             $newMessage->tr_id = $model->tr->id;
             $newMessage->created_by = Yii::$app->user->id;

@@ -2,8 +2,6 @@
 
 namespace backend\controllers;
 
-use common\models\PadKinds;
-use common\models\ProjectsTypes;
 use Yii;
 use yii\db\Expression;
 use yii\helpers\ArrayHelper;
@@ -13,8 +11,13 @@ use common\models\MailingProjects;
 use common\models\ResponsibleByProjectTypes;
 use common\models\foProjects;
 use common\models\foProjectsSearch;
+use common\models\foProjectsHistory;
+use common\models\FreshOfficeAPI;
 use common\models\ProjectsStates;
 use common\models\CorrespondencePackages;
+use common\models\PadKinds;
+use common\models\PostDeliveryKinds;
+use common\models\ProjectsTypes;
 
 class ServicesController extends Controller
 {
@@ -138,38 +141,49 @@ class ServicesController extends Controller
     }
 
     /**
+     * Создает запись в истории изменения статусов проекта в CRM.
+     * @param $project_id integer идентификатор проекта
+     * @param $state_id integer идентификатор нового статуса проекта
+     * @param $oldStateName string наименование старого статуса
+     * @param $newStateName string наименование нового статуса
+     */
+    private function createHistoryRecord($project_id, $state_id, $oldStateName, $newStateName)
+    {
+        $historyModel = new foProjectsHistory();
+        $historyModel->ID_LIST_PROJECT_COMPANY = $project_id;
+        $historyModel->ID_MANAGER = 73; // freshoffice
+        $historyModel->DATE_CHENCH_PRIZNAK = date('Y-m-d\TH:i:s.000');
+        $historyModel->TIME_CHENCH_PRIZNAK = Yii::$app->formatter->asDate(time(), 'php:H:i');
+        $historyModel->ID_PRIZNAK_PROJECT = $state_id;
+        $historyModel->RUN_NAME_CHANCH = 'Изменен статус проeкта c ' . $oldStateName . ' на ' . $newStateName;
+        $historyModel->save();
+    }
+
+    /**
      * Модуль делает выборку проектов в статусе "Отдано на отправку" из базы Fresh Office и помещает их в базу текущего
      * веб-приложения. Загруженные проекты получают новый статус "Формирование документов на отправку".
      */
     public function actionFetchProjectsToCorrespondence()
     {
-        $time_ago = date('Y-m-d', (time() - 7*24*3600)); // загруженные не более семи дней назад
+        $time_ago = date('Y-m-d', (time() - 7*24*3600)); // семь дней назад
 
         // загруженные проекты берем не старше одной недели
-        $projects_exclude = CorrespondencePackages::find()->distinct('fo_project_id')->select('fo_project_id')->where('created_at > ' . strtotime($time_ago.' 00:00:00'))->asArray()->column();
+        $projects_exclude = CorrespondencePackages::find()
+            ->distinct('fo_project_id')
+            ->select('fo_project_id')
+            // берем все проекты пока, если будут проблемы, изменить условие
+            //->where('created_at > ' . strtotime($time_ago.' 00:00:00'))
+            ->asArray()->column();
 
         $searchModel = new foProjectsSearch();
         $dataProvider = $searchModel->search([
             $searchModel->formName() => [
                 'state_id' => ProjectsStates::STATE_ОТДАНО_НА_ОТПРАВКУ,
-                'searchCreatedFrom' => $time_ago,
+                // бывает, что проект висит две и три недели, только потом начинаюся движения по документам
+                //'searchCreatedFrom' => $time_ago,
                 'searchExcludeIds' => $projects_exclude,
             ]
         ]);
-
-//        echo \yii\grid\GridView::widget([
-//            'dataProvider' => $dataProvider,
-//            'layout' => '{items}{pager}',
-//            'tableOptions' => ['class' => 'table table-striped table-hover'],
-//            'columns' => [
-//                'id',
-//                'created_at',
-//                'ca_name',
-//                'state_name',
-//                'type_id',
-//                'type_name',
-//            ],
-//        ]);
 
         // типы проектов
         $types = ArrayHelper::map(ProjectsTypes::find()->asArray()->all(), 'id', 'name');
@@ -190,11 +204,16 @@ class ServicesController extends Controller
 
             if (ArrayHelper::keyExists($project->type_id, $types)) $model->type_id = $project->type_id;
 
-            if ($model->save()) $successIds[] = (string)$project->id;
+            if ($model->save())$successIds[] = (string)$project->id;
         }
 
-        if (count($successIds) < -30) {
-        //if (count($successIds) > 0) {
+        if (count($successIds) > 0) {
+            foreach ($successIds as $id) {
+                // делаем записи в истории изменения статусов проектов
+                $this->createHistoryRecord($id, ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ, 'Отдано на отправку', 'Формирование документов на отправку');
+            }
+
+            // у успешно затянутых проектов меняем статус в самой CRM
             foProjects::updateAll([
                 // статус, который необходимо выставить
                 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ,
@@ -203,5 +222,194 @@ class ServicesController extends Controller
                 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => $successIds,
             ]);
         }
+    }
+
+    /**
+     * Выполняет проверку наличия финансов у проектов типов "Заказ постоплата" и "Документы постоплата" в статусе "Доставлено".
+     */
+    private function checkFinancesPostPayment()
+    {
+        $query = foProjects::find();
+        $query->select([
+            '*',
+            'financesCount' =>'FINANCES.COUNT_FINANCE',
+            'state_name' => 'LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT',
+        ]);
+
+        // присоединяем наименования статусов проектов
+        $query->leftJoin('LIST_SPR_PRIZNAK_PROJECT', 'LIST_SPR_PRIZNAK_PROJECT.ID_PRIZNAK_PROJECT = LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT');
+
+        // присоединяем финансы
+        $query->leftJoin('(
+	        SELECT ID_LIST_PROJECT_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE
+	        FROM LIST_MANYS
+	        WHERE
+	            ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND
+	            ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
+	        GROUP BY ID_LIST_PROJECT_COMPANY
+        ) AS FINANCES', 'FINANCES.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY');
+
+        // условия: типы проектов
+        $query->where(['LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT' => [
+            ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА,
+            ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА,
+        ]]);
+
+        // условия: статусы проектов
+        $query->where(['LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => ProjectsStates::STATE_ДОСТАВЛЕНО]);
+
+        $projects = $query->all();
+
+        foreach ($projects as $project) {
+            if ($project->financesCount > 0) {
+                // меняем статус проекта в CRM
+                $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                if ($project->save()) {
+                    // делаем записи в истории изменения статусов проекта в CRM
+                    $this->createHistoryRecord($project->ID_LIST_PROJECT_COMPANY, ProjectsStates::STATE_ОПЛАЧЕНО, $project->state_name, 'Оплачено');
+
+                    $this->createHistoryRecord($project->ID_LIST_PROJECT_COMPANY, ProjectsStates::STATE_ЗАВЕРШЕНО, 'Оплачено', 'Завершено');
+                }
+            }
+        }
+    }
+
+    /**
+     * Выполняет проверку наличия финансов у проектов типов "Заказ предоплата" и "Документы" в статусе "Счет ожидает оплаты".
+     */
+    private function checkFinancesAdvancePayment()
+    {
+        $query = foProjects::find();
+        $query->select([
+            '*',
+            'financesCount' =>'FINANCES.COUNT_FINANCE',
+            'state_name' => 'LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT',
+        ]);
+
+        // присоединяем наименования статусов проектов
+        $query->leftJoin('LIST_SPR_PRIZNAK_PROJECT', 'LIST_SPR_PRIZNAK_PROJECT.ID_PRIZNAK_PROJECT = LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT');
+
+        // присоединяем финансы
+        $query->leftJoin('(
+	        SELECT ID_LIST_PROJECT_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE
+	        FROM LIST_MANYS
+	        WHERE
+	            ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND
+	            ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
+	        GROUP BY ID_LIST_PROJECT_COMPANY
+        ) AS FINANCES', 'FINANCES.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY');
+
+        // типы проектов
+        $query->where(['LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT' => [
+            ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА,
+            ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ,
+        ]]);
+
+        // статусы проектов
+        $query->where(['LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => ProjectsStates::STATE_СЧЕТ_ОЖИДАЕТ_ОПЛАТЫ]);
+
+        $projects = $query->all();
+
+        foreach ($projects as $project) {
+            if ($project->financesCount > 0)
+                switch ($project->ID_LIST_SPR_PROJECT) {
+                    case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
+                        // меняем статус проекта в CRM
+                        $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_СОГЛАСОВАНИЕ_ВЫВОЗА;
+                        if ($project->save()) {
+                            // делаем запись в истории изменения статусов проекта в CRM
+                            $this->createHistoryRecord($project->ID_LIST_PROJECT_COMPANY, ProjectsStates::STATE_СОГЛАСОВАНИЕ_ВЫВОЗА, $project->state_name, 'Согласование вывоза');
+                        }
+
+                        break;
+                    case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ:
+                        // меняем статус проекта в CRM
+                        $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАКРЫТИЕ_СЧЕТА;
+                        if ($project->save()) {
+                            // делаем запись в истории изменения статусов проекта в CRM
+                            $this->createHistoryRecord($project->ID_LIST_PROJECT_COMPANY, ProjectsStates::STATE_ЗАКРЫТИЕ_СЧЕТА, $project->state_name, 'Закрытие счета');
+                        }
+
+                        break;
+                }
+        }
+    }
+
+    /**
+     * Делает выборку из веб-приложения проектов в статусе "Отправлено", проверяет треки и отмечает доставленные.
+     */
+    public function actionCorrespondenceTrackings()
+    {
+        $packages = CorrespondencePackages::find()
+            ->where(['state_id' => ProjectsStates::STATE_ОТПРАВЛЕНО])
+            ->andWhere([
+                'or',
+                ['pd_id' => PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ],
+                ['pd_id' => PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS],
+            ])
+            ->all();
+
+        foreach ($packages as $package) {
+            /* @var $package CorrespondencePackages */
+
+            switch ($package->pd_id) {
+                case PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ:
+                    if ($package->track_num != null) {
+                        $delivered_at = TrackingController::trackPochtaRu($package->track_num);
+                        if ($delivered_at !== false) {
+                            switch ($package->type_id) {
+                                case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
+                                case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ:
+                                    // создание задачи Контроль качества
+                                    try {
+                                        $package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
+                                    } catch (\Exception $exception) {
+
+                                    }
+
+                                    // меняем статус проекта
+                                    $package->delivered_at = $delivered_at;
+                                    $package->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                                    $package->save();
+
+                                    // делаем две записи в истории проекта
+                                    $this->createHistoryRecord($package->fo_project_id, ProjectsStates::STATE_ДОСТАВЛЕНО, 'Отправлено', 'Доставлено');
+
+                                    $this->createHistoryRecord($package->fo_project_id, ProjectsStates::STATE_ЗАВЕРШЕНО, 'Доставлено', 'Завершено');
+
+                                    break;
+                                case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА:
+                                case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА:
+                                    $package->state_id = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                                    $package->save();
+
+                                    // делаем запись в истории проекта
+                                    $this->createHistoryRecord($package->fo_project_id, ProjectsStates::STATE_ДОСТАВЛЕНО, 'Отправлено', 'Доставлено');
+
+                                    // создаем задачу
+                                    $package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
+
+                                    break;
+                            }
+                        }
+                    }
+                    break;
+                case PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS:
+
+                    break;
+            }
+        }
+
+        $this->checkFinancesPostPayment();
+    }
+
+    /**
+     * ВНИМАНИЕ! Это второй check-finances, в модуле ApiController тоже есть, и это совершенно разные вещи.
+     * Делает выборку проектов с типами Заказ предоплата и проверяет появление у них финансов
+     * по признаку оплаты Утилизация. Проект переходит в статус Согласование вывоза в случае обнаружения финансов.
+     */
+    public function actionCheckFinances()
+    {
+        $this->checkFinancesAdvancePayment();
     }
 }

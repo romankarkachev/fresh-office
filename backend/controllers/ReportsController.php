@@ -2,20 +2,22 @@
 
 namespace backend\controllers;
 
-use common\models\ReportEmptycustomers;
 use Yii;
-use yii\data\ArrayDataProvider;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use moonland\phpexcel\Excel;
-use common\models\Appeals;
 use common\models\DirectMSSQLQueries;
+use common\models\TransportRequests;
+use common\models\CorrespondencePackages;
 use common\models\ReportTurnover;
 use common\models\ReportNofinances;
 use common\models\ReportAnalytics;
 use common\models\ReportCaDuplicates;
 use common\models\ReportNoTransportHasProjects;
+use common\models\ReportEmptycustomers;
+use common\models\ReportTRAnalytics;
+use common\models\ReportCorrespondenceAnalytics;
 
 /**
  * Reports controller
@@ -37,17 +39,17 @@ class ReportsController extends Controller
                         'roles' => ['root', 'sales_department_head', 'dpc_head'],
                     ],
                     [
-                        'actions' => ['analytics'],
+                        'actions' => ['analytics', 'no-transport-has-projects'],
                         'allow' => true,
                         'roles' => ['root', 'sales_department_head'],
                     ],
                     [
                         'actions' => ['ca-duplicates'],
                         'allow' => true,
-                        'roles' => ['root', 'dpc_head'],
+                        'roles' => ['root', 'dpc_head', 'sales_department_head'],
                     ],
                     [
-                        'actions' => ['emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics'],
+                        'actions' => ['emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics', 'tr-analytics', 'correspondence-analytics'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -377,6 +379,84 @@ class ReportsController extends Controller
             'columns5' => $columns5,
             'dpTable6' => $dpTable6,
             'columns6' => $columns6,
+        ]);
+    }
+
+    /**
+     * Отображает отчет с анализом запросов на транспорт.
+     * @return mixed
+     */
+    public function actionTrAnalytics()
+    {
+        $avgFinish = intval(TransportRequests::find()->where('finished_at IS NOT NULL')->average('finished_at - created_at'));
+
+        $searchModel = new ReportTRAnalytics();
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        $trArray = $searchModel->search(Yii::$app->request->queryParams);
+        $wasteArray = $searchModel->searchWaste(Yii::$app->request->queryParams);
+        $transportArray = $searchModel->searchTransport(Yii::$app->request->queryParams);
+
+        // Таблица 1. Запросы в разрезе статусов.
+        $dpTable1 = $searchModel->makeDataProviderForTable1($trArray);
+
+        // Таблица 2. Запросы в разрезе регионов.
+        $dpTable2 = $searchModel->makeDataProviderForTable2($trArray);
+
+        // Таблица 3. Запросы в разрезе менеджеров.
+        $dpTable3 = $searchModel->makeDataProviderForTable3($trArray);
+
+        // Таблица 4. Запросы в разрезе периодичности обращения.
+        $dpTable4 = $searchModel->makeDataProviderForTable4($trArray);
+
+        // Таблица 5. Запросы в разрезе отходов.
+        $dpTable5 = $searchModel->makeDataProviderForTable5($wasteArray);
+
+        // Таблица 6. Запросы в разрезе типов транспорта.
+        $dpTable6 = $searchModel->makeDataProviderForTable6($transportArray);
+
+        return $this->render('tranalytics', [
+            'searchModel' => $searchModel,
+            'searchApplied' => $searchApplied,
+            'avgFinish' => $avgFinish,
+            'totalCount' => count($trArray),
+            'dpTable1' => $dpTable1,
+            'dpTable2' => $dpTable2,
+            'dpTable3' => $dpTable3,
+            'dpTable4' => $dpTable4,
+            'dpTable5' => $dpTable5,
+            'dpTable6' => $dpTable6,
+        ]);
+    }
+
+    /**
+     * Отображает отчет с анализом корреспонденции (пакетов документов).
+     * @return mixed
+     */
+    public function actionCorrespondenceAnalytics()
+    {
+        $avgCreatedTillReady = intval(CorrespondencePackages::find()->where('ready_at IS NOT NULL')->average('ready_at - created_at'));
+        $avgReadyTillSent = intval(CorrespondencePackages::find()->where('sent_at IS NOT NULL')->average('sent_at - ready_at'));
+
+        $searchModel = new ReportCorrespondenceAnalytics();
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        $cArray = $searchModel->search(Yii::$app->request->queryParams);
+
+        // Таблица 1. Количество отправлений в разрезе способов доставки.
+        $dpTable1 = $searchModel->makeDataProviderForTable1($cArray);
+
+        // Таблица 2. Среднее время доставки в разрезе способов доставки.
+        //$dpTable2 = $searchModel->makeDataProviderForTable2($cArray);
+
+        return $this->render('correspondenceanalytics', [
+            'searchModel' => $searchModel,
+            'searchApplied' => $searchApplied,
+            'avgCreatedTillReady' => $avgCreatedTillReady,
+            'avgReadyTillSent' => $avgReadyTillSent,
+            'totalCount' => count($cArray),
+            'dpTable1' => $dpTable1,
+            //'dpTable2' => $dpTable2,
         ]);
     }
 }

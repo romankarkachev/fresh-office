@@ -44,6 +44,9 @@ class AppealsSearch extends Appeals
         $query = Appeals::find();
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => [
+                'route' => 'appeals',
+            ],
         ]);
 
         $dataProvider->setSort([

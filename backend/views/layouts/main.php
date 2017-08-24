@@ -68,6 +68,8 @@ if (Yii::$app->user->can('root'))
                 ['label' => 'Перевозчики', 'url' => ['/ferrymen']],
                 ['label' => 'Водители', 'url' => ['/ferrymen-drivers']],
                 ['label' => 'Транспорт', 'url' => ['/ferrymen-transport']],
+                '<li class="dropdown-header">Отчеты</li>',
+                ['label' => '<i class="fa fa-pie-chart"></i> Анализ', 'url' => ['/reports/tr-analytics']],
                 '<li class="dropdown-header">Дополнительно</li>',
                 ['label' => 'Марки автомобилей', 'url' => ['/transport-brands']],
                 ['label' => 'Типы техники', 'url' => ['/transport-types']],
@@ -78,6 +80,15 @@ if (Yii::$app->user->can('root'))
                 //['label' => 'Виды периодичности', 'url' => ['/periodicity-kinds']],
                 ['label' => 'Единицы измерения', 'url' => ['/units']],
                 //['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+            ],
+        ],
+        [
+            'label' => 'Корреспонденция',
+            'url' => '#',
+            'items' => [
+                ['label' => 'Пакеты документов', 'url' => ['/correspondence-packages']],
+                '<li class="dropdown-header">Отчеты</li>',
+                ['label' => '<i class="fa fa-pie-chart"></i> Анализ', 'url' => ['/reports/correspondence-analytics']],
             ],
         ],
         [
@@ -119,6 +130,7 @@ elseif (Yii::$app->user->can('sales_department_head'))
     $items = [
         ['label' => '<i class="fa fa-magic fa-lg text-success"></i> Мастер обработки обращений', 'url' => ['/appeals/wizard']],
         ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
+        ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
         [
             'label' => 'Отчеты',
             'url' => '#',
@@ -127,6 +139,7 @@ elseif (Yii::$app->user->can('sales_department_head'))
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-pie-chart fa-lg text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по дубликатам в контрагентах', 'url' => ['/reports/ca-duplicates']],
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оплаты транспорта', 'url' => ['/reports/no-transport-has-projects']],
             ],
         ],
     ];
@@ -138,6 +151,7 @@ elseif (Yii::$app->user->can('operator'))
     $items = [
         ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create']],
         ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
+        ['label' => 'Пакеты документов', 'url' => ['/correspondence-packages']],
     ];
 elseif (Yii::$app->user->can('logist'))
     $items = [

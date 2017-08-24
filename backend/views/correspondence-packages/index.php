@@ -1,6 +1,7 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\grid\GridView;
 
 /* @var $this yii\web\View */
@@ -12,19 +13,33 @@ $this->title = 'Корреспонденция | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
 ?>
 <div class="correspondence-packages-list">
+    <?= $this->render('_search', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
+
     <p>
         <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
+
+        <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', '#', ['class' => 'btn btn-default pull-right', 'id' => 'btnComposePackage', 'title' => 'Выделите несколько пакетов документов, чтобы на них на всех назначить одинаковые параметры']) ?>
 
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
+        'id' => 'gw-packages',
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            //'created_at',
-            //'ready_at',
-            //'sent_at',
+            [
+                'class' => 'yii\grid\CheckboxColumn',
+                'options' => ['width' => '30'],
+            ],
             'fo_project_id',
+            [
+                'label' => 'Статы',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\CorrespondencePackages */
+                    return \common\models\foProjects::downcounter($model->created_at, $model->sent_at);
+                },
+            ],
             'customer_name',
             'stateName',
             'typeName',
@@ -32,7 +47,7 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                 'attribute' => 'pad',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
-                    /* @var $model \common\models\TransportRequests */
+                    /* @var $model \common\models\CorrespondencePackages */
                     $result = '';
 
                     $pad = json_decode($model->{$column->attribute}, true);
@@ -48,9 +63,6 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                 },
             ],
             'pdName',
-            //'track_num',
-            //'other:ntext',
-            //'comment:ntext',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
@@ -71,3 +83,72 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
     ]); ?>
 
 </div>
+<div id="mw_compose" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-info" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="modal_title" class="modal-title">Modal title</h4>
+            </div>
+            <div id="modal_body" class="modal-body">
+                <p>One fine body…</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="btn-process"><i class="fa fa-cog"></i> Выполнить</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php
+$url_form = Url::to(['/correspondence-packages/compose-package-form']);
+$name = 'ComposePackageForm[tpPad]';
+
+$this->registerJs(<<<JS
+var checked = false;
+
+// Обработчик щелчка по кнопке "Сформировать пакет".
+//
+function btnComposePackageFormOnClick() {
+    var ids = $("#gw-packages").yiiGridView("getSelectedRows");
+    if (ids == "") return false;
+
+    $("#modal_title").text("Формирование отправления из пакетов документов");
+    $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+    $("#mw_compose").modal();
+    $("#modal_body").load("$url_form?ids=" + ids);
+
+    return false;
+} // btnComposePackageFormOnClick()
+
+// Ообработчик щелчка по кнопке Выполнить в окне формирования пакета.
+// Выполняет видов документов, способа доставки, статуса и трек-номера.
+//
+function composePackageOnClick() {
+    $("#frmComposePackage").submit();
+
+    return false;
+} // composePackageOnClick()
+
+// Обработчик щелчка по ссылке "Отметить все документы".
+//
+function checkAllDocumentsOnClick() {
+    if (checked) {
+        operation = "uncheck";
+        checked = false;
+    }
+    else {
+        operation = "check";
+        checked = true;
+    }
+
+    $("input[name ^= '$name']").iCheck(operation);
+
+    return false;
+} // checkAllDocumentsOnClick()
+
+$(document).on("click", "#btnComposePackage", btnComposePackageFormOnClick);
+$(document).on("click", "#btn-process", composePackageOnClick);
+$(document).on("click", "#checkAllDocuments", checkAllDocumentsOnClick);
+JS
+, \yii\web\View::POS_READY);
+?>

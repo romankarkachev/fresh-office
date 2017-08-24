@@ -14,7 +14,9 @@ use yii\db\Expression;
  * @property integer $created_at
  * @property integer $ready_at
  * @property integer $sent_at
+ * @property integer $delivered_at
  * @property integer $fo_project_id
+ * @property integer $fo_id_company
  * @property string $customer_name
  * @property integer $state_id
  * @property integer $type_id
@@ -54,7 +56,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['created_at', 'ready_at', 'sent_at', 'fo_project_id', 'state_id', 'type_id', 'pd_id'], 'integer'],
+            [['created_at', 'ready_at', 'sent_at', 'delivered_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id'], 'integer'],
             [['pad', 'other', 'comment'], 'string'],
             [['customer_name'], 'string', 'max' => 255],
             [['track_num'], 'string', 'max' => 50],
@@ -77,7 +79,9 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             'created_at' => 'Дата и время создания',
             'ready_at' => 'Дата и время подготовки',
             'sent_at' => 'Дата и время отправки',
+            'delivered_at' => 'Дата и время доставки',
             'fo_project_id' => 'ID проекта',
+            'fo_id_company' => 'Контрагент',
             'customer_name' => 'Контрагент',
             'state_id' => 'Статус',
             'type_id' => 'Тип',
@@ -109,6 +113,57 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     }
 
     /**
+     * @inheritdoc
+     */
+    public function beforeSave($insert)
+    {
+        if (parent::beforeSave($insert)) {
+
+            //... тут ваш код
+
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        if (isset($changedAttributes['state_id'])) {
+            // проверим, отличается ли текущий статус от нового
+            if ($changedAttributes['state_id'] != $this->state_id)
+                // статус отличается, зафиксируем время назначения некоторых статусов
+                switch ($this->state_id) {
+                    case ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ:
+                        $this->ready_at = time();
+                        $this->save();
+                        break;
+                    case ProjectsStates::STATE_ОТПРАВЛЕНО:
+                        $this->sent_at = time();
+                        $this->save();
+                        break;
+                    case ProjectsStates::STATE_ДОСТАВЛЕНО:
+                        if ($this->delivered_at == null) {
+                            $this->delivered_at = time();
+                            $this->save();
+                        }
+
+                        break;
+                }
+
+            // если изменился статус проекта, то меняем его и в CRM
+            $historyModel = foProjects::findOne(['ID_LIST_PROJECT_COMPANY' => $this->fo_project_id]);
+            if ($historyModel != null) {
+                $historyModel->ID_PRIZNAK_PROJECT = $this->state_id;
+                $historyModel->save();
+            }
+        }
+    }
+
+    /**
      * Собственное правило валидации.
      */
     public function validateTrackNumber()
@@ -116,9 +171,6 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
         if ($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ || $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS) {
             if ($this->track_num == null)
                 $this->addError('track_num', 'Поле обязательно для заполнения при выбранном способе.');
-            else
-                // всегда и принудительно ставим статус в Отправлено
-                $this->state_id = ProjectsStates::STATE_ОТПРАВЛЕНО;
         }
     }
 
@@ -131,10 +183,11 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     {
         $padKinds = PadKinds::find()->select(['id', 'name', 'name_full', 'is_provided' => new Expression(0)])->orderBy('name_full')->asArray()->all();
 
-        foreach ($this->tpPad as $index => $document) {
-            $key = array_search($index, array_column($padKinds, 'id'));
-            if (false !== $key) $padKinds[$key]['is_provided'] = true;
-        }
+        if (is_array($this->tpPad) && count($this->tpPad) > 0)
+            foreach ($this->tpPad as $index => $document) {
+                $key = array_search($index, array_column($padKinds, 'id'));
+                if (false !== $key) $padKinds[$key]['is_provided'] = true;
+            }
 
         return json_encode($padKinds);
     }
@@ -159,6 +212,44 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
 //                ],
             ],
         ]);
+    }
+
+    /**
+     * Выполняет создание задачи для менеджера через API Fresh Office.
+     * @param $type_id integer идентификатор типа задачи
+     * @param $ca_id integer идентификатор контрагента, который привязывается к задаче
+     * @param $receiver_id integer идентификатор менеджера (ответственного лица)
+     * @param $note string текст задачи
+     * @return array|integer|bool
+     */
+    public function foapi_createNewTaskForManager($type_id, $ca_id, $receiver_id, $note)
+    {
+        $params = [
+            'company_id' => $ca_id,
+            'user_id' => $receiver_id,
+            'category_id' => FreshOfficeAPI::TASK_CATEGORY_СТАНДАРТНАЯ,
+            'status_id' => FreshOfficeAPI::TASKS_STATUS_ЗАПЛАНИРОВАН,
+            'type_id' => $type_id,
+            'date_from' => date('Y-m-d\TH:i:s.u', time()),
+            'date_till' => date('Y-m-d\TH:i:s.u', mktime(0, 0, 0, date("m")  , date("d")+1, date("Y"))),
+            'note' => $note,
+        ];
+
+        $response = FreshOfficeAPI::makePostRequestToApi('tasks', $params);
+        // проанализируем результат, который возвращает API Fresh Office
+        $decoded_response = json_decode($response, true);
+        if (isset($decoded_response['error'])) {
+            $inner_message = '';
+            if (isset($decoded_response['error']['innererror']))
+                $inner_message = ' ' . $decoded_response['error']['innererror']['message'];
+            // возникла ошибка при выполнении
+            return 'При создании задачи возникла ошибка: ' . $decoded_response['error']['message']['value'] . $inner_message;
+        }
+        elseif (isset($decoded_response['d']))
+            // фиксируем идентификатор задачи, которая была успешно создана
+            return $decoded_response['d']['id'];
+
+        return false;
     }
 
     /**

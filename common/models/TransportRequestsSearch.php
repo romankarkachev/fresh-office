@@ -44,12 +44,18 @@ class TransportRequestsSearch extends TransportRequests
     public $searchTransportType;
 
     /**
+     * Поле для отбора только избранных запросов.
+     * @var integer
+     */
+    public $searchOnlyFavorite;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
-            [['id', 'created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free', 'searchFkko', 'searchTransportType'], 'integer'],
+            [['id', 'created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free', 'searchFkko', 'searchTransportType', 'searchOnlyFavorite'], 'integer'],
             [['customer_name', 'address', 'comment_manager', 'comment_logist', 'special_conditions', 'spec_hose', 'spec_cond', 'searchDateStart', 'searchDateEnd', 'searchFkkoName'], 'safe'],
         ];
     }
@@ -66,6 +72,7 @@ class TransportRequestsSearch extends TransportRequests
         $labels['searchFkko'] = 'Отход';
         $labels['searchFkkoName'] = 'Отход';
         $labels['searchTransportType'] = 'Тип техники';
+        $labels['searchOnlyFavorite'] = 'Только избранные';
 
         return $labels;
     }
@@ -258,6 +265,7 @@ class TransportRequestsSearch extends TransportRequests
             'our_loading' => $this->our_loading,
             'periodicity_id' => $this->periodicity_id,
             'spec_free' => $this->spec_free,
+            'is_favorite' => $this->searchOnlyFavorite,
         ]);
 
         $query->andFilterWhere(['like', 'customer_name', $this->customer_name])

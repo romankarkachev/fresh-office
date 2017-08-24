@@ -14,6 +14,11 @@ use Yii;
  */
 class ProjectsTypes extends \yii\db\ActiveRecord
 {
+    const PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА = 3;
+    const PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА = 5;
+    const PROJECT_TYPE_ДОКУМЕНТЫ = 12;
+    const PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА = 15;
+
     /**
      * @inheritdoc
      */

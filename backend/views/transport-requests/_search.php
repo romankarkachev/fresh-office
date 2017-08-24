@@ -92,6 +92,11 @@ use common\models\TransportTypes;
                     ]) ?>
 
                 </div>
+                <div class="col-md-2">
+                    <label for="<?= strtolower($model->formName() . '-searchOnlyFavorite') ?>" class="control-label"><?= $model->attributeLabels()['searchOnlyFavorite'] ?></label>
+                    <?= $form->field($model, 'searchOnlyFavorite')->checkbox()->label(false) ?>
+
+                </div>
             </div>
             <div class="row">
                 <div class="col-md-3">
@@ -176,32 +181,6 @@ anyDateOnChange();
             </div>
         </div>
     </div>
-    <?php // echo $form->field($model, 'customer_name') ?>
-
-    <?php // echo $form->field($model, 'region_id') ?>
-
-    <?php // echo $form->field($model, 'city_id') ?>
-
-    <?php // echo $form->field($model, 'address') ?>
-
-    <?php // echo $form->field($model, 'state_id') ?>
-
-    <?php // echo $form->field($model, 'comment_manager') ?>
-
-    <?php // echo $form->field($model, 'comment_logist') ?>
-
-    <?php // echo $form->field($model, 'our_loading') ?>
-
-    <?php // echo $form->field($model, 'periodicity_id') ?>
-
-    <?php // echo $form->field($model, 'special_conditions') ?>
-
-    <?php // echo $form->field($model, 'spec_free') ?>
-
-    <?php // echo $form->field($model, 'spec_hose') ?>
-
-    <?php // echo $form->field($model, 'spec_cond') ?>
-
     <?php ActiveForm::end(); ?>
 
 </div>

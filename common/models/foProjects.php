@@ -60,6 +60,12 @@ class foProjects extends \yii\db\ActiveRecord
     public $date_end;
 
     /**
+     * Количество финансовых движений по проекту (каких именно зависит от запроса).
+     * @var integer
+     */
+    public $financesCount;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -117,6 +123,62 @@ class foProjects extends \yii\db\ActiveRecord
             'manager_name' => 'Менеджер',
             'ca_name' => 'Контрагент',
         ];
+    }
+
+    /**
+     * Функция склонения слов.
+     * @param mixed $digit
+     * @param mixed $expr
+     * @param bool $onlyword
+     * @return string
+     */
+    private static function declension($digit, $expr, $onlyword=false){
+        if (!is_array($expr)) $expr = array_filter(explode(' ', $expr));
+        if (empty($expr[2])) $expr[2] = $expr[1];
+        $i = preg_replace('/[^0-9]+/s', '', $digit) % 100;
+        if ($onlyword) $digit='';
+        if ($i >= 5 && $i <= 20)
+            $res = $digit . ' ' . $expr[2];
+        else {
+            $i %= 10;
+            if($i == 1) $res=$digit . ' ' . $expr[0];
+            elseif ($i>=2 && $i<=4) $res = $digit . ' ' . $expr[1];
+            else $res = $digit . ' ' . $expr[2];
+        }
+        return trim($res);
+    }
+
+    /**
+     * Счетчик обратного отсчета. Возвращает количество дней, часов, минут и секунд, прошедшее от значения в
+     * первом параметре до значения во втором параметре.
+     * @param $startPeriod integer начало периода в формате TIMESTAMP
+     * @param $endPeriod integer конец периода в формате TIMESTAMP
+     * @return string
+     */
+    public static function downcounter($startPeriod, $endPeriod=false){
+        $startPeriod = intval($startPeriod);
+        $check_time = $startPeriod;
+        if ($endPeriod !== false) {
+            $endPeriod = intval($endPeriod);
+            $check_time = $endPeriod - $startPeriod;
+        }
+
+        if ($check_time <= 0) {
+            return '-';
+        }
+
+        $days = floor($check_time/86400);
+        $hours = floor(($check_time % 86400)/3600);
+        $minutes = floor(($check_time%3600)/60);
+        $seconds = $check_time%60;
+
+        $str = '';
+        if ($days > 0) $str .= self::declension($days, ['день','дня','дней']) . ' ';
+        if ($hours > 0) $str .= self::declension($hours, ['час','часа','часов']) . ' ';
+        if ($minutes > 0) $str .= self::declension($minutes, ['минута','минуты','минут']) . ' ';
+        if ($seconds > 0) $str .= self::declension($seconds, ['секунда','секунды','секунд']);
+
+        return $str;
     }
 
     /**

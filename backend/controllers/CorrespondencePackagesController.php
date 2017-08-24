@@ -5,6 +5,11 @@ namespace backend\controllers;
 use Yii;
 use common\models\CorrespondencePackages;
 use common\models\CorrespondencePackagesSearch;
+use common\models\PostDeliveryKinds;
+use common\models\ProjectsStates;
+use common\models\ComposePackageForm;
+use common\models\PadKinds;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
@@ -23,11 +28,16 @@ class CorrespondencePackagesController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete'],
                 'rules' => [
                     [
+                        'actions' => ['delete'],
                         'allow' => true,
                         'roles' => ['root'],
+                    ],
+                    [
+                        'actions' => ['index', 'create', 'update', 'compose-package-form', 'compose-package'],
+                        'allow' => true,
+                        'roles' => ['root', 'operator'],
                     ],
                 ],
             ],
@@ -123,6 +133,54 @@ class CorrespondencePackagesController extends Controller
             return $model;
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
+        }
+    }
+
+    /**
+     * Формирует и отдает форму назначения трек-номера, статуса, выборка видов документов.
+     * @param $ids string идентификаторы проектов
+     * @return mixed
+     */
+    public function actionComposePackageForm($ids)
+    {
+        if (Yii::$app->request->isAjax) {
+            $model = new ComposePackageForm();
+            $model->project_ids = explode(',', $ids);
+            $model->tpPad = PadKinds::find()->select(['id', 'name', 'name_full', 'is_provided' => new \yii\db\Expression(0)])->orderBy('name_full')->asArray()->all();
+
+            return $this->renderAjax('_compose_package_form', [
+                'model' => $model,
+            ]);
+        }
+
+        return '';
+    }
+
+    /**
+     * Назначает виды документов, способ доставки, статус пакета документов и трек-номер (при необходимости).
+     */
+    public function actionComposePackage()
+    {
+        Url::remember(Yii::$app->request->referrer);
+        if (Yii::$app->request->isPost) {
+            $model = new ComposePackageForm();
+            if ($model->load(Yii::$app->request->post())) {
+                $packages = CorrespondencePackages::find()->where(['in', 'id', $model->project_ids])->all();
+                foreach ($packages as $package) {
+                    /* @var $package CorrespondencePackages */
+                    $package->state_id = ProjectsStates::STATE_ОТПРАВЛЕНО;
+                    $package->tpPad = $model->tpPad;
+                    $package->pad = $package->convertPadTableToArray();
+                    $package->pd_id = $model->pd_id;
+                    $package->track_num = '';
+                    if ($package->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ ||
+                        $package->pd_id == PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS)
+                        $package->track_num = $model->track_num;
+
+                    $package->save();
+                }
+                $this->goBack();
+            }
         }
     }
 }

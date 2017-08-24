@@ -23,7 +23,7 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
             if (is_array($pad))
                 echo $this->render('_pad', [
                     'model' => $model,
-                    'pad' => json_decode($model->pad, true),
+                    'pad' => $pad,
                 ]);
             ?>
         </div>
@@ -106,7 +106,23 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
     <?php ActiveForm::end(); ?>
 
 </div>
+<div id="mw_summary" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-info" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="modal_title" class="modal-title">Modal title</h4>
+            </div>
+            <div id="modal_body" class="modal-body">
+                <p>One fine body…</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?php
+$url = \yii\helpers\Url::to(['/tracking/pochta-ru']);
 $name = $model->formName() . '[tpPad]';
 $stateSent = ProjectsStates::STATE_ОТПРАВЛЕНО;
 
@@ -136,7 +152,15 @@ function checkAllDocumentsOnClick() {
 // Обработчик щелчка по кнопке "Отследить".
 //
 function btnTrackNumberOnClick() {
-    alert("Слежка установлена!");
+    tracknum = $("#correspondencepackages-track_num").val();
+    if (tracknum != "" && tracknum != undefined) {
+        $("#modal_title").text("Трекинг");
+        $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+        $("#mw_summary").modal();
+        $("#modal_body").load("$url?track_num=" + tracknum);
+    }
+
+    return false;
 } // btnTrackNumberOnClick()
 
 // Обработчик изменения значения в поле "Трек-номер".

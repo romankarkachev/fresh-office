@@ -90,4 +90,3 @@ $('input').iCheck({
 JS
 , yii\web\View::POS_READY);
 ?>
-

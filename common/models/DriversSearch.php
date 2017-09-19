@@ -68,6 +68,7 @@ class DriversSearch extends Drivers
                 'asc' => ['ferrymen.name' => SORT_ASC],
                 'desc' => ['ferrymen.name' => SORT_DESC],
             ],
+            'instrCount',
         ];
     }
 
@@ -90,11 +91,22 @@ class DriversSearch extends Drivers
             'state_id' => 'drivers.state_id',
             'name' => 'drivers.name',
             'phone' => 'drivers.phone',
-            'instrCount' => '(
-                SELECT COUNT(id) FROM drivers_instructings
-                WHERE `drivers`.`id` = `drivers_instructings`.`driver_id`
-            )',
+            'instrCount' => 'instr.count',
+            'instrDetails' => 'instr.details',
         ]);
+
+        // LEFT JOIN выполняется быстрее, что подзапрос в SELECT-секции
+        // присоединяем количество и список инструктажей
+        $query->leftJoin('(
+            SELECT
+                drivers_instructings.instructed_at,
+                drivers_instructings.driver_id,
+                COUNT(drivers_instructings.id) AS count,
+                GROUP_CONCAT(CONCAT(DATE_FORMAT(drivers_instructings.instructed_at, \'%d.%m.%Y\'), " (",  drivers_instructings.place, ")") ORDER BY drivers_instructings.instructed_at DESC SEPARATOR ", ") AS details
+            FROM drivers_instructings
+            GROUP BY drivers_instructings.driver_id
+        ) AS instr', '`drivers`.`id` = `instr`.`driver_id`');
+
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [

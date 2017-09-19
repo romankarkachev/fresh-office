@@ -15,9 +15,12 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     /**
      * Группы типов проектов
      */
-    const CLAUSE_STATE_ALL = 1; // все статусы
+    const CLAUSE_STATE_DEFAULT = 1; // по умолчанию
     const CLAUSE_STATE_PROCESS = 2; // только в работе
-    const CLAUSE_STATE_FINISHED = 3; // только завершенные
+    const CLAUSE_STATE_SENT = 3; // только отправленные
+    const CLAUSE_STATE_DELIVERED = 4; // только доставленные
+    const CLAUSE_STATE_FINISHED = 5; // только завершенные
+    const CLAUSE_STATE_ALL = 6; // все статусы
 
     /**
      * Флаг для управления статусами в выборке.
@@ -31,7 +34,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     public function rules()
     {
         return [
-            [['id', 'created_at', 'ready_at', 'sent_at', 'fo_project_id', 'state_id', 'type_id', 'pd_id', 'searchGroupProjectStates'], 'integer'],
+            [['id', 'created_at', 'is_manual', 'ready_at', 'sent_at', 'delivered_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'manager_id', 'searchGroupProjectStates'], 'integer'],
             [['customer_name', 'pad', 'track_num', 'other', 'comment'], 'safe'],
         ];
     }
@@ -42,6 +45,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     public function attributeLabels()
     {
         return [
+            'fo_id_company' => 'Контрагент',
             // для отбора
             'searchGroupProjectStates' => 'Группы статусов',
             'searchCreatedFrom' => 'Период с',
@@ -58,16 +62,30 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     {
         return [
             [
-                'id' => self::CLAUSE_STATE_ALL,
-                'name' => 'Все',
+                'id' => self::CLAUSE_STATE_DEFAULT,
+                'name' => 'По умолчанию',
+                'hint' => 'Формирование документов на отправку + Ожидает отправки',
             ],
             [
                 'id' => self::CLAUSE_STATE_PROCESS,
-                'name' => 'Только в работе',
+                'name' => 'В работе',
+                'hint' => 'Все, кроме доставленных и завершенных',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_SENT,
+                'name' => 'Отправленные',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_DELIVERED,
+                'name' => 'Доставленные',
             ],
             [
                 'id' => self::CLAUSE_STATE_FINISHED,
-                'name' => 'Только завершенные',
+                'name' => 'Завершенные',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_ALL,
+                'name' => 'Все',
             ],
         ];
     }
@@ -94,6 +112,10 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => [
+                'route' => 'correspondence-packages',
+                'pageSize' => 100,
+            ],
             'sort' => [
                 'route' => 'correspondence-packages',
                 'defaultOrder' => ['created_at' => SORT_DESC],
@@ -130,14 +152,23 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
         $this->load($params);
         $query->joinWith(['state', 'type', 'pd']);
 
-        // по-умолчанию все видят пакеты документов только в работе
+        // по-умолчанию все видят пакеты документов только в статусах "Формирование документов на отправку" и "Ожидает отправки"
         if ($this->searchGroupProjectStates == null) {
-            $this->searchGroupProjectStates = self::CLAUSE_STATE_PROCESS;
+            $this->searchGroupProjectStates = self::CLAUSE_STATE_DEFAULT;
         }
 
         switch ($this->searchGroupProjectStates) {
+            case self::CLAUSE_STATE_DEFAULT:
+                $query->andWhere(['in', 'state_id', [ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ, ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ]]);
+                break;
             case self::CLAUSE_STATE_PROCESS:
-                $query->andWhere(['not in', 'state_id', ProjectsStates::STATE_ЗАВЕРШЕНО]);
+                $query->andWhere(['not in', 'state_id', [ProjectsStates::STATE_ДОСТАВЛЕНО, ProjectsStates::STATE_ЗАВЕРШЕНО]]);
+                break;
+            case self::CLAUSE_STATE_SENT:
+                $query->andWhere(['state_id' => ProjectsStates::STATE_ОТПРАВЛЕНО]);
+                break;
+            case self::CLAUSE_STATE_DELIVERED:
+                $query->andWhere(['state_id' => ProjectsStates::STATE_ДОСТАВЛЕНО]);
                 break;
             case self::CLAUSE_STATE_FINISHED:
                 $query->andWhere(['state_id' => ProjectsStates::STATE_ЗАВЕРШЕНО]);
@@ -154,12 +185,16 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
         $query->andFilterWhere([
             'id' => $this->id,
             'created_at' => $this->created_at,
+            'is_manual' => $this->is_manual,
             'ready_at' => $this->ready_at,
             'sent_at' => $this->sent_at,
+            'delivered_at' => $this->delivered_at,
             'fo_project_id' => $this->fo_project_id,
+            'fo_id_company' => $this->fo_id_company,
             'state_id' => $this->state_id,
             'type_id' => $this->type_id,
             'pd_id' => $this->pd_id,
+            'manager_id' => $this->manager_id,
         ]);
 
         $query->andFilterWhere(['like', 'customer_name', $this->customer_name])

@@ -1,10 +1,13 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
+use yii\web\JsExpression;
 use kartik\select2\Select2;
 use common\models\ProjectsStates;
 use common\models\PostDeliveryKinds;
+use common\models\User;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\CorrespondencePackages */
@@ -33,11 +36,61 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
                 <div class="panel-body">
                     <div class="row">
                         <div class="col-md-6">
-                            <?= $form->field($model, 'fo_project_id')->textInput(['disabled' => true]) ?>
+                            <?= $form->field($model, 'fo_project_id')->widget(Select2::className(), [
+                                'theme' => Select2::THEME_BOOTSTRAP,
+                                'language' => 'ru',
+                                'options' => ['placeholder' => 'Введите ID проекта'],
+                                'pluginOptions' => [
+                                    'minimumInputLength' => 1,
+                                    'language' => 'ru',
+                                    'ajax' => [
+                                        'url' => Url::to(['documents/direct-sql-get-project-data']),
+                                        'delay' => 500,
+                                        'dataType' => 'json',
+                                        'data' => new JsExpression('function(params) { return {project_id:params.term}; }')
+                                    ],
+                                    'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
+                                    'templateResult' => new JsExpression('function(result) { return result.text; }'),
+                                    'templateSelection' => new JsExpression('function (result) {
+if (!result.customer_id) {return result.text;}
+
+// подставим идентификатор контрагента в соответствующее поле
+$("#correspondencepackages-fo_id_company").select2("trigger", "select", { 
+    data: { id: result.customer_id, text: result.company_name } 
+});
+if (result.state_name != "") $("#correspondencepackages-statename").val(result.state_name);
+if (result.type_name != "") $("#correspondencepackages-typename").val(result.type_name);
+
+return result.text;
+}'),
+                                ],
+                            ]) ?>
 
                         </div>
                         <div class="col-md-6">
-                            <?= $form->field($model, 'customer_name')->textInput(['disabled' => true]) ?>
+                            <?= $form->field($model, 'fo_id_company')->widget(Select2::className(), [
+                                'initValueText' => $model->customer_name,
+                                'theme' => Select2::THEME_BOOTSTRAP,
+                                'language' => 'ru',
+                                'options' => ['placeholder' => 'Введите наименование'],
+                                'pluginOptions' => [
+                                    'minimumInputLength' => 1,
+                                    'language' => 'ru',
+                                    'ajax' => [
+                                        'url' => Url::to(['projects/direct-sql-counteragents-list']),
+                                        'delay' => 500,
+                                        'dataType' => 'json',
+                                        'data' => new JsExpression('function(params) { return {q:params.term}; }')
+                                    ],
+                                    'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
+                                    'templateResult' => new JsExpression('function(result) { return result.text; }'),
+                                    'templateSelection' => new JsExpression('function (result) {
+if (!result.custom) return result.text;
+$("#transportrequests-customer_name").val(result.text);
+return result.text;
+}'),
+                                ],
+                            ]) ?>
 
                         </div>
                     </div>
@@ -57,14 +110,6 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
     </div>
     <div class="row">
         <div class="col-md-2">
-            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
-                'data' => ProjectsStates::arrayMapForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-            ]) ?>
-
-        </div>
-        <div class="col-md-2">
             <?= $form->field($model, 'pd_id')->widget(Select2::className(), [
                 'data' => PostDeliveryKinds::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
@@ -80,6 +125,22 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
                     'placeholder' => 'Введите идентификатор отправления',
                     'title' => 'Введите идентификатор отправления',
                 ]) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+                'data' => ProjectsStates::arrayMapForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+            ]) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
+                'data' => User::arrayMapForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+            ]) ?>
 
         </div>
     </div>

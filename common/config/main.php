@@ -49,8 +49,8 @@ return [
         ],
         'gii' => [
             'class' => \yii\gii\Module::className(),
-            'allowedIPs' => ['*'],
-//            'allowedIPs' => ['127.0.0.1'],
+            //'allowedIPs' => ['*'],
+            'allowedIPs' => ['127.0.0.1', '185.154.73.31'],
         ]
     ],
     'components' => [

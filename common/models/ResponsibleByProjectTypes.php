@@ -14,6 +14,23 @@ use Yii;
  */
 class ResponsibleByProjectTypes extends \yii\db\ActiveRecord
 {
+    // набор типов проектов для робота с кодовым названием Zapier
+    // запускается /services/mailing-by-projects-types
+    const PROJECT_TYPES_ZAPIER = [
+        ProjectsTypes::PROJECT_TYPE_ФОТО_ВИДЕО, // 7
+        ProjectsTypes::PROJECT_TYPE_ВЫЕЗДНЫЕ_РАБОТЫ, // 8
+        ProjectsTypes::PROJECT_TYPE_ОСМОТР_ОБЪЕКТА, // 14
+    ];
+
+    // набор типов проектов для робота, который формирует PDF из проектов
+    // запускается /services/mailing-pdfs
+    const PROJECT_TYPES_PDF = [
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА,
+        ProjectsTypes::PROJECT_TYPE_ВЫВОЗ,
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА,
+        ProjectsTypes::PROJECT_TYPE_САМОПРИВОЗ,
+    ];
+
     /**
      * @inheritdoc
      */
@@ -55,7 +72,7 @@ class ResponsibleByProjectTypes extends \yii\db\ActiveRecord
     {
         if (parent::beforeSave($insert)) {
             if ($this->project_type_id != null) {
-                $types = DirectMSSQLQueries::arrayMapOfProjectsTypesForSelect2(DirectMSSQLQueries::PROJECTS_TYPES_FOR_RESPONSIBLE);
+                $types = ProjectsTypes::arrayMapForSelect2(DirectMSSQLQueries::PROJECTS_TYPES_FOR_RESPONSIBLE);
                 $this->project_type_name = $types[$this->project_type_id];
             }
 

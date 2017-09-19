@@ -442,9 +442,8 @@ class TransportRequestsController extends Controller
                 $letter = Yii::$app->mailer->compose([
                     'html' => 'requestIgnoredForALongTime-html',
                 ], $params)
-                    ->setFrom(Yii::$app->params['senderEmail'])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                     ->setTo(Yii::$app->params['receiverEmail'])
-                    //->setTo('post@romankarkachev.ru')
                     ->setSubject('Запрос продолжительное время игнорируется');
 
                 return $letter->send();
@@ -483,7 +482,7 @@ class TransportRequestsController extends Controller
     {
         $id = intval($id);
         $private = intval($private);
-        if ($id > 0 && (!Yii::$app->user->can('root') && $private == 0)) {
+        if ($id > 0 && ((!Yii::$app->user->can('root') && $private == 0) || (Yii::$app->user->can('root') && $private == 1))) {
             $request = TransportRequests::findOne($id);
             if ($request != null) {
                 TransportRequestsDialogs::updateAll([

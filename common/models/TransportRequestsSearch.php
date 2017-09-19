@@ -145,6 +145,7 @@ class TransportRequestsSearch extends TransportRequests
             'query' => $query,
             'pagination' => [
                 'route' => 'transport-requests',
+                'pageSize' => 50,
             ],
             'sort' => [
                 'route' => 'transport-requests',

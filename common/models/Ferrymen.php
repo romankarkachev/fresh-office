@@ -3,12 +3,17 @@
 namespace common\models;
 
 use Yii;
+use yii\db\ActiveRecord;
 use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "ferrymen".
  *
  * @property integer $id
+ * @property integer $created_at
+ * @property integer $created_by
+ * @property integer $updated_at
+ * @property integer $updated_by
  * @property integer $fo_id
  * @property string $name
  * @property integer $opfh_id
@@ -25,6 +30,8 @@ use yii\helpers\ArrayHelper;
  * @property string $contact_person_dir
  * @property string $post_dir
  *
+ * @property User $createdBy
+ * @property User $updatedBy
  * @property Opfh $opfh
  * @property FerrymenTypes $ft
  * @property PaymentConditions $pc
@@ -34,6 +41,20 @@ use yii\helpers\ArrayHelper;
  */
 class Ferrymen extends \yii\db\ActiveRecord
 {
+    /**
+     * Количество водителей у перевозчика.
+     * Вычисляемое виртуальное поле.
+     * @var integer
+     */
+    public $driversCount;
+
+    /**
+     * Количество транспортных средств у перевозчика.
+     * Вычисляемое виртуальное поле.
+     * @var integer
+     */
+    public $transportCount;
+
     /**
      * Статусы перевозчиков, водителей, транспорта
      */
@@ -62,10 +83,12 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
-            [['fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id'], 'integer'],
             [['name', 'email', 'email_dir'], 'string', 'max' => 255],
             [['phone', 'contact_person', 'phone_dir', 'contact_person_dir'], 'string', 'max' => 50],
             [['post', 'post_dir'], 'string', 'max' => 100],
+            [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['opfh_id'], 'exist', 'skipOnError' => true, 'targetClass' => Opfh::className(), 'targetAttribute' => ['opfh_id' => 'id']],
             [['pc_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentConditions::className(), 'targetAttribute' => ['pc_id' => 'id']],
             [['ft_id'], 'exist', 'skipOnError' => true, 'targetClass' => FerrymenTypes::className(), 'targetAttribute' => ['ft_id' => 'id']],
@@ -79,6 +102,10 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
+            'created_at' => 'Дата и время создания',
+            'created_by' => 'Автор создания',
+            'updated_at' => 'Дата и время изменения',
+            'updated_by' => 'Автор изменений',
             'fo_id' => 'Идентификатор в Fresh Office',
             'name' => 'Наименование',
             'opfh_id' => 'ОПФХ',
@@ -94,10 +121,35 @@ class Ferrymen extends \yii\db\ActiveRecord
             'email_dir' => 'E-mail',
             'contact_person_dir' => 'Имя',
             'post_dir' => 'Должность',
-            // для сортировки
+            // для вычисляемых полей
             'ftName' => 'Тип',
             'pcName' => 'Условия оплаты',
             'stateName' => 'Статус',
+            'driversCount' => 'Водителей',
+            'transportCount' => 'Автомобилей',
+        ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function behaviors()
+    {
+        return [
+            'timestamp' => [
+                'class' => 'yii\behaviors\TimestampBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
+                ],
+            ],
+            'blameable' => [
+                'class' => 'yii\behaviors\BlameableBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_by'],
+                ],
+            ],
         ];
     }
 
@@ -292,6 +344,21 @@ class Ferrymen extends \yii\db\ActiveRecord
         }
 
         return '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUpdatedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'updated_by']);
+    }
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'created_by']);
     }
 
     /**

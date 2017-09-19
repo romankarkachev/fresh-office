@@ -68,8 +68,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => 'Перевозчики', 'url' => ['/ferrymen']],
                 ['label' => 'Водители', 'url' => ['/ferrymen-drivers']],
                 ['label' => 'Транспорт', 'url' => ['/ferrymen-transport']],
-                '<li class="dropdown-header">Отчеты</li>',
-                ['label' => '<i class="fa fa-pie-chart"></i> Анализ', 'url' => ['/reports/tr-analytics']],
+                //'<li class="dropdown-header">Отчеты</li>',
                 '<li class="dropdown-header">Дополнительно</li>',
                 ['label' => 'Марки автомобилей', 'url' => ['/transport-brands']],
                 ['label' => 'Типы техники', 'url' => ['/transport-types']],
@@ -87,8 +86,7 @@ if (Yii::$app->user->can('root'))
             'url' => '#',
             'items' => [
                 ['label' => 'Пакеты документов', 'url' => ['/correspondence-packages']],
-                '<li class="dropdown-header">Отчеты</li>',
-                ['label' => '<i class="fa fa-pie-chart"></i> Анализ', 'url' => ['/reports/correspondence-analytics']],
+                //'<li class="dropdown-header">Отчеты</li>',
             ],
         ],
         [
@@ -96,6 +94,8 @@ if (Yii::$app->user->can('root'))
             'url' => '#',
             'items' => [
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ обращений', 'url' => ['/reports/analytics']],
+                ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ запросов на транспорт', 'url' => ['/reports/tr-analytics']],
+                ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ корреспонденции', 'url' => ['/reports/correspondence-analytics']],
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по оборотам клиентов', 'url' => ['/reports/turnover']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по пустым клиентам', 'url' => ['/reports/emptycustomers']],
@@ -181,6 +181,11 @@ elseif (Yii::$app->user->can('dpc_head'))
             ],
         ]
     ];
+elseif (Yii::$app->user->can('prod_department_head'))
+    $items = [
+        ['label' => 'Производство', 'url' => ['/production']],
+    ];
+
 $items[] = '<li>'
     . Html::beginForm(['/logout'], 'post')
     . Html::submitButton(

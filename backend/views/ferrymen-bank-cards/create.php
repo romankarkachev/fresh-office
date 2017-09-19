@@ -3,21 +3,21 @@
 use yii\helpers\HtmlPurifier;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\FerrymenBankDetails */
+/* @var $model common\models\FerrymenBankCards */
 
 if ($model->ferryman != null) {
-    $this->title = 'Новый банковский счет перевозчика ' . $model->ferryman->name . HtmlPurifier::process(' &mdash; Банковские счета | ') . Yii::$app->name;
+    $this->title = 'Новая банковская карта перевозчика ' . $model->ferryman->name . HtmlPurifier::process(' &mdash; Банковские карты | ') . Yii::$app->name;
     $this->params['breadcrumbs'][] = ['label' => 'Перевозчики', 'url' => ['/ferrymen']];
     $this->params['breadcrumbs'][] = ['label' => $model->ferryman->name, 'url' => ['/ferrymen/update', 'id' => $model->ferryman->id]];
-    $this->params['breadcrumbs'][] = 'Новый банковский счет *';
+    $this->params['breadcrumbs'][] = 'Новая банковская карта *';
 }
 else {
-    $this->title = 'Новый банковский счет | ' . Yii::$app->name;
-    $this->params['breadcrumbs'][] = ['label' => 'Банковские счета', 'url' => ['/ferrymen-bank-details']];
+    $this->title = 'Новая банковская карта | ' . Yii::$app->name;
+    $this->params['breadcrumbs'][] = ['label' => 'Банковские карты', 'url' => ['/ferrymen-bank-cards']];
     $this->params['breadcrumbs'][] = 'Новый *';
 }
 ?>
-<div class="bank-details-create">
+<div class="bank-cards-create">
     <?= $this->render('_form', ['model' => $model]) ?>
 
 </div>

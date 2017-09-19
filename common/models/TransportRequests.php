@@ -399,7 +399,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function arrayMapOfCitiesForSelect2()
     {
-        return ArrayHelper::map(Cities::find()->select(['id' => 'city_id', 'name'])->where(['region_id' => $this->region_id])->all(), 'id', 'name');
+        return ArrayHelper::map(Cities::find()->select(['id' => 'city_id', 'name'])->where(['region_id' => $this->region_id])->orderBy('name')->all(), 'id', 'name');
     }
 
     /**

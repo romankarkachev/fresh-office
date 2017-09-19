@@ -25,10 +25,10 @@
                                 </tr>
                                 <tr>
                                     <td class="content-block">
-                                        <strong>Контактное лицо:</strong> <?= $project['contact_name'] ?>
+                                        <strong>Контактное лицо:</strong> <?= $project['contact_name'] ?> <?= $project['contact_phone'] ?>
                                     </td>
                                     <td class="content-block">
-                                        <strong>Телефон:</strong> <?= $project['contact_phone'] ?>
+                                        <strong>Дата вывоза:</strong> <?= Yii::$app->formatter->asDate($project['vivozdate'], 'php:d.m.Y') ?>
                                     </td>
                                 </tr>
                                 <tr>
@@ -65,7 +65,7 @@
                                     <?php foreach($project['tp'] as $property): ?>
                                         <tr>
                                             <td><strong><?= $property['property'] ?></strong></td>
-                                            <td><?= $property['value'] ?></td>
+                                            <td><?= $property['value'] . ' ' . $property['ED_IZM_TOVAR'] ?></td>
                                         </tr>
                                     <?php endforeach; ?>
                                 </table>
@@ -73,6 +73,7 @@
                         </td>
                     </tr>
                 </table>
+                <!--
                 <div class="footer">
                     <table width="100%">
                         <tr>
@@ -80,6 +81,7 @@
                         </tr>
                     </table>
                 </div>
+                -->
             </div>
         </td>
         <td></td>

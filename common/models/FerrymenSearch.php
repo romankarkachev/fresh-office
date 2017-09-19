@@ -42,6 +42,19 @@ class FerrymenSearch extends Ferrymen
     public function search($params)
     {
         $query = Ferrymen::find();
+        $query->select([
+            '*',
+            'id' => 'ferrymen.id',
+            'name' => 'ferrymen.name',
+            'driversCount' => 'drivers.count',
+            'transportCount' => 'transport.count',
+        ]);
+
+        // LEFT JOIN выполняется быстрее, что подзапрос в SELECT-секции
+        // присоединяем количество водителей и транспортных средств
+        $query->leftJoin('(SELECT drivers.ferryman_id, COUNT(drivers.id) AS count FROM drivers GROUP BY drivers.ferryman_id) AS drivers', '`ferrymen`.`id` = `drivers`.`ferryman_id`');
+        $query->leftJoin('(SELECT transport.ferryman_id, COUNT(transport.id) AS count FROM transport GROUP BY transport.ferryman_id) AS transport', '`ferrymen`.`id` = `transport`.`ferryman_id`');
+
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
@@ -52,12 +65,16 @@ class FerrymenSearch extends Ferrymen
                 'defaultOrder' => ['name' => SORT_ASC],
                 'attributes' => [
                     'id',
-                    'name',
+                    'name' => [
+                        'asc' => ['ferrymen.name' => SORT_ASC],
+                        'desc' => ['ferrymen.name' => SORT_DESC],
+                    ],
                     'ft_id',
                     'pc_id',
                     'phone',
                     'email',
                     'contact_person',
+                    'contact_person_dir',
                     'ftName' => [
                         'asc' => ['ferrymen_types.name' => SORT_ASC],
                         'desc' => ['ferrymen_types.name' => SORT_DESC],
@@ -66,6 +83,8 @@ class FerrymenSearch extends Ferrymen
                         'asc' => ['payment_conditions.name' => SORT_ASC],
                         'desc' => ['payment_conditions.name' => SORT_DESC],
                     ],
+                    'driversCount',
+                    'transportCount',
                 ],
             ],
         ]);

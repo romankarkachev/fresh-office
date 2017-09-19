@@ -573,7 +573,7 @@ ORDER BY COMPANY_NAME';
             $letter = Yii::$app->mailer->compose([
                 'html' => 'filesAttachedToAppeal-html',
             ], $params)
-                ->setFrom(Yii::$app->params['senderEmail'])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
                 ->setTo($responsible_email)
                 ->setSubject('Создано новое обращение');
 

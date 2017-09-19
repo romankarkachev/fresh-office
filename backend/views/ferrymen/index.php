@@ -22,15 +22,27 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'layout' => '{items}{pager}',
+        'layout' => "<div style=\"position: relative; min-height: 20px;\"><small class=\"pull-right form-text text-muted\" style=\"position: absolute; bottom: 0; right: 0;\">{summary}</small></div>\n{items}\n{pager}",
+        'summary' => "Показаны записи с <strong>{begin}</strong> по <strong>{end}</strong>, на странице <strong>{count}</strong>, всего <strong>{totalCount}</strong>. Страница <strong>{page}</strong> из <strong>{pageCount}</strong>.",
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             'name',
+            [
+                'attribute' => 'driversCount',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
+                'attribute' => 'transportCount',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
             'ftName',
             'pcName',
             'stateName',
             [
-                'header' => 'Диспетчер',
+                'attribute' => 'contact_person',
+                'label' => 'Диспетчер',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Ferrymen */
@@ -57,7 +69,8 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
                 }
             ],
             [
-                'header' => 'Руководитель',
+                'attribute' => 'contact_person_dir',
+                'label' => 'Руководитель',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Ferrymen */

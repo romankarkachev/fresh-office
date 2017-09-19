@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
+use yii\widgets\Pjax;
 use kartik\select2\Select2;
 use common\models\ProjectsStates;
 use common\models\PostDeliveryKinds;
@@ -57,14 +58,6 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
     </div>
     <div class="row">
         <div class="col-md-2">
-            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
-                'data' => ProjectsStates::arrayMapForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-            ]) ?>
-
-        </div>
-        <div class="col-md-2">
             <?= $form->field($model, 'pd_id')->widget(Select2::className(), [
                 'data' => PostDeliveryKinds::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
@@ -82,6 +75,26 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
                 ]) ?>
 
         </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+                'data' => ProjectsStates::arrayMapForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+            ]) ?>
+
+        </div>
+        <?php Pjax::begin(['id' => 'pjax-address', 'timeout' => 5000, 'enablePushState' => false]); ?>
+
+        <div class="col-md-5">
+            <?= $form->field($model, 'address_id')->widget(Select2::className(), [
+                'data' => $model->arrayMapOfAddressesForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+            ])->label($model->getAttributeLabel('address_id') . ' &nbsp; '.Html::a('<i class="fa fa-plus" aria-hidden="true"></i> добавить', '#', ['id' => 'createNewAddress', 'class' => 'text-success', 'title' => 'Добавить новый почтовый адрес контрагента'])) ?>
+
+        </div>
+        <?php Pjax::end(); ?>
+
     </div>
     <div class="row">
         <div class="col-md-6">
@@ -103,6 +116,8 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
         <?php endif; ?>
 
     </div>
+    <?= $form->field($model, 'fo_id_company', ['template' => '{input}'])->hiddenInput()->label(false) ?>
+
     <?php ActiveForm::end(); ?>
 
 </div>
@@ -123,6 +138,7 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
 </div>
 <?php
 $url = \yii\helpers\Url::to(['/tracking/pochta-ru']);
+$url_create_address = \yii\helpers\Url::to(['/correspondence-packages/create-address-form']);
 $name = $model->formName() . '[tpPad]';
 $stateSent = ProjectsStates::STATE_ОТПРАВЛЕНО;
 
@@ -169,8 +185,27 @@ function trackNumberOnChange() {
     $("#correspondencepackages-state_id").val("$stateSent").trigger("change");
 }
 
+// Обработчик щелчка по ссылке "Добавить новый почтовый адрес контрагента".
+//
+function createNewAddressOnClick() {
+    ca_id = $("#correspondencepackages-fo_id_company").val();
+    if (ca_id != "" && ca_id != undefined) {
+        $("#modal_title").text("Новый почтовый адрес");
+        $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-success"></i><span class="sr-only">Подождите...</span></p>');
+        $("#mw_summary").modal();
+        $("#modal_body").load("$url_create_address?id=$model->id&ca_id=" + ca_id);
+    }
+
+    return false;
+} // createNewAddressOnClick()
+
+$("#pjax-form").on("pjax:end", function() {
+    $.pjax.reload({container:"#pjax-address"});
+});
+
 $(document).on("click", "#checkAllDocuments", checkAllDocumentsOnClick);
 $(document).on("click", "#btnTrackNumber", btnTrackNumberOnClick);
+$(document).on("click", "#createNewAddress", createNewAddressOnClick);
 $(document).on("change", "#correspondencepackages-track_num", trackNumberOnChange);
 JS
 , \yii\web\View::POS_READY);

@@ -76,6 +76,14 @@ class foProjects extends \yii\db\ActiveRecord
     /**
      * @inheritdoc
      */
+    public static function primaryKey()
+    {
+        return ['ID_LIST_PROJECT_COMPANY'];
+    }
+
+    /**
+     * @inheritdoc
+     */
     public static function getDb()
     {
         return Yii::$app->db_mssql;
@@ -179,6 +187,53 @@ class foProjects extends \yii\db\ActiveRecord
         if ($seconds > 0) $str .= self::declension($seconds, ['секунда','секунды','секунд']);
 
         return $str;
+    }
+
+    /**
+     * Создает запись в истории изменения статусов проекта в CRM.
+     * @param $project_id integer идентификатор проекта
+     * @param $state_id integer идентификатор нового статуса проекта
+     * @param $oldStateName string наименование старого статуса
+     * @param $newStateName string наименование нового статуса
+     */
+    public static function createHistoryRecord($project_id, $state_id, $oldStateName, $newStateName)
+    {
+        $historyModel = new foProjectsHistory();
+        $historyModel->ID_LIST_PROJECT_COMPANY = $project_id;
+        $historyModel->ID_MANAGER = 73; // freshoffice
+        $historyModel->DATE_CHENCH_PRIZNAK = date('Y-m-d\TH:i:s.000');
+        $historyModel->TIME_CHENCH_PRIZNAK = Yii::$app->formatter->asDate(time(), 'php:H:i');
+        $historyModel->ID_PRIZNAK_PROJECT = $state_id;
+        $historyModel->RUN_NAME_CHANCH = 'Изменен статус проeкта c ' . $oldStateName . ' на ' . $newStateName;
+        $historyModel->save();
+    }
+
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        if (isset($changedAttributes['ID_PRIZNAK_PROJECT'])) {
+            // проверим, отличается ли текущий статус от нового
+            if ($changedAttributes['ID_PRIZNAK_PROJECT'] != $this->ID_PRIZNAK_PROJECT) {
+                // определим наименования статусов старого и нового
+                $oldStateName = '';
+                $newStateName = '';
+                $states = DirectMSSQLQueries::fetchProjectsStates();
+                if (count($states) > 0) {
+                    // старое наименование статуса
+                    $key = array_search($changedAttributes['ID_PRIZNAK_PROJECT'], array_column($states, 'id'));
+                    if (false !== $key) $oldStateName = $states[$key]['name'];
+
+                    // новое наименование статуса
+                    $key = array_search($this->ID_PRIZNAK_PROJECT, array_column($states, 'id'));
+                    if (false !== $key) $newStateName = $states[$key]['name'];
+
+                    if ($oldStateName != null && $newStateName != null) {
+                        // если наименования обоих статусов определить удалось, то создаем запись в истории изменения статусов
+                        self::createHistoryRecord($this->ID_LIST_PROJECT_COMPANY, $this->ID_PRIZNAK_PROJECT, $oldStateName, $newStateName);
+                    }
+                }
+            }
+        }
     }
 
     /**

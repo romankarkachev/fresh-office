@@ -9,8 +9,8 @@ use yii\widgets\Pjax;
 /* @var $dataProvider yii\data\ActiveDataProvider */
 ?>
 
-<div class="files-list">
-    <div class="table-responsive">
+<div class="panel panel-info">
+    <div class="panel-body table-responsive">
         <?php Pjax::begin(['id' => 'afs']); ?>
 
         <?= GridView::widget([

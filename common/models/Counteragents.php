@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\base\Model;
 use yii\db\ActiveRecord;
 use yii\httpclient\Client;
 
@@ -10,13 +11,6 @@ use yii\httpclient\Client;
  * This is the model class for table "companies".
  *
  * @property integer $id
- * @property integer $created_at
- * @property integer $created_by
- * @property integer $updated_at
- * @property integer $updated_by
- * @property string $opfh
- * @property string $brand_name
- * @property string $name
  * @property string $name_full
  * @property string $inn
  * @property string $kpp
@@ -25,25 +19,8 @@ use yii\httpclient\Client;
  * @property string $bank_bik
  * @property string $bank_name
  * @property string $bank_ca
- * @property string $email
- * @property string $address_j
- * @property string $address_p
- * @property string $address_m
- * @property string $address_dostavista
- * @property string $phones
- * @property string $okpo
- * @property string $okato
- * @property string $oktmo
- * @property string $okved
- * @property string $director
- * @property string $doc_reason
- *
- * @property User $createdBy
- * @property User $updatedBy
- * @property CompaniesContacts[] $companiesContacts
- * @property Contracts[] $contracts
  */
-class Companies extends \yii\db\ActiveRecord
+class Counteragents extends Model
 {
     /**
      * Типы субъектов предпринимательской деятельности для целей поиска по Единому реестру через механизм API.
@@ -58,25 +35,11 @@ class Companies extends \yii\db\ActiveRecord
     const API_FIELD_ОГРН = 2;
     const API_FIELD_НАИМЕНОВАНИЕ = 3;
 
-    /**
-     * Контактные лица компании
-     * @var array
-     */
-    public $contacts;
-
-    /**
-     * Массив ошибок при заполнении контактных лиц
-     * @var array
-     */
-    public $contacts_errors;
-
-    /**
-     * @inheritdoc
-     */
-    public static function tableName()
-    {
-        return 'companies';
-    }
+    public $name;
+    public $name_full;
+    public $address_j;
+    public $address_p;
+    public $address_m;
 
     /**
      * @inheritdoc
@@ -84,24 +47,14 @@ class Companies extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['opfh', 'name', 'name_full'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by'], 'integer'],
             [['address_j', 'address_p', 'address_m'], 'string'],
-            [['opfh', 'brand_name', 'name'], 'string', 'max' => 100],
             [['name_full'], 'string', 'max' => 200],
             [['inn'], 'string', 'max' => 12],
             [['kpp'], 'string', 'max' => 9],
             [['ogrn'], 'string', 'max' => 15],
             [['bank_an', 'bank_ca'], 'string', 'max' => 25],
             [['bank_bik'], 'string', 'max' => 10],
-            [['bank_name', 'email', 'address_dostavista'], 'string', 'max' => 255],
-            [['phones', 'director', 'doc_reason'], 'string', 'max' => 50],
-            [['okpo', 'okato', 'oktmo'], 'string', 'max' => 30],
-            [['okved'], 'string', 'max' => 150],
-            [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
-            // собственные правила валидации
-            ['contacts', 'validateContacts'],
+            [['bank_name'], 'string', 'max' => 255],
         ];
     }
 
@@ -112,13 +65,6 @@ class Companies extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
-            'created_at' => 'Дата и время создания',
-            'created_by' => 'Автор создания',
-            'updated_at' => 'Дата и время изменения',
-            'updated_by' => 'Автор изменений',
-            'opfh' => 'Организационно-правовая форма хозяйствования',
-            'brand_name' => 'Бренд',
-            'name' => 'Наименование',
             'name_full' => 'Полное наименование',
             'inn' => 'ИНН',
             'kpp' => 'КПП',
@@ -127,104 +73,10 @@ class Companies extends \yii\db\ActiveRecord
             'bank_bik' => 'БИК банка',
             'bank_name' => 'Наименование банка',
             'bank_ca' => 'Корр. счет',
-            'email' => 'E-mail',
             'address_j' => 'Адрес юридический',
             'address_p' => 'Адрес фактический',
             'address_m' => 'Адрес почтовый',
-            'address_dostavista' => 'Адрес Достависта',
-            'phones' => 'Телефоны',
-            'okpo' => 'ОКПО',
-            'okato' => 'ОКАТО',
-            'oktmo' => 'ОКТМО',
-            'okved' => 'ОКВЭД',
-            'director' => 'Руководитель',
-            'doc_reason' => 'Основание',
         ];
-    }
-
-    /**
-     * @inheritdoc
-     */
-    public function behaviors()
-    {
-        return [
-            'timestamp' => [
-                'class' => 'yii\behaviors\TimestampBehavior',
-                'attributes' => [
-                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
-                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
-                ],
-            ],
-            'blameable' => [
-                'class' => 'yii\behaviors\BlameableBehavior',
-                'attributes' => [
-                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
-                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_by'],
-                ],
-            ],
-        ];
-    }
-
-    /**
-     * Собственное правило валидации для контактных лиц.
-     */
-    public function validateContacts()
-    {
-        if (count($this->contacts) > 0) {
-            $row_numbers = [];
-            foreach ($this->contacts as $index => $item) {
-                $oa = new CompaniesContacts();
-                $oa->attributes  = $item;
-                if (!$oa->validate(['name'])) {
-                    $row_numbers[] = ($index+1);
-                }
-            }
-            if (count($row_numbers) > 0) $this->addError('contacts_errors', 'Не все обязательные поля заполнены! Строки: '.implode(',', $row_numbers).'.');
-        }
-    }
-
-    /**
-     * Превращает данные из массива идентификаторов в массив моделей CompaniesContacts.
-     * @return array
-     */
-    public function makeContactsModelsFromPostArray()
-    {
-        // исключаем те строки, которые уже используются в других объектах (договорах)
-        $ids = [];
-        if (is_array($this->contacts)) if (count($this->contacts) > 0) foreach ($this->contacts as $contact) $ids[] = intval($contact['id']);
-        $exclude_ids = ContractsContacts::find()->select('contact_id')->where(['in', 'contact_id', $ids])->asArray()->column();
-        $exists_tp = CompaniesContacts::find()->where(['company_id' => $this->id])->all();
-        // все остальные строки удаляем из уже привязанных к компании
-        foreach ($exists_tp as $contact) {
-            /* @var $contact \common\models\CompaniesContacts */
-            if ($contact->id != null)
-                // если задан идентификатор контактного лица, значит оно уже существовало ранее
-                // проверим, не используется ли оно в договорах
-                if (!in_array($contact->id, $exclude_ids)) {
-                    // если не используется, то удалим ее из компании совсем
-                    // оно будет заменена на пришедшее снаружи
-                    $contact->delete();
-                }
-                else {
-                    // если оно используется, то удалим его из пришедших снаружи и удаление из компании не производим
-                    // таким образом, с ним просто ничего не произойдет
-                    $this->contacts = array_values($this->contacts); // магический ритуал сбрасывает индексы ключей после unset
-                    if (false !== ($key = array_search($contact->id, array_column($this->contacts, 'id')))) unset($this->contacts[$key]);
-                }
-        }
-
-        $result = [];
-        if (is_array($this->contacts)) if (count($this->contacts) > 0) {
-            foreach ($this->contacts as $item) {
-                $dtp = new CompaniesContacts();
-                $dtp->attributes = $item;
-                $dtp->company_id = $this->id;
-                $dtp->id = intval($item['id']);
-                $result[] = $dtp;
-            }
-        }
-
-        return $result;
     }
 
     /**
@@ -381,7 +233,7 @@ class Companies extends \yii\db\ActiveRecord
 
     /**
      * Выполняет заполнение реквизитов юридического лица.
-     * @param $model \common\models\Companies
+     * @param $model \common\models\Counteragents
      * @param $details array
      */
     public static function api_fillModelJur($model, $details)
@@ -398,7 +250,7 @@ class Companies extends \yii\db\ActiveRecord
 
     /**
      * Выполняет заполнение реквизитов физического лица.
-     * @param $model \common\models\Companies
+     * @param $model \common\models\Counteragents
      * @param $details array
      */
     public static function api_fillModelPhys($model, $details)
@@ -424,68 +276,5 @@ class Companies extends \yii\db\ActiveRecord
         }
 
         return $array;
-    }
-
-    /**
-     * Выполняет проверку, используется ли запись в других элементах.
-     * @return bool
-     */
-    public function checkIfUsed()
-    {
-        if ($this->getContracts()->count() > 0) return true;
-
-        return false;
-    }
-
-    /**
-     * @return \yii\db\ActiveQuery
-     */
-    public function getCreatedBy()
-    {
-        return $this->hasOne(User::className(), ['id' => 'created_by']);
-    }
-
-    /**
-     * Возвращает имя автора-создателя в виде ivan (Иван).
-     * @return string
-     */
-    public function getCreatedByName()
-    {
-        return $this->created_by == null ? '' : ($this->createdBy->profile == null ? $this->createdBy->username :
-            $this->createdBy->username . ' (' . $this->createdBy->profile->name . ')');
-    }
-
-    /**
-     * @return \yii\db\ActiveQuery
-     */
-    public function getUpdatedBy()
-    {
-        return $this->hasOne(User::className(), ['id' => 'updated_by']);
-    }
-
-    /**
-     * Возвращает имя пользователя, который вносил изменения в запись последним в виде ivan (Иван).
-     * @return string
-     */
-    public function getUpdatedByName()
-    {
-        return $this->updated_by == null ? '' : ($this->updatedBy->profile == null ? $this->updatedBy->username :
-            $this->updatedBy->username . ' (' . $this->createdBy->profile->name . ')');
-    }
-
-    /**
-     * @return \yii\db\ActiveQuery
-     */
-    public function getCompaniesContacts()
-    {
-        return $this->hasMany(CompaniesContacts::className(), ['company_id' => 'id']);
-    }
-
-    /**
-     * @return \yii\db\ActiveQuery
-     */
-    public function getContracts()
-    {
-        return $this->hasMany(Contracts::className(), ['company_id' => 'id']);
     }
 }

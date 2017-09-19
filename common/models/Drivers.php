@@ -4,11 +4,16 @@ namespace common\models;
 
 use Yii;
 use common\behaviors\IndexFieldBehavior;
+use yii\db\ActiveRecord;
 
 /**
  * This is the model class for table "drivers".
  *
  * @property integer $id
+ * @property integer $created_at
+ * @property integer $created_by
+ * @property integer $updated_at
+ * @property integer $updated_by
  * @property integer $ferryman_id
  * @property integer $state_id
  * @property string $surname
@@ -27,6 +32,8 @@ use common\behaviors\IndexFieldBehavior;
  * @property string $ferrymanName
  * @property integer $instrCount
  *
+ * @property User $updatedBy
+ * @property User $createdBy
  * @property Ferrymen $ferryman
  * @property DriversFiles[] $driversFiles
  * @property DriversInstructings[] $driversInstructings
@@ -34,11 +41,18 @@ use common\behaviors\IndexFieldBehavior;
 class Drivers extends \yii\db\ActiveRecord
 {
     /**
-     * Количество инструктажей, для вложенного подзапроса.
-     * Виртуальное поле.
+     * Количество инструктажей водителя.
+     * Вычисляемое виртуальное поле.
      * @var integer
      */
     public $instrCount;
+
+    /**
+     * Инструктажи водителя.
+     * Вычисляемое виртуальное поле.
+     * @var integer
+     */
+    public $instrDetails;
 
     /**
      * @inheritdoc
@@ -55,13 +69,15 @@ class Drivers extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'surname', 'name', 'driver_license', 'phone'], 'required'],
-            [['ferryman_id', 'state_id', 'has_smartphone'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'state_id', 'has_smartphone'], 'integer'],
             [['dl_issued_at', 'pass_issued_at'], 'safe'],
             [['surname', 'name', 'patronymic'], 'string', 'max' => 50],
             [['driver_license', 'driver_license_index'], 'string', 'max' => 30],
             [['phone'], 'string', 'min' => 15],
             [['pass_serie', 'pass_num'], 'string', 'max' => 10],
             [['pass_issued_by'], 'string', 'max' => 150],
+            [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
             // собственные правила валидации
             ['phone', 'validatePhone'],
@@ -76,6 +92,10 @@ class Drivers extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
+            'created_at' => 'Дата и время создания',
+            'created_by' => 'Автор создания',
+            'updated_at' => 'Дата и время изменения',
+            'updated_by' => 'Автор изменений',
             'ferryman_id' => 'Перевозчик',
             'state_id' => 'Статус', // 1 - нареканий нет, 2 - есть замечания, 3 - черный список
             'surname' => 'Фамилия',
@@ -92,6 +112,8 @@ class Drivers extends \yii\db\ActiveRecord
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
             'stateName' => 'Статус',
+            'instrCount' => 'Инструктажи',
+            'instrDetails' => 'Инструктажи',
         ];
     }
 
@@ -101,6 +123,20 @@ class Drivers extends \yii\db\ActiveRecord
     public function behaviors()
     {
         return [
+            'timestamp' => [
+                'class' => 'yii\behaviors\TimestampBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
+                ],
+            ],
+            'blameable' => [
+                'class' => 'yii\behaviors\BlameableBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_by'],
+                ],
+            ],
             'indexField' => [
                 'class' => 'common\behaviors\IndexFieldBehavior',
                 'in_attribute' => 'driver_license',
@@ -169,6 +205,20 @@ class Drivers extends \yii\db\ActiveRecord
     }
 
     /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        if (!$insert) {
+            // поля "Дата и время-" и "Автор изменений" перевозчика, к которому относится водитель, должны быть обновлены
+            $this->ferryman->updated_at = time();
+            $this->ferryman->updated_by = Yii::$app->user->id;
+            $this->ferryman->save(false);
+        }
+    }
+
+    /**
      * Выполняет преобразование номера телефона к удобному для восприятия виду.
      * @param $phone string номер телефона (оригинал)
      * @return string
@@ -198,6 +248,22 @@ class Drivers extends \yii\db\ActiveRecord
         if (false !== $key) return $sourceTable[$key]['name'];
 
         return '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUpdatedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'updated_by']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'created_by']);
     }
 
     /**

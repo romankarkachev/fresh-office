@@ -4,11 +4,16 @@ namespace common\models;
 
 use Yii;
 use common\behaviors\IndexFieldBehavior;
+use yii\db\ActiveRecord;
 
 /**
  * This is the model class for table "transport".
  *
  * @property integer $id
+ * @property integer $created_at
+ * @property integer $created_by
+ * @property integer $updated_at
+ * @property integer $updated_by
  * @property integer $ferryman_id
  * @property integer $state_id
  * @property integer $tt_id
@@ -24,9 +29,12 @@ use common\behaviors\IndexFieldBehavior;
  * @property string $ttName
  * @property integer $inspCount
  *
+ * @property User $updatedBy
+ * @property User $createdBy
  * @property TransportBrands $brand
  * @property Ferrymen $ferryman
  * @property TransportTypes $tt
+ * @property TransportFiles[] $transportFiles
  * @property TransportInspections[] $transportInspections
  */
 class Transport extends \yii\db\ActiveRecord
@@ -53,10 +61,12 @@ class Transport extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id'], 'required'],
-            [['ferryman_id', 'state_id', 'tt_id', 'brand_id'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'state_id', 'tt_id', 'brand_id'], 'integer'],
             [['comment'], 'string'],
             [['vin', 'vin_index'], 'string', 'max' => 50],
             [['rn', 'rn_index', 'trailer_rn'], 'string', 'max' => 30],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
+            [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
             [['brand_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportBrands::className(), 'targetAttribute' => ['brand_id' => 'id']],
             [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
             [['tt_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportTypes::className(), 'targetAttribute' => ['tt_id' => 'id']],
@@ -72,6 +82,10 @@ class Transport extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
+            'created_at' => 'Дата и время создания',
+            'created_by' => 'Автор создания',
+            'updated_at' => 'Дата и время изменения',
+            'updated_by' => 'Автор изменений',
             'ferryman_id' => 'Перевозчик',
             'state_id' => 'Статус', // 1 - нареканий нет, 2 - есть замечания, 3 - черный список
             'tt_id' => 'Тип',
@@ -94,6 +108,20 @@ class Transport extends \yii\db\ActiveRecord
     public function behaviors()
     {
         return [
+            'timestamp' => [
+                'class' => 'yii\behaviors\TimestampBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_at'],
+                ],
+            ],
+            'blameable' => [
+                'class' => 'yii\behaviors\BlameableBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
+                    ActiveRecord::EVENT_BEFORE_UPDATE => ['updated_by'],
+                ],
+            ],
             'indexVinField' => [
                 'class' => 'common\behaviors\IndexFieldBehavior',
                 'in_attribute' => 'vin',
@@ -143,6 +171,20 @@ class Transport extends \yii\db\ActiveRecord
     }
 
     /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        if (!$insert) {
+            // поля "Дата и время-" и "Автор изменений" перевозчика, к которому относится ТС, должны быть обновлены
+            $this->ferryman->updated_at = time();
+            $this->ferryman->updated_by = Yii::$app->user->id;
+            $this->ferryman->save(false);
+        }
+    }
+
+    /**
      * Возвращает наименование статуса.
      * @return string
      */
@@ -171,6 +213,22 @@ class Transport extends \yii\db\ActiveRecord
         $result = trim($result);
 
         return $result;
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUpdatedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'updated_by']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'created_by']);
     }
 
     /**
@@ -222,6 +280,14 @@ class Transport extends \yii\db\ActiveRecord
     public function getBrandName()
     {
         return $this->brand != null ? $this->brand->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTransportFiles()
+    {
+        return $this->hasMany(TransportFiles::className(), ['transport_id' => 'id']);
     }
 
     /**

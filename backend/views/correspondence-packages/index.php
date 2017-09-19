@@ -13,11 +13,9 @@ $this->title = 'Корреспонденция | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
 ?>
 <div class="correspondence-packages-list">
-    <?= $this->render('_search', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
+    <?= $this->render('_search', ['model' => $searchModel]); ?>
 
     <p>
-        <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
-
         <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', '#', ['class' => 'btn btn-default pull-right', 'id' => 'btnComposePackage', 'title' => 'Выделите несколько пакетов документов, чтобы на них на всех назначить одинаковые параметры']) ?>
 
     </p>
@@ -33,11 +31,14 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
             ],
             'fo_project_id',
             [
-                'label' => 'Статы',
+                'label' => 'Ожидание отправки',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\CorrespondencePackages */
-                    return \common\models\foProjects::downcounter($model->created_at, $model->sent_at);
+
+                    $border = time();
+                    if ($model->sent_at != null) $border = $model->sent_at;
+                    return \common\models\foProjects::downcounter($model->created_at, $border);
                 },
             ],
             'customer_name',

@@ -22,7 +22,8 @@ $this->params['breadcrumbs'][] = 'Транспорт';
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'layout' => '{items}{pager}',
+        'layout' => "<div style=\"position: relative; min-height: 20px;\"><small class=\"pull-right form-text text-muted\" style=\"position: absolute; bottom: 0; right: 0;\">{summary}</small></div>\n{items}\n{pager}",
+        'summary' => "Показаны записи с <strong>{begin}</strong> по <strong>{end}</strong>, на странице <strong>{count}</strong>, всего <strong>{totalCount}</strong>. Страница <strong>{page}</strong> из <strong>{pageCount}</strong>.",
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             [

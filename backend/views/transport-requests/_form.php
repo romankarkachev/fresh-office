@@ -108,7 +108,6 @@ return result.text;
         </div>
     </div>
 
-
     <?php $count = count($waste)-1; ?>
     <div class="panel panel-danger">
         <div class="panel-heading">

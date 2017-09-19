@@ -7,6 +7,8 @@ use kartik\file\FileInput;
 /* @var $this yii\web\View */
 /* @var $model common\models\Ferrymen */
 /* @var $dpFiles \yii\data\ActiveDataProvider */
+/* @var $dpBankDetails common\models\FerrymenBankDetails[] */
+/* @var $dpBankCards common\models\FerrymenBankCards[] */
 /* @var $dpDrivers common\models\Drivers[] */
 /* @var $dpTransport common\models\Transport[] */
 
@@ -20,6 +22,22 @@ $this->params['breadcrumbs'][] = $model->name;
     ]) ?>
 
     <?php if (!$model->isNewRecord): ?>
+    <div class="row">
+        <div class="col-md-7">
+            <?= $this->render('_bank_details', [
+                'model' => $model,
+                'dpBankDetails' => $dpBankDetails
+            ]) ?>
+
+        </div>
+        <div class="col-md-5">
+            <?= $this->render('_bank_cards', [
+                'model' => $model,
+                'dpBankCards' => $dpBankCards
+            ]) ?>
+
+        </div>
+    </div>
     <div class="row">
         <div class="col-md-5">
             <?= $this->render('_drivers', [
@@ -63,7 +81,7 @@ $this->params['breadcrumbs'][] = $model->name;
                     <p>One fine body…</p>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                    <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
                 </div>
             </div>
         </div>

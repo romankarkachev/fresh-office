@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
+use yii\db\Expression;
 
 /**
  * Класс для работы с Microsoft SQL Server напрямую.
@@ -22,10 +23,18 @@ class DirectMSSQLQueries extends Model
      * Типы проектов для ответственных по типам проектов.
      * фото/видео, выездные работы, осмотр объекта
      */
-    const PROJECTS_TYPES_FOR_RESPONSIBLE = '7,8,14';
+    const PROJECTS_TYPES_FOR_RESPONSIBLE = [
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА,
+        ProjectsTypes::PROJECT_TYPE_ВЫВОЗ,
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА,
+        ProjectsTypes::PROJECT_TYPE_САМОПРИВОЗ,
+        ProjectsTypes::PROJECT_TYPE_ФОТО_ВИДЕО, // 7
+        ProjectsTypes::PROJECT_TYPE_ВЫЕЗДНЫЕ_РАБОТЫ, // 8
+        ProjectsTypes::PROJECT_TYPE_ОСМОТР_ОБЪЕКТА, // 14
+    ];
 
     /**
-     * Статусы заказов.
+     * Статусы проектов.
      * оплачено, у заказчика, на складе, едет на склад, едет к заказчику, вывоз завершен, вывоз согласован,
      * самопривоз одобрен, согласование вывоза, транспорт заказан
      */
@@ -35,6 +44,11 @@ class DirectMSSQLQueries extends Model
      * Названия таблиц в MS SQL
      */
     const TABLE_NAME_ПЕРЕВОЗЧИКИ = 'ADD_SPR_perevoznew';
+
+    /**
+     * Почтовый адрес.
+     */
+    const ADDRESS_TYPES_ПОЧТОВЫЙ = 3;
 
     /**
      * Делает выборку типов проектов.
@@ -127,6 +141,55 @@ ORDER BY COMPANY_NAME';
     }
 
     /**
+     * Возвращает полную информацию о проекте.
+     * @param $project_id integer идентификатор проекта
+     * @return mixed
+     */
+    public static function fetchProjectsData($project_id)
+    {
+        $properties = self::getProjectsProperties((string)$project_id);
+        $invoice = self::getProjectsInvoices((string)$project_id);
+
+        $query_text = '
+SELECT LIST_PROJECT_COMPANY.ID_COMPANY AS ca_id, COMPANY.COMPANY_NAME AS ca_name,
+LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT AS type_id, LIST_SPR_PROJECT.NAME_PROJECT AS type_name,
+ADD_vivozdate AS vivozdate,
+LIST_PROJECT_COMPANY.ID_CONTACT_MAN AS contact_id, LIST_CONTACT_MAN.CONTACT_MAN_NAME AS contact_name, LIST_TELEPHONES.TELEPHONE AS contact_phone,
+LIST_PROJECT_COMPANY.ID_MANAGER_VED AS manager_id, MANAGERS.MANAGER_NAME AS manager_name,
+ADD_perevoz AS ferryman,
+ADD_dannie AS dannie,
+LIST_PROJECT_COMPANY.PRIM_PROJECT_COMPANY AS comment,
+ISNULL(FINANCES.COUNT_FINANCE, 0) AS finance_count
+FROM CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY
+LEFT JOIN LIST_SPR_PROJECT ON LIST_SPR_PROJECT.ID_LIST_SPR_PROJECT = LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT
+LEFT JOIN LIST_CONTACT_MAN ON LIST_CONTACT_MAN.ID_CONTACT_MAN = LIST_PROJECT_COMPANY.ID_CONTACT_MAN
+OUTER APPLY (
+    SELECT TOP 1 LIST_TELEPHONES.ID_CONTACT_MAN, LIST_TELEPHONES.TELEPHONE FROM LIST_TELEPHONES
+    WHERE LIST_TELEPHONES.ID_CONTACT_MAN = LIST_PROJECT_COMPANY.ID_CONTACT_MAN
+) LIST_TELEPHONES
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = LIST_PROJECT_COMPANY.ID_MANAGER_VED
+LEFT JOIN (
+	SELECT ID_LIST_PROJECT_COMPANY, COUNT(ID_MANY) AS COUNT_FINANCE
+	FROM LIST_MANYS
+	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND
+	      ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . ' AND
+	      MANAGER_TRASH IS NULL
+	GROUP BY ID_LIST_PROJECT_COMPANY
+) AS FINANCES ON FINANCES.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY
+WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY = ' . $project_id;
+
+        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        if (count($result) > 0) {
+            $result = $result[0];
+            $result['properties'] = $properties;
+            $result['tp'] = $invoice;
+        }
+
+        return $result;
+    }
+
+    /**
      * Делает выборку проектов.
      * @param $projects_types_ids string идентификаторы типов проектов, которые будут отобраны
      * @param $exclude_ids string идентификаторы проектов, которые будут исключены из выборки
@@ -167,6 +230,50 @@ LEFT JOIN (
 WHERE'. $conditionsExcludeIds . '
     LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . $projects_types_ids . ')
     AND LIST_PROJECT_COMPANY.DATE_CREATE_PROGECT > ' . new \yii\db\Expression('CONVERT(datetime, \''. date('Y-m-d', (time() - 7*24*3600)) .'T00:00:00.000\', 126)') . '
+ORDER BY LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT';
+
+        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        return $result;
+    }
+
+    /**
+     * Делает выборку проектов для представления их в формате PDF.
+     * @param $exclude_ids string идентификаторы проектов, которые будут исключены из выборки
+     */
+    public static function fetchProjectsForMailingPDF($exclude_ids)
+    {
+        if ($exclude_ids != '')
+            $conditionsExcludeIds = '
+    LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY NOT IN (' . $exclude_ids . ')
+    AND';
+
+        $today = new Expression('CONVERT(datetime, \''. date('Y-m-d', time()) .'T00:00:00.000\', 126)');
+        $zwo_days_plus = new Expression('CONVERT(datetime, \''. date('Y-m-d', (time() + 3*24*3600)) .'T23:59:59.000\', 126)');
+
+        $query_text = '
+SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id,
+LIST_PROJECT_COMPANY.ID_COMPANY AS ca_id, COMPANY.COMPANY_NAME AS ca_name,
+LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT AS type_id, LIST_SPR_PROJECT.NAME_PROJECT AS type_name,
+ADD_vivozdate AS vivozdate,
+LIST_PROJECT_COMPANY.ID_CONTACT_MAN AS contact_id, LIST_CONTACT_MAN.CONTACT_MAN_NAME AS contact_name, LIST_TELEPHONES.TELEPHONE AS contact_phone,
+LIST_PROJECT_COMPANY.ID_MANAGER_VED AS manager_id, MANAGERS.MANAGER_NAME AS manager_name,
+ADD_perevoz AS ferryman,
+ADD_dannie AS dannie,
+LIST_PROJECT_COMPANY.PRIM_PROJECT_COMPANY AS comment
+FROM CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY
+LEFT JOIN LIST_SPR_PROJECT ON LIST_SPR_PROJECT.ID_LIST_SPR_PROJECT = LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT
+LEFT JOIN LIST_CONTACT_MAN ON LIST_CONTACT_MAN.ID_CONTACT_MAN = LIST_PROJECT_COMPANY.ID_CONTACT_MAN
+OUTER APPLY (
+    SELECT TOP 1 LIST_TELEPHONES.ID_CONTACT_MAN, LIST_TELEPHONES.TELEPHONE FROM LIST_TELEPHONES
+    WHERE LIST_TELEPHONES.ID_CONTACT_MAN = LIST_PROJECT_COMPANY.ID_CONTACT_MAN
+) LIST_TELEPHONES
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = LIST_PROJECT_COMPANY.ID_MANAGER_VED
+WHERE' . $conditionsExcludeIds . '
+    LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT = ' . ProjectsStates::STATE_ТРАНСПОРТ_ЗАКАЗАН . '
+    AND LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . implode(',', ResponsibleByProjectTypes::PROJECT_TYPES_PDF) . ')
+    AND ADD_vivozdate BETWEEN ' . $today . ' AND ' . $zwo_days_plus . '
+    AND ADD_proizodstvo = \'Ступино\'
 ORDER BY LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT';
 
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
@@ -253,7 +360,25 @@ ORDER BY LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY DESC';
     }
 
     /**
-     * Выполняет выборку свойств проектов, переданных в параметрах.
+     * Делает выборку почтовых адресов контрагентов
+     * @return array
+     */
+    public static function fetchCounteragentsPostAddresses()
+    {
+        $query_text = '
+SELECT [ID_LIST_ADD_ADDRESS_COMPANY] AS src_id
+      ,[ID_COMPANY] AS counteragent_id
+      ,[ADD_ADDRESS_COMPANY] AS src_address
+      ,[PRIM_ADDRESS_COMPANY] AS comment
+FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_ADD_ADDRESS_COMPANY]
+WHERE ID_TIP_ADDRESS=' . self::ADDRESS_TYPES_ПОЧТОВЫЙ . '
+ORDER BY ID_COMPANY';
+
+        return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
+     * Выполняет выборку параметров проектов, переданных в параметрах.
      * @param $ids string строка с идентификаторами проектов, по которым будет выполнена выборка
      * @return array
      */
@@ -265,6 +390,41 @@ SELECT ID_LIST_PROJECT_COMPANY AS project_id, PROPERTIES_PROGECT AS property, VA
 FROM CBaseCRM_Fresh_7x.dbo.LIST_PROPERTIES_PROGECT_COMPANY
 WHERE ID_LIST_PROJECT_COMPANY IN (' . $ids . ')
 ORDER BY ID_LIST_PROJECT_COMPANY';
+
+            return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        }
+        else
+            return [];
+    }
+
+    /**
+     * Выполняет выборку товаров проектов, переданных в параметрах.
+     * @param $ids string строка с идентификаторами проектов, по которым будет выполнена выборка
+     * @return array
+     */
+    public static function getProjectsInvoices($ids)
+    {
+        if ($ids != null) {
+            $query_text = '
+SELECT LIST_DOCUMENTS.ID_LIST_PROJECT_COMPANY AS project_id, ID_TOVAR_DOC
+      ,LIST_TOVAR_DOC.ID_DOC
+      ,TOVAR_DOC AS property
+      ,KOL_VO AS value
+      ,[PRICE]
+      ,LIST_TOVAR_DOC.SUMMA
+      ,[ED_IZM_TOVAR]
+      ,[DISCOUNT]
+      ,[NDS]
+      ,[ID_TOVAR]
+      ,[UNITID]
+FROM CBaseCRM_Fresh_7x.dbo.LIST_TOVAR_DOC
+LEFT JOIN LIST_DOCUMENTS ON LIST_DOCUMENTS.ID_DOC=LIST_TOVAR_DOC.ID_DOC
+WHERE LIST_TOVAR_DOC.ID_DOC IN (
+	SELECT ID_DOC
+	FROM CBaseCRM_Fresh_7x.dbo.LIST_DOCUMENTS
+	WHERE ID_LIST_PROJECT_COMPANY IN (' . $ids . ')
+)
+ORDER BY LIST_DOCUMENTS.ID_LIST_PROJECT_COMPANY';
 
             return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
         }

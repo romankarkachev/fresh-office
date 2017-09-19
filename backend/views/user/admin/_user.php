@@ -1,9 +1,7 @@
 <?php
 
-use yii\helpers\ArrayHelper;
 use kartik\select2\Select2;
 use common\models\AuthItem;
-use common\models\Offices;
 
 /* @var yii\widgets\ActiveForm $form */
 /* @var \common\models\User $user */
@@ -16,7 +14,7 @@ use common\models\Offices;
 <?= $form->field($user, 'email')->textInput(['maxlength' => 255, 'placeholder' => 'Используется для авторизации в системе']) ?>
 
 <?= $form->field($user, 'role_id')->widget(Select2::className(), [
-    'data' => ArrayHelper::map(AuthItem::find()->all(), 'name', 'description'),
+    'data' => AuthItem::arrayMapForSelect2(),
     'theme' => Select2::THEME_BOOTSTRAP,
     'options' => ['placeholder' => '- выберите роль -'],
     'hideSearch' => true,

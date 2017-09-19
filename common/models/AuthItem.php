@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "auth_item".
@@ -59,6 +60,16 @@ class AuthItem extends \yii\db\ActiveRecord
             'created_at' => 'Created At',
             'updated_at' => 'Updated At',
         ];
+    }
+
+    /**
+     * Делает выборку агрегатных состояний и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapForSelect2()
+    {
+        return ArrayHelper::map(self::find()->orderBy('description')->all(), 'name', 'description');
     }
 
     /**

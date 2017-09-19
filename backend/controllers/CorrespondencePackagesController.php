@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\CounteragentsPostAddresses;
 use Yii;
 use common\models\CorrespondencePackages;
 use common\models\CorrespondencePackagesSearch;
@@ -35,7 +36,7 @@ class CorrespondencePackagesController extends Controller
                         'roles' => ['root'],
                     ],
                     [
-                        'actions' => ['index', 'create', 'update', 'compose-package-form', 'compose-package'],
+                        'actions' => ['index', 'create', 'update', 'compose-package-form', 'compose-package', 'create-address-form'],
                         'allow' => true,
                         'roles' => ['root', 'operator'],
                     ],
@@ -76,14 +77,18 @@ class CorrespondencePackagesController extends Controller
     public function actionCreate()
     {
         $model = new CorrespondencePackages();
+        $model->pad = $model->convertPadTableToArray();
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/correspondence-packages']);
-        } else {
-            return $this->render('create', [
-                'model' => $model,
-            ]);
+        if ($model->load(Yii::$app->request->post())) {
+            $model->is_manual = true; // всегда, созданные роботом отмечаются противоположным признаком
+            $model->pad = $model->convertPadTableToArray();
+
+            if ($model->save()) return $this->redirect(['/correspondence-packages']);
         }
+
+        return $this->render('create', [
+            'model' => $model,
+        ]);
     }
 
     /**
@@ -181,6 +186,36 @@ class CorrespondencePackagesController extends Controller
                 }
                 $this->goBack();
             }
+        }
+    }
+
+    /**
+     * Формирует и отдает форму добавления нового почтового адреса контрагента.
+     * @param $id integer идентификатор пакета корреспонденции
+     * @param $ca_id integer идентификатор контрагента
+     * @return mixed
+     */
+    public function actionCreateAddressForm($id, $ca_id)
+    {
+        $model = new CounteragentsPostAddresses();
+
+        if ($model->load(Yii::$app->request->post())) {
+            $ca_id = intval($ca_id);
+            $cp = $this->findModel(intval($id));
+            $cp->pad = $cp->convertPadTableToArray();
+
+            if ($ca_id > 0 && $cp != null)
+                //if ($model->save()) print '<p>Все нормально.</p>';
+                return $this->render('update', [
+                    'model' => $cp,
+                ]);
+        }
+
+        if (Yii::$app->request->isAjax && $ca_id > 0) {
+            $model->counteragent_id = $ca_id;
+            return $this->renderAjax('/counteragents-post-addresses/_form', [
+                'model' => $model,
+            ]);
         }
     }
 }

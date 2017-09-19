@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "projects_types".
@@ -15,8 +16,15 @@ use Yii;
 class ProjectsTypes extends \yii\db\ActiveRecord
 {
     const PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА = 3;
+    const PROJECT_TYPE_ВЫВОЗ = 4;
     const PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА = 5;
+    const PROJECT_TYPE_САМОПРИВОЗ = 6;
+    const PROJECT_TYPE_ФОТО_ВИДЕО = 7;
+    const PROJECT_TYPE_ВЫЕЗДНЫЕ_РАБОТЫ = 8;
+    const PROJECT_TYPE_ПРОИЗВОДСТВО = 10;
+    const PROJECT_TYPE_ЭКОЛОГИЯ = 11;
     const PROJECT_TYPE_ДОКУМЕНТЫ = 12;
+    const PROJECT_TYPE_ОСМОТР_ОБЪЕКТА = 14;
     const PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА = 15;
 
     /**
@@ -47,6 +55,19 @@ class ProjectsTypes extends \yii\db\ActiveRecord
             'id' => 'ID',
             'name' => 'Наименование',
         ];
+    }
+
+    /**
+     * Делает выборку типов проектов и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @param $setOfIds array массив идентификаторов, только они попадут в выборку
+     * @return array
+     */
+    public static function arrayMapForSelect2($setOfIds = null)
+    {
+        $query = self::find();
+        if ($setOfIds != null) $query->where(['in', 'id', $setOfIds]);
+        return ArrayHelper::map($query->all(), 'id', 'name');
     }
 
     /**

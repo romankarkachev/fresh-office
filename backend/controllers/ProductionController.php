@@ -2,82 +2,119 @@
 
 namespace backend\controllers;
 
+use common\models\DirectMSSQLQueries;
+use common\models\foProjects;
+use common\models\ProjectsStates;
+use common\models\ProjectsTypes;
 use Yii;
 use yii\web\Controller;
+use yii\filters\AccessControl;
+use yii\filters\VerbFilter;
 
 /**
- * Контроллер для ослеживания отправлений Почты России и компании Major Express.
+ * Контроллер для работы производственного отдела.
  */
-class TrackingController extends Controller
+class ProductionController extends Controller
 {
     /**
-     * Реквизиты доступа к API Почты России.
+     * @inheritdoc
      */
-    const POCHTA_RU_LOGIN = 'TcANqqrYvLNUHm';
-    const POCHTA_RU_PASS = '3mlhLBQbogkv';
-    const POCHTA_RU_API_URL = 'https://tracking.russianpost.ru/rtm34?wsdl';
-
-    /**
-     * Выполняет проверку вручения или отслеживание отправления. Если передается параметр $full, то будет возвращен список
-     * движений по отправлению. Если не передается, то будет выполнена проверка вручения и результат типа bool.
-     * @param $track_num string трек-номер отправления
-     * @param null $full при наличии значения в переменной будет возвращен полный спиок движений по отправлению
-     * @return bool|string
-     */
-    public static function trackPochtaRu($track_num, $full = null)
+    public function behaviors()
     {
-        $client2 = new \SoapClient(self::POCHTA_RU_API_URL, ['trace' => 1, 'soap_version' => SOAP_1_2]);
-
-        $params3 = [
-            'OperationHistoryRequest' => [
-                'Barcode' => $track_num, 'MessageType' => '0', 'Language' => 'RUS'
+        return [
+            'access' => [
+                'class' => AccessControl::className(),
+                'rules' => [
+                    [
+                        'actions' => ['index', 'fetch-project-data', 'process-project'],
+                        'allow' => true,
+                        'roles' => ['root', 'prod_department_head'],
+                    ],
+                ],
             ],
-            'AuthorizationHeader' => [
-                'login' => self::POCHTA_RU_LOGIN,
-                'password' => self::POCHTA_RU_PASS
-            ]
+            'verbs' => [
+                'class' => VerbFilter::className(),
+                'actions' => [
+                    'delete' => ['POST'],
+                ],
+            ],
         ];
-
-        try {
-            $result = $client2->getOperationHistory(new \SoapParam($params3,'OperationHistoryRequest'));
-        }
-        catch (\Exception $exception) {
-            return false;
-        }
-
-        if ($full != null) {
-            $tracking = '';
-            foreach ($result->OperationHistoryData->historyRecord as $record) {
-                $tracking .= sprintf("<p><strong>%s</strong></br>  %s, %s: %s</p>",
-                    Yii::$app->formatter->asDate($record->OperationParameters->OperDate, 'php:d.m.Y в H:i'),
-                    $record->AddressParameters->OperationAddress->Description,
-                    $record->OperationParameters->OperType->Name,
-                    $record->OperationParameters->OperAttr->Name
-                );
-            }
-
-            return $tracking;
-        }
-        else
-            foreach ($result->OperationHistoryData->historyRecord as $record) {
-                if ($record->OperationParameters->OperType->Id == 2) { // 2 - операция Вручение на Почте России
-                    return strtotime($record->OperationParameters->OperDate);
-                }
-            };
-
-        return false;
     }
 
     /**
-     * @param $track_num string трек-номер отправления
-     * @return bool|string
+     * Отображает страницу, с которой можно закрыть производственный проект.
+     * @return mixed
      */
-    public function actionPochtaRu($track_num)
+    public function actionIndex()
     {
-        $result = self::trackPochtaRu($track_num, true);
-        if ($result)
-            return $result;
-        else
-            return 'Невозможно загрузить результаты.';
+        return $this->render('index');
+    }
+
+    /**
+     * Извлекает данные проекта и возвращает форму.
+     * Если проект не будет обнаружен, будет возвращена другая форма с предупреждением.
+     * @param $project_id integer идентификатор проекта
+     * @return mixed
+     */
+    public function actionFetchProjectData($project_id)
+    {
+        $project_id = intval($project_id);
+        if ($project_id > 0) {
+            $project = DirectMSSQLQueries::fetchProjectsData($project_id);
+            if (count($project) > 0)
+                return $this->renderPartial('_project', [
+                    'model' => $project,
+                ]);
+        }
+
+        return $this->renderPartial('_not_found');
+    }
+
+    /**
+     * В зависимости от ответа пользователя на вопрос "Груз соответствует документам?" производится установка
+     * различных статусов.
+     */
+    public function actionProcessProject()
+    {
+        $project_id = intval(Yii::$app->request->post('project_id'));
+        $action = intval(Yii::$app->request->post('action'));
+        if ($project_id > 0 && $action > 0) {
+            $project = foProjects::findOne($project_id);
+            if ($project != null) {
+                switch ($project->ID_LIST_SPR_PROJECT) {
+                    case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
+                    case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА:
+                        $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ВЫВОЗ_ЗАВЕРШЕН;
+                        $project->save();
+
+                        if ($action == 1) {
+                            // груз документам не соответствует
+                            $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_НЕСОВПАДЕНИЕ;
+                            $project->save();
+                        }
+                        elseif ($action == 2) {
+                            // груз соответствует документам
+                            $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ОДОБРЕНО_ПРОИЗВОДСТВОМ;
+                            $project->save();
+                        }
+
+                        return true;
+                    case ProjectsTypes::PROJECT_TYPE_ВЫВОЗ:
+                    case ProjectsTypes::PROJECT_TYPE_САМОПРИВОЗ:
+                        if ($action == 2) {
+                            // груз соответствует документам
+                            $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ВЫВОЗ_ЗАВЕРШЕН;
+                            $project->save();
+
+                            $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                            $project->save();
+                        }
+
+                        return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

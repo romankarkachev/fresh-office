@@ -11,6 +11,7 @@ Yii::setAlias('@uploads-appeals-fs', '@backend/../uploads/appeals'); // файл
 Yii::setAlias('@uploads-ferrymen-transport-fs', '@backend/../uploads/ferrymen-transport'); // файлы к автомобилям перевозчиков, полный путь
 Yii::setAlias('@uploads-ferrymen-drivers-fs', '@backend/../uploads/ferrymen-drivers'); // файлы к водителям перевозчиков, полный путь
 Yii::setAlias('@uploads-ferrymen-fs', '@backend/../uploads/ferrymen'); // файлы к перевозчикам, полный путь
+Yii::setAlias('@uploads-temp-pdfs', '@backend/../uploads/temp-pdfs'); // проекты в формате PDF для рассылки
 
 Yii::setAlias('@uploads-transport-requests-fs', '@backend/../uploads/transport-requests'); // файлы к запросам на транспорт, полный путь
 

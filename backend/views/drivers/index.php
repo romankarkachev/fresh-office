@@ -22,7 +22,8 @@ $this->params['breadcrumbs'][] = 'Водители';
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'layout' => '{items}{pager}',
+        'layout' => "<div style=\"position: relative; min-height: 20px;\"><small class=\"pull-right form-text text-muted\" style=\"position: absolute; bottom: 0; right: 0;\">{summary}</small></div>\n{items}\n{pager}",
+        'summary' => "Показаны записи с <strong>{begin}</strong> по <strong>{end}</strong>, на странице <strong>{count}</strong>, всего <strong>{totalCount}</strong>. Страница <strong>{page}</strong> из <strong>{pageCount}</strong>.",
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             [
@@ -66,6 +67,19 @@ $this->params['breadcrumbs'][] = 'Водители';
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Drivers */
                     return \common\models\Drivers::normalizePhoneNumber($model->{$column->attribute});
+                }
+            ],
+            [
+                'attribute' => 'instrCount',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+                'visible' => false,
+            ],
+            [
+                'attribute' => 'instrDetails',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Drivers */
+                    return nl2br($model->{$column->attribute});
                 }
             ],
             [

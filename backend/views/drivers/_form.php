@@ -37,7 +37,7 @@ use common\models\Ferrymen;
 
         </div>
         <div class="col-md-3 col-lg-2">
-            <?= $form->field($model, 'patronymic')->textInput(['maxlength' => true, 'placeholder' => 'Отчество']) ?>
+            <?= $form->field($model, 'patronymic')->textInput(['maxlength' => true, 'placeholder' => 'Не обязательно']) ?>
 
         </div>
         <div class="col-md-3 col-lg-2">
@@ -88,11 +88,11 @@ use common\models\Ferrymen;
     </div>
     <div class="row">
         <div class="col-md-2">
-            <?= $form->field($model, 'pass_serie')->textInput(['placeholder' => 'Введите серию']) ?>
+            <?= $form->field($model, 'pass_serie')->textInput(['placeholder' => 'Паспорт серия']) ?>
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'pass_num')->textInput(['placeholder' => 'Введите номер']) ?>
+            <?= $form->field($model, 'pass_num')->textInput(['placeholder' => 'Паспорт номер']) ?>
 
         </div>
         <div class="col-md-2">
@@ -104,7 +104,7 @@ use common\models\Ferrymen;
                 'widgetOptions' => [
                     'layout' => '{input}{picker}',
                     'options' => [
-                        'placeholder' => 'Выберите дату выдачи',
+                        'placeholder' => 'Паспорт выдан',
                     ],
                     'pluginOptions' => [
                         'weekStart' => 1,

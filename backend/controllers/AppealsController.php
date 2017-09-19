@@ -327,4 +327,35 @@ WHERE COMPANY.ID_COMPANY = ' . $ca_id;
             }
         }
     }
+
+    public function actionTemp()
+    {
+        $params = [
+            'name' => 'Тестовая организация',
+            'person' => \common\models\FreshOfficeAPI::COMPANY_TYPE_ЮРЛИЦО,
+            'type_id' => \common\models\FreshOfficeAPI::COMPANY_STATE_НОВАЯ_КОМПАНИЯ,
+            'group_id' => \common\models\FreshOfficeAPI::COMPANY_GROUP_ОТДЕЛ_ВХОДЯЩИХ_ЗАЯВОК,
+            'user_id' => 38,
+            'created' => date('Y-m-d\TH:i:s.u', time()),
+            'created_by' => 'Веб-приложение',
+        ];
+
+        $response = \common\models\FreshOfficeAPI::makePostRequestToApi('companies', $params);
+        //var_dump($response);
+        // проанализируем результат, который возвращает API Fresh Office
+        $decoded_response = json_decode($response, true);
+        var_dump($decoded_response); return;
+        if (isset($decoded_response['error'])) {
+            $inner_message = '';
+            if (isset($decoded_response['error']['innererror']))
+                $inner_message = ' ' . $decoded_response['error']['innererror']['message'];
+            // возникла ошибка при выполнении
+            echo 'При создании контрагента возникла ошибка: ' . $decoded_response['error']['message']['value'] . $inner_message;
+        }
+        elseif (isset($decoded_response['d']))
+            // фиксируем идентификатор контрагента, который был успешно создан
+            echo $decoded_response['d']['id'];
+
+        print 'Неизвестная ошибка';
+    }
 }

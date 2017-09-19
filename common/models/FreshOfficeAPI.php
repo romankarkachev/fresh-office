@@ -98,8 +98,8 @@ class FreshOfficeAPI extends Model
      */
     const PROJECT_STATE_ТРАНСПОРТ_ЗАКАЗАН = 30;
 
-    const API_ID = 1335;
-    const API_PASSWORD = 'g73tP8-Jx9puTLsnX_AjRa2RnRC8iCbq';
+    const API_ID = 1492;
+    const API_PASSWORD = 'LKvBA1dgIP48Osbco6q3E1Dw0F5-gk3d';
     const API_URL = 'https://api.myfreshcloud.com/';
 
     /**

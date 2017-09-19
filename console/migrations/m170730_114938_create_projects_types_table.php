@@ -33,7 +33,7 @@ class m170730_114938_create_projects_types_table extends Migration
         ]);
 
         $this->insert('projects_types', [
-            'name' => 'Документы',
+            'name' => 'Документы предоплата',
             'id' => 12,
         ]);
     }

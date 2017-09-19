@@ -238,6 +238,9 @@ class DocumentsController extends Controller
                         'id' => $project_id,
                         'text' => 'Проект № ' . $project_id . ' от ' . $project_date . ' (' . $fo_project['company_name'] . ')',
                         'customer_id' => $fo_project['ID_COMPANY'],
+                        'state_name' => $fo_project['state_name'],
+                        'type_name' => $fo_project['type_name'],
+                        'company_name' => $fo_project['company_name'],
                         'contract' => ($fo_project['contract_basic'] == null || $fo_project['contract_basic'] == '' ? '' : $fo_project['contract_basic'] . ($fo_project['contract_date'] == null ? '' : ' (до ' . Yii::$app->formatter->asDate($fo_project['contract_date'], 'php:d.m.Y') . ')')),
                     ]
                 ]

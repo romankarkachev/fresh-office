@@ -5,8 +5,11 @@ namespace backend\controllers;
 use Yii;
 use common\models\Ferrymen;
 use common\models\FerrymenSearch;
-use common\models\FerrymenFiles;
-use common\models\FerrymenFilesSearch;
+use common\models\DirectMSSQLQueries;
+use common\models\FerrymenBankCards;
+use common\models\FerrymenBankCardsSearch;
+use common\models\FerrymenBankDetails;
+use common\models\FerrymenBankDetailsSearch;
 use common\models\Drivers;
 use common\models\DriversSearch;
 use common\models\Transport;
@@ -15,7 +18,8 @@ use common\models\DriversInstructings;
 use common\models\DriversInstructingsSearch;
 use common\models\TransportInspections;
 use common\models\TransportInspectionsSearch;
-use common\models\DirectMSSQLQueries;
+use common\models\FerrymenFiles;
+use common\models\FerrymenFilesSearch;
 use yii\helpers\Html;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
@@ -38,8 +42,10 @@ class FerrymenController extends Controller
             'access' => [
                 'class' => AccessControl::className(),
                 'only' => [
-                    'index', 'create', 'update', 'delete', 'upload-files', 'download-file', 'preview-file', 'delete-file',
+                    'index', 'create', 'update', 'delete',
+                    'create-bank-account', 'delete-bank-account', 'create-bank-card', 'delete-bank-card',
                     'create-driver', 'delete-driver', 'create-transport', 'delete-transport',
+                    'upload-files', 'download-file', 'preview-file', 'delete-file',
                     'drivers-instructings', 'create-instructing', 'delete-instructing',
                     'transports-inspections', 'create-inspection', 'delete-inspection',
                 ],
@@ -54,6 +60,10 @@ class FerrymenController extends Controller
                 'class' => VerbFilter::className(),
                 'actions' => [
                     'delete' => ['POST'],
+                    'create-bank-account' => ['POST'],
+                    'delete-bank-account' => ['POST'],
+                    'create-bank-card' => ['POST'],
+                    'delete-bank-card' => ['POST'],
                     'create-driver' => ['POST'],
                     'delete-driver' => ['POST'],
                     'create-transport' => ['POST'],
@@ -133,13 +143,23 @@ class FerrymenController extends Controller
 
             return $this->redirect(['/ferrymen']);
         } else {
-            // файлы к объекту
-            $searchModel = new FerrymenFilesSearch();
-            $dpFiles = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $model->id]]);
-            $dpFiles->setSort([
-                'defaultOrder' => ['uploaded_at' => SORT_DESC],
-            ]);
-            $dpFiles->pagination = false;
+            // банковские счета
+            $searchModel = new FerrymenBankDetailsSearch();
+            $dpBankDetails = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $id]]);
+            $dpBankDetails->pagination = false;
+            $dpBankDetails->sort = [
+                'defaultOrder' => ['bank_name' => SORT_ASC],
+                //'attributes' => FerrymenBankDetailsSearch::sortAttributes(),
+            ];
+
+            // банковские карты
+            $searchModel = new FerrymenBankCardsSearch();
+            $dpBankCards = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $id]]);
+            $dpBankCards->pagination = false;
+            $dpBankCards->sort = [
+                'defaultOrder' => ['cardholder' => SORT_ASC],
+                //'attributes' => FerrymenBankCardsSearch::sortAttributes(),
+            ];
 
             // водители
             $searchModel = new DriversSearch();
@@ -159,9 +179,19 @@ class FerrymenController extends Controller
                 'attributes' => TransportSearch::sortAttributes(),
             ];
 
+            // файлы к объекту
+            $searchModel = new FerrymenFilesSearch();
+            $dpFiles = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $model->id]]);
+            $dpFiles->setSort([
+                'defaultOrder' => ['uploaded_at' => SORT_DESC],
+            ]);
+            $dpFiles->pagination = false;
+
             return $this->render('update', [
                 'model' => $model,
                 'dpFiles' => $dpFiles,
+                'dpBankDetails' => $dpBankDetails,
+                'dpBankCards' => $dpBankCards,
                 'dpDrivers' => $dpDrivers,
                 'dpTransport' => $dpTransport,
             ]);
@@ -282,6 +312,106 @@ class FerrymenController extends Controller
         }
         else
             throw new NotFoundHttpException('Файл не обнаружен.');
+    }
+
+    /**
+     * Добавляет банковский счет.
+     * @throws NotFoundHttpException если перевозчик не будет обнаружен
+     * @throws BadRequestHttpException если перевозчик не передается в параметрах
+     */
+    public function actionCreateBankAccount()
+    {
+        $model = new FerrymenBankDetails();
+
+        if ($model->load(Yii::$app->request->post())) {
+            if ($model->save())
+                return $this->redirect(['/ferrymen/update', 'id' => $model->ferryman_id]);
+            else
+                return $this->render('/ferrymen-bank-details/create', ['model' => $model]);
+        }
+
+        $ferryman_id = Yii::$app->request->post('ferryman_id');
+        if ($ferryman_id != null) {
+            $ferryman = Ferrymen::findOne($ferryman_id);
+            if ($ferryman != null) {
+                $model->ferryman_id = $ferryman_id;
+
+                return $this->render('/ferrymen-bank-details/create', ['model' => $model]);
+            } else {
+                throw new NotFoundHttpException('Запрошенная страница не существует.');
+            }
+        } else {
+            throw new BadRequestHttpException('Обязательные параметры не заданы.');
+        }
+    }
+
+    /**
+     * Удаляет банковский счет.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если счет не будет обнаружен
+     */
+    public function actionDeleteBankAccount($id)
+    {
+        $driver = FerrymenBankDetails::findOne($id);
+        if ($driver != null) {
+            $ferryman_id = $driver->ferryman_id;
+            $driver->delete();
+
+            return $this->redirect(['/ferrymen/update', 'id' => $ferryman_id]);
+        }
+        else
+            throw new NotFoundHttpException('Запрошенная страница не существует.');
+    }
+
+    /**
+     * Добавляет банковскую карту.
+     * @throws NotFoundHttpException если перевозчик не будет обнаружен
+     * @throws BadRequestHttpException если перевозчик не передается в параметрах
+     */
+    public function actionCreateBankCard()
+    {
+        $model = new FerrymenBankCards();
+
+        if ($model->load(Yii::$app->request->post())) {
+            if ($model->save())
+                return $this->redirect(['/ferrymen/update', 'id' => $model->ferryman_id]);
+            else
+                return $this->render('/ferrymen-bank-cards/create', ['model' => $model]);
+        }
+
+        $ferryman_id = Yii::$app->request->post('ferryman_id');
+        if ($ferryman_id != null) {
+            $ferryman = Ferrymen::findOne($ferryman_id);
+            if ($ferryman != null) {
+                $model->ferryman_id = $ferryman_id;
+
+                return $this->render('/ferrymen-bank-cards/create', ['model' => $model]);
+            } else {
+                throw new NotFoundHttpException('Запрошенная страница не существует.');
+            }
+        } else {
+            throw new BadRequestHttpException('Обязательные параметры не заданы.');
+        }
+    }
+
+    /**
+     * Удаляет банковскую карту.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если карта не будет обнаружена
+     */
+    public function actionDeleteBankCard($id)
+    {
+        $driver = FerrymenBankCards::findOne($id);
+        if ($driver != null) {
+            $ferryman_id = $driver->ferryman_id;
+            $driver->delete();
+
+            return $this->redirect(['/ferrymen/update', 'id' => $ferryman_id]);
+        }
+        else
+            throw new NotFoundHttpException('Запрошенная страница не существует.');
     }
 
     /**

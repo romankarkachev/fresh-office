@@ -6,12 +6,14 @@ use Yii;
 use yii\data\ArrayDataProvider;
 use yii\db\ActiveRecord;
 use yii\db\Expression;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "correspondence_packages".
  *
  * @property integer $id
  * @property integer $created_at
+ * @property integer $is_manual
  * @property integer $ready_at
  * @property integer $sent_at
  * @property integer $delivered_at
@@ -23,16 +25,21 @@ use yii\db\Expression;
  * @property string $pad
  * @property integer $pd_id
  * @property string $track_num
+ * @property integer $address_id
  * @property string $other
  * @property string $comment
+ * @property integer $manager_id
  *
  * @property string $stateName
  * @property string $typeName
  * @property string $pdName
  *
+ * @property foProjects $project
  * @property PostDeliveryKinds $pd
  * @property ProjectsStates $state
  * @property ProjectsTypes $type
+ * @property User $manager
+ * @property CounteragentsPostAddresses $address
  */
 class CorrespondencePackages extends \yii\db\ActiveRecord
 {
@@ -56,10 +63,14 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['created_at', 'ready_at', 'sent_at', 'delivered_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id'], 'integer'],
+            [['state_id'], 'required'],
+            [['created_at', 'is_manual', 'ready_at', 'sent_at', 'delivered_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'address_id', 'manager_id'], 'integer'],
             [['pad', 'other', 'comment'], 'string'],
             [['customer_name'], 'string', 'max' => 255],
             [['track_num'], 'string', 'max' => 50],
+            [['track_num'], 'trim'],
+            [['address_id'], 'exist', 'skipOnError' => true, 'targetClass' => CounteragentsPostAddresses::className(), 'targetAttribute' => ['address_id' => 'id']],
+            [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['manager_id' => 'id']],
             [['pd_id'], 'exist', 'skipOnError' => true, 'targetClass' => PostDeliveryKinds::className(), 'targetAttribute' => ['pd_id' => 'id']],
             [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => ProjectsStates::className(), 'targetAttribute' => ['state_id' => 'id']],
             [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => ProjectsTypes::className(), 'targetAttribute' => ['type_id' => 'id']],
@@ -77,6 +88,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'created_at' => 'Дата и время создания',
+            'is_manual' => 'Признак создания вручную',
             'ready_at' => 'Дата и время подготовки',
             'sent_at' => 'Дата и время отправки',
             'delivered_at' => 'Дата и время доставки',
@@ -88,8 +100,10 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             'pad' => 'Виды документов',
             'pd_id' => 'Способ доставки',
             'track_num' => 'Трек-номер',
+            'address_id' => 'Адрес почтовый',
             'other' => 'Другие документы',
             'comment' => 'Примечание',
+            'manager_id' => 'Ответственный',
             // вычисляемые поля
             'stateName' => 'Статус',
             'typeName' => 'Тип',
@@ -119,8 +133,6 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     {
         if (parent::beforeSave($insert)) {
 
-            //... тут ваш код
-
             return true;
         }
         return false;
@@ -134,7 +146,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
 
         if (isset($changedAttributes['state_id'])) {
             // проверим, отличается ли текущий статус от нового
-            if ($changedAttributes['state_id'] != $this->state_id)
+            if ($changedAttributes['state_id'] != $this->state_id) {
                 // статус отличается, зафиксируем время назначения некоторых статусов
                 switch ($this->state_id) {
                     case ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ:
@@ -146,19 +158,39 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                         $this->save();
                         break;
                     case ProjectsStates::STATE_ДОСТАВЛЕНО:
+                        // фиксируем время доставки
                         if ($this->delivered_at == null) {
                             $this->delivered_at = time();
                             $this->save();
                         }
 
+                        // переводим проект сразу в статус Завершено при определенных условиях
+                        if ($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_КУРЬЕР || $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_САМОВЫВОЗ) {
+                            // делаем сразу две записи в истории изменения статусов проекта
+                            $this->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                            $this->project->save();
+
+                            // проверим, есть ли финансы. если их не окажется, то закрывать проект не будем
+                            $project = DirectMSSQLQueries::fetchProjectsData($this->fo_project_id);
+                            if (count($project) > 0 && $project['finance_count'] > 0) {
+                                // текущий пакет сразу в статус Завершено. это же действие сделает запись и в истории тоже
+                                $this->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                                $this->save(false);
+                            }
+
+                            // уходим отсюда вообще
+                            return true;
+                        }
+
                         break;
                 }
 
-            // если изменился статус проекта, то меняем его и в CRM
-            $historyModel = foProjects::findOne(['ID_LIST_PROJECT_COMPANY' => $this->fo_project_id]);
-            if ($historyModel != null) {
-                $historyModel->ID_PRIZNAK_PROJECT = $this->state_id;
-                $historyModel->save();
+                // если изменился статус проекта, то меняем его и в CRM
+                $historyModel = foProjects::findOne(['ID_LIST_PROJECT_COMPANY' => $this->fo_project_id]);
+                if ($historyModel != null) {
+                    $historyModel->ID_PRIZNAK_PROJECT = $this->state_id;
+                    $historyModel->save();
+                }
             }
         }
     }
@@ -168,7 +200,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
      */
     public function validateTrackNumber()
     {
-        if ($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ || $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS) {
+        if (($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ || $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS) && $this->state_id == ProjectsStates::STATE_ОТПРАВЛЕНО) {
             if ($this->track_num == null)
                 $this->addError('track_num', 'Поле обязательно для заполнения при выбранном способе.');
         }
@@ -255,6 +287,14 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getProject()
+    {
+        return $this->hasOne(foProjects::className(), ['ID_LIST_PROJECT_COMPANY' => 'fo_project_id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getState()
     {
         return $this->hasOne(ProjectsStates::className(), ['id' => 'state_id']);
@@ -301,5 +341,23 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function getPdName()
     {
         return $this->pd != null ? $this->pd->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getManager()
+    {
+        return $this->hasOne(User::className(), ['id' => 'manager_id']);
+    }
+
+    /**
+     * Делает выборку почтовых адресов текущего контрагента и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public function arrayMapOfAddressesForSelect2()
+    {
+        return ArrayHelper::map(CounteragentsPostAddresses::findAll(['counteragent_id' => $this->fo_id_company]), 'id', 'src_address');
     }
 }

@@ -203,7 +203,7 @@ WHERE COMPANY.ID_COMPANY IN (' . implode(',', $ca_ids) . ')';
             // только с новыми контрагентами
             ->andWhere(['ca_state_id' => Appeals::CA_STATE_NEW]);
         $appeals = $query->select(['id', 'ca_id' => 'fo_id_company', 'ca_old_name' => 'fo_company_name'])->asArray()->all();
-        $distinct_counteragents = $query->select('fo_id_company')->distinct()->column();
+        $distinct_counteragents = $query->select('fo_id_company')->distinct()->andWhere(['is not', 'fo_id_company', null])->column();
         $appeals = DirectMSSQLQueries::fillAppealsArrayWithNames($appeals, implode(',', $distinct_counteragents));
 
         foreach ($appeals as $appeal) {

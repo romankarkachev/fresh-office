@@ -21,20 +21,33 @@ class ProjectsStates extends \yii\db\ActiveRecord
     const STATE_СЧЕТ_ОЖИДАЕТ_ОПЛАТЫ = 4;
     const STATE_ОПЛАЧЕНО = 5;
     const STATE_СОГЛАСОВАНИЕ_ВЫВОЗА = 6;
+    const STATE_ВЫВОЗ_ЗАВЕРШЕН = 13;
+    const STATE_ОДОБРЕНО_ПРОИЗВОДСТВОМ = 14;
+    const STATE_НЕСОВПАДЕНИЕ = 15;
     const STATE_ЗАКРЫТИЕ_СЧЕТА = 17;
     const STATE_ОТДАНО_НА_ОТПРАВКУ = 18; // бухгалтер отнес менеджеру первичку
     const STATE_ОТПРАВЛЕНО = 19;
     const STATE_ДОСТАВЛЕНО = 20;
     const STATE_ЗАВЕРШЕНО = 25;
+    const STATE_ТРАНСПОРТ_ЗАКАЗАН = 30;
     const STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ = 38; // документы ушли от бухгалтера, но менеджер с ними еще не разбирался
     const STATE_ОЖИДАЕТ_ОТПРАВКИ = 43; // менеджер разобрался с документами, чуть ли не вложил в конверты пакеты документов
 
     const НАБОР_ОПЕРАТОРА = [
+        self::STATE_ОЖИДАЕТ_ОТПРАВКИ,
+        self::STATE_ОТПРАВЛЕНО,
+        self::STATE_ДОСТАВЛЕНО,
+        self::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ,
+    ];
+
+    const НАБОР_ПОЛНЫЙ = [
         self::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ,
         self::STATE_ОЖИДАЕТ_ОТПРАВКИ,
         self::STATE_ОТПРАВЛЕНО,
-        self::STATE_СОГЛАСОВАНИЕ_ВЫВОЗА,
         self::STATE_ДОСТАВЛЕНО,
+        self::STATE_СЧЕТ_ОЖИДАЕТ_ОПЛАТЫ,
+        self::STATE_ОПЛАЧЕНО,
+        self::STATE_ЗАКРЫТИЕ_СЧЕТА,
     ];
 
     /**
@@ -84,7 +97,7 @@ class ProjectsStates extends \yii\db\ActiveRecord
      */
     public static function arrayMapForSelect2()
     {
-        return ArrayHelper::map(self::find()->all(), 'id', 'name');
+        return ArrayHelper::map(self::find()->where(['in', 'id', self::НАБОР_ПОЛНЫЙ])->all(), 'id', 'name');
     }
 
     /**

@@ -2,9 +2,10 @@
 
 namespace common\models;
 
-use dektrium\user\models\Profile;
 use Yii;
+use yii\helpers\ArrayHelper;
 use dektrium\user\helpers\Password;
+use dektrium\user\models\Profile;
 use dektrium\user\models\User as BaseUser;
 
 /**
@@ -110,6 +111,19 @@ class User extends BaseUser
         $this->profile->save();
 
         return true;
+    }
+
+    /**
+     * Делает выборку пользователей веб-приложения с ролью "Менеджер" и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapForSelect2()
+    {
+        return ArrayHelper::map(User::find()->select(User::tableName().'.*')
+            ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`='.User::tableName().'.`id`')
+            ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
+            ->where(['`auth_assignment`.`item_name`' => 'sales_department_manager'])->orderBy('profile.name')->all(), 'id', 'profile.name');
     }
 
     /**

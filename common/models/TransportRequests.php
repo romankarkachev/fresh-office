@@ -14,6 +14,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $created_at
  * @property integer $created_by
  * @property integer $finished_at
+ * @property integer $computed_finished_at
  * @property integer $customer_id
  * @property string $customer_name
  * @property integer $region_id
@@ -44,9 +45,10 @@ use yii\helpers\ArrayHelper;
  * @property User $createdBy
  * @property Regions $region
  * @property TransportRequestsStates $state
+ * @property TransportRequestsDialogs[] $transportRequestsDialogs
  * @property TransportRequestsFiles[] $transportRequestsFiles
- * @property TransportRequestsTransport[] $transportRequestsTransports
- * @property TransportRequestsWaste[] $transportRequestsWastes
+ * @property TransportRequestsTransport[] $transportRequestsTransport
+ * @property TransportRequestsWaste[] $transportRequestsWaste
  */
 class TransportRequests extends \yii\db\ActiveRecord
 {
@@ -130,7 +132,7 @@ class TransportRequests extends \yii\db\ActiveRecord
     {
         return [
             [['customer_id', 'region_id', 'city_id', 'state_id'], 'required'],
-            [['created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'is_favorite', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
+            [['created_at', 'created_by', 'finished_at', 'computed_finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'is_favorite', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
             [['comment_manager', 'comment_logist', 'special_conditions', 'spec_cond'], 'string'],
             [['customer_name', 'address'], 'string', 'max' => 255],
             [['spec_hose'], 'string', 'max' => 50],
@@ -155,6 +157,7 @@ class TransportRequests extends \yii\db\ActiveRecord
             'created_at' => 'Дата и время создания',
             'created_by' => 'Автор создания',
             'finished_at' => 'Дата и время закрытия заявки',
+            'computed_finished_at' => 'Дата и время закрытия заявки без учета выходных',
             'customer_id' => 'Контрагент',
             'customer_name' => 'Контрагент',
             'region_id' => 'Регион',
@@ -307,6 +310,47 @@ class TransportRequests extends \yii\db\ActiveRecord
             }
             if (count($row_numbers) > 0) $this->addError('tpTransportErrors', 'Не все обязательные поля в табличной части заполнены! Строки: '.implode(', ', $row_numbers).'.');
         }
+    }
+
+    private function calculateWorkDaysCount($start_day_as_timestamp, $total_days)
+    {
+        $weekday = date('w', $start_day_as_timestamp);
+
+        $days_without_1st_incomplete_week = $total_days - (7-$weekday);
+        $workdays_in_1st_incomplete_week = 6 - $weekday;
+
+        $workdays_in_complete_weeks = floor($days_without_1st_incomplete_week / 7) * 5;
+
+        $days_in_last_week = $days_without_1st_incomplete_week % 7;
+        $workdays_in_last_week = $days_in_last_week ? $days_in_last_week - 1: 0;
+
+        return $workdays_in_1st_incomplete_week + $workdays_in_complete_weeks + $workdays_in_last_week;
+    }
+
+    /**
+     * Производит вычисление количества выходных в периоде от момента создания запроса до текущего момента и
+     * возвращает дату, выбрасывая эти выходные (уменьшая дату на отминусованное количество выходных).
+     * @return int
+     */
+    public function computeFinishedAt()
+    {
+        // дата, когда проект закрывается (то есть сейчас)
+        $start = date_create(date('Y-m-d 23:59:59', time()));
+        // дата, когда запрос был создан
+        $end = date_create(date('Y-m-d H:i:s', $this->created_at));
+        // разница в днях между ними
+        $interval = date_diff($start, $end);
+        $days_between = $interval->days+1;
+
+        // вычисляем количество выходных дней
+        $workCount = $this->calculateWorkDaysCount($this->created_at, $days_between);
+        if ($workCount < 0) return time();
+        // вычисляем количество рабочих дней
+        $totalDays = $days_between - $workCount;
+
+        $result = time() - $totalDays * 86400;
+        //print '<p>Насчитало дней между датами: ' . $days_between . ', рабочих дней: ' . $workCount . ', применилось бы ' . date('d F Y H:i:s', $result) . '</p>';
+        return $result;
     }
 
     /**
@@ -557,6 +601,14 @@ class TransportRequests extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getTransportRequestsDialogs()
+    {
+        return $this->hasMany(TransportRequestsDialogs::className(), ['tr_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getTransportRequestsFiles()
     {
         return $this->hasMany(TransportRequestsFiles::className(), ['tr_id' => 'id']);
@@ -565,7 +617,7 @@ class TransportRequests extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
-    public function getTransportRequestsTransports()
+    public function getTransportRequestsTransport()
     {
         return $this->hasMany(TransportRequestsTransport::className(), ['tr_id' => 'id']);
     }
@@ -573,7 +625,7 @@ class TransportRequests extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
-    public function getTransportRequestsWastes()
+    public function getTransportRequestsWaste()
     {
         return $this->hasMany(TransportRequestsWaste::className(), ['tr_id' => 'id']);
     }

@@ -61,6 +61,7 @@ class FreshOfficeAPI extends Model
     const TASK_TYPE_НАПОМИНАНИЕ = 3;
     const TASK_TYPE_СОГЛАСОВАНИЕ_ВЫВОЗА = 7;
     const TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА = 8;
+    const TASK_TYPE_НЕСООТВЕТСТВИЕ_ГРУЗА_ТТН  = 9;
     const TASK_TYPE_ОБРАЩЕНИЕ = 17;
 
     /**

@@ -389,6 +389,7 @@ class ReportsController extends Controller
     public function actionTrAnalytics()
     {
         $avgFinish = intval(TransportRequests::find()->where('finished_at IS NOT NULL')->average('finished_at - created_at'));
+        $avgComputedFinish = intval(TransportRequests::find()->where('computed_finished_at IS NOT NULL')->average('computed_finished_at - created_at'));
 
         $searchModel = new ReportTRAnalytics();
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
@@ -419,6 +420,7 @@ class ReportsController extends Controller
             'searchModel' => $searchModel,
             'searchApplied' => $searchApplied,
             'avgFinish' => $avgFinish,
+            'avgComputedFinish' => $avgComputedFinish,
             'totalCount' => count($trArray),
             'dpTable1' => $dpTable1,
             'dpTable2' => $dpTable2,
@@ -435,28 +437,27 @@ class ReportsController extends Controller
      */
     public function actionCorrespondenceAnalytics()
     {
-        $avgCreatedTillReady = intval(CorrespondencePackages::find()->where('ready_at IS NOT NULL')->average('ready_at - created_at'));
-        $avgReadyTillSent = intval(CorrespondencePackages::find()->where('sent_at IS NOT NULL')->average('sent_at - ready_at'));
-
         $searchModel = new ReportCorrespondenceAnalytics();
-        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
-
         $cArray = $searchModel->search(Yii::$app->request->queryParams);
 
         // Таблица 1. Количество отправлений в разрезе способов доставки.
         $dpTable1 = $searchModel->makeDataProviderForTable1($cArray);
 
         // Таблица 2. Среднее время доставки в разрезе способов доставки.
-        //$dpTable2 = $searchModel->makeDataProviderForTable2($cArray);
+        $dpTable2 = $searchModel->makeDataProviderForTable2();
+
+        // Таблица 3. Среднее время на операции.
+        $dpTable3 = $searchModel->makeDataProviderForTable3();
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         return $this->render('correspondenceanalytics', [
             'searchModel' => $searchModel,
             'searchApplied' => $searchApplied,
-            'avgCreatedTillReady' => $avgCreatedTillReady,
-            'avgReadyTillSent' => $avgReadyTillSent,
             'totalCount' => count($cArray),
             'dpTable1' => $dpTable1,
-            //'dpTable2' => $dpTable2,
+            'dpTable2' => $dpTable2,
+            'dpTable3' => $dpTable3,
         ]);
     }
 }

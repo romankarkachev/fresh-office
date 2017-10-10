@@ -101,13 +101,28 @@ class TransportRequestsSearch extends TransportRequests
             '*',
             'id' => 'transport_requests.id',
             'tpWasteLinear' => '(
-                SELECT GROUP_CONCAT(CONCAT(transport_requests_waste.fkko_name, " (", FORMAT(transport_requests_waste.measure, 0, "ru_RU"), " ", units.name, ")") SEPARATOR "\n") FROM transport_requests_waste
-                INNER JOIN units ON units.id = transport_requests_waste.unit_id
+                SELECT GROUP_CONCAT(
+                    CONCAT(
+                        transport_requests_waste.fkko_name,
+                        CASE WHEN transport_requests_waste.measure IS NULL THEN "" ELSE CONCAT(
+                            " (",
+                            FORMAT(transport_requests_waste.measure, 2, "ru_RU"),
+                            CASE WHEN transport_requests_waste.unit_id IS NULL THEN "" ELSE CONCAT(" ", units.name) END,
+                            ")"
+                        ) END
+                    ) SEPARATOR "\n"
+                ) FROM transport_requests_waste
+                LEFT JOIN units ON units.id = transport_requests_waste.unit_id
                 WHERE transport_requests_waste.tr_id = transport_requests.id
             )',
             'tpTransportLinear' => '(
-                SELECT GROUP_CONCAT(CONCAT(transport_types.name, " ", FORMAT(transport_requests_transport.amount, 0, "ru_RU"), " р.") SEPARATOR ", ") FROM transport_types
-                INNER JOIN transport_requests_transport ON transport_requests_transport.tt_id = transport_types.id
+                SELECT GROUP_CONCAT(
+                    CONCAT(
+                        transport_types.name,
+                        CASE WHEN transport_requests_transport.amount IS NULL THEN "<em class=\"text-muted\"> ожидайте</em>" ELSE CONCAT(" - ", FORMAT(transport_requests_transport.amount, 0, "ru_RU"), " р.") END
+                    ) SEPARATOR "\n"
+                ) FROM transport_types
+                LEFT JOIN transport_requests_transport ON transport_requests_transport.tt_id = transport_types.id
                 WHERE transport_requests_transport.tr_id = transport_requests.id
             )',
         ];

@@ -54,6 +54,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-user-plus text-info"></i> Ответственные для новых', 'url' => ['/responsible-fornewca']],
                 ['label' => '<i class="fa fa-user-secret text-info"></i> Источники обращения', 'url' => ['/appeal-sources']],
                 ['label' => 'Ответственные по типам проектов', 'url' => ['/responsible-by-project-types']],
+                ['label' => 'Получатели корреспонденции от производства', 'url' => ['/responsible-for-production']],
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-users text-info"></i> Пользователи', 'url' => ['/users']],
             ],
@@ -62,7 +63,6 @@ if (Yii::$app->user->can('root'))
             'label' => 'Логистика',
             'url' => '#',
             'items' => [
-                ['label' => '<i class="fa fa-briefcase"></i> Проекты', 'url' => ['/projects']],
                 ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
                 '<li class="divider"></li>',
                 ['label' => 'Перевозчики', 'url' => ['/ferrymen']],
@@ -82,17 +82,28 @@ if (Yii::$app->user->can('root'))
             ],
         ],
         [
-            'label' => 'Корреспонденция',
+            'label' => '<i class="fa fa-briefcase"></i>',
+            'title' => 'Проекты',
             'url' => '#',
             'items' => [
-                ['label' => 'Пакеты документов', 'url' => ['/correspondence-packages']],
-                //'<li class="dropdown-header">Отчеты</li>',
+                ['label' => 'Проекты', 'url' => ['/projects']],
+                '<li class="dropdown-header">Производство</li>',
+                ['label' => 'Производство', 'url' => ['/production']],
+                ['label' => 'Файлы обратной связи', 'url' => ['/production-feedback-files']],
             ],
         ],
         [
-            'label' => 'Отчеты',
+            'label' => '<i class="fa fa-envelope"></i>',
             'url' => '#',
             'items' => [
+                ['label' => 'Пакеты корреспонденции', 'url' => ['/correspondence-packages']],
+            ],
+        ],
+        [
+            'label' => 'Отчеты и обработки',
+            'url' => '#',
+            'items' => [
+                '<li class="dropdown-header">Отчеты</li>',
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ обращений', 'url' => ['/reports/analytics']],
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ запросов на транспорт', 'url' => ['/reports/tr-analytics']],
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ корреспонденции', 'url' => ['/reports/correspondence-analytics']],
@@ -102,6 +113,8 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оборотов', 'url' => ['/reports/nofinances']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по дубликатам в контрагентах', 'url' => ['/reports/ca-duplicates']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оплаты транспорта', 'url' => ['/reports/no-transport-has-projects']],
+                '<li class="dropdown-header">Обработки</li>',
+                ['label' => '<i class="fa fa-cogs"></i> Оплата рейсов', 'url' => ['/process/freights-payments']],
             ],
         ],
         [
@@ -110,6 +123,7 @@ if (Yii::$app->user->can('root'))
             'items' => [
                 ['label' => '<i class="fa fa-cogs"></i> Оплата рейсов', 'url' => ['/process/freights-payments']],
             ],
+            'visible' => false,
         ],
     ];
 elseif (Yii::$app->user->can('role_documents'))
@@ -182,8 +196,32 @@ elseif (Yii::$app->user->can('dpc_head'))
         ]
     ];
 elseif (Yii::$app->user->can('prod_department_head'))
+    // Старший смены на производстве
     $items = [
         ['label' => 'Производство', 'url' => ['/production']],
+    ];
+elseif (Yii::$app->user->can('prod_feedback'))
+    // Просмотр файлов обратной связи от производства
+    $items = [
+        ['label' => 'Файлы обратной связи', 'url' => ['/production-feedback-files']],
+    ];
+elseif (Yii::$app->user->can('head_assist'))
+    // Просмотр файлов обратной связи от производства
+    $items = [
+        ['label' => 'Файлы обратной связи', 'url' => ['/production-feedback-files']],
+        ['label' => '<i class="fa fa-briefcase"></i> Проекты', 'url' => ['/projects'], 'linkOptions' => ['title' => 'Проекты']],
+        ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+        [
+            'label' => 'Справочники',
+            'url' => '#',
+            'items' => [
+                ['label' => '<i class="fa fa-truck text-info"></i> Перевозчики', 'url' => ['/ferrymen']],
+                ['label' => 'Водители', 'url' => ['/ferrymen-drivers']],
+                ['label' => 'Транспорт', 'url' => ['/ferrymen-transport']],
+                ['label' => 'Типы техники', 'url' => ['/transport-types']],
+                ['label' => 'Марки автомобилей', 'url' => ['/transport-brands']],
+            ],
+        ],
     ];
 
 $items[] = '<li>'

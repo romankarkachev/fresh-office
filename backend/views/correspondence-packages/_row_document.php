@@ -12,8 +12,8 @@ use yii\helpers\Html;
                             <?= $document['name_full'] ?>
 
                         </td>
-                        <td width="105" class="text-center">
-                            <?= Html::checkbox($model->formName() . '[tpPad][' . $document['id'] . '][is_provided]', $document['is_provided']) ?>
+                        <td width="135" class="text-center">
+                            <?= Html::checkbox($model->formName() . '[tpPad][' . $document['id'] . '][is_provided]', $document['is_provided'], ['data-id' => $document['id']]) ?>
 
                         </td>
                     </tr>

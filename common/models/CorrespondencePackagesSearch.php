@@ -17,10 +17,12 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
      */
     const CLAUSE_STATE_DEFAULT = 1; // по умолчанию
     const CLAUSE_STATE_PROCESS = 2; // только в работе
-    const CLAUSE_STATE_SENT = 3; // только отправленные
-    const CLAUSE_STATE_DELIVERED = 4; // только доставленные
-    const CLAUSE_STATE_FINISHED = 5; // только завершенные
-    const CLAUSE_STATE_ALL = 6; // все статусы
+    const CLAUSE_STATE_JUST_CREATED = 3; // только формирующиеся пакеты
+    const CLAUSE_STATE_READY = 4; // только ожидают отправки
+    const CLAUSE_STATE_SENT = 5; // только отправленные
+    const CLAUSE_STATE_DELIVERED = 6; // только доставленные
+    const CLAUSE_STATE_FINISHED = 7; // только завершенные
+    const CLAUSE_STATE_ALL = 8; // все статусы
 
     /**
      * Флаг для управления статусами в выборке.
@@ -70,6 +72,15 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                 'id' => self::CLAUSE_STATE_PROCESS,
                 'name' => 'В работе',
                 'hint' => 'Все, кроме доставленных и завершенных',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_JUST_CREATED,
+                'name' => 'Формирование',
+                'hint' => 'Формирование документов на отправку',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_READY,
+                'name' => 'Ожидает отправки',
             ],
             [
                 'id' => self::CLAUSE_STATE_SENT,
@@ -124,6 +135,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                     'created_at',
                     'ready_at',
                     'sent_at',
+                    'delivered_at',
                     'fo_project_id',
                     'customer_name',
                     'state_id',
@@ -166,6 +178,12 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                 break;
             case self::CLAUSE_STATE_SENT:
                 $query->andWhere(['state_id' => ProjectsStates::STATE_ОТПРАВЛЕНО]);
+                break;
+            case self::CLAUSE_STATE_JUST_CREATED:
+                $query->andWhere(['state_id' => ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ]);
+                break;
+            case self::CLAUSE_STATE_READY:
+                $query->andWhere(['state_id' => ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ]);
                 break;
             case self::CLAUSE_STATE_DELIVERED:
                 $query->andWhere(['state_id' => ProjectsStates::STATE_ДОСТАВЛЕНО]);

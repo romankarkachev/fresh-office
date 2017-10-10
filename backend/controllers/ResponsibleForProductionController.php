@@ -3,17 +3,17 @@
 namespace backend\controllers;
 
 use Yii;
-use common\models\ResponsibleByProjectTypes;
-use common\models\ResponsibleByProjectTypesSearch;
+use common\models\ResponsibleForProduction;
+use common\models\ResponsibleForProductionSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
 /**
- * ResponsibleByProjectTypesController implements the CRUD actions for ResponsibleByProjectTypes model.
+ * ResponsibleForProductionController implements the CRUD actions for ResponsibleForProduction model.
  */
-class ResponsibleByProjectTypesController extends Controller
+class ResponsibleForProductionController extends Controller
 {
     /**
      * @inheritdoc
@@ -41,12 +41,12 @@ class ResponsibleByProjectTypesController extends Controller
     }
 
     /**
-     * Lists all ResponsibleByProjectTypes models.
+     * Lists all ResponsibleForProduction models.
      * @return mixed
      */
     public function actionIndex()
     {
-        $searchModel = new ResponsibleByProjectTypesSearch();
+        $searchModel = new ResponsibleForProductionSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
         return $this->render('index', [
@@ -56,16 +56,16 @@ class ResponsibleByProjectTypesController extends Controller
     }
 
     /**
-     * Creates a new ResponsibleByProjectTypes model.
+     * Creates a new ResponsibleForProduction model.
      * If creation is successful, the browser will be redirected to the 'view' page.
      * @return mixed
      */
     public function actionCreate()
     {
-        $model = new ResponsibleByProjectTypes();
+        $model = new ResponsibleForProduction();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/responsible-by-project-types']);
+            return $this->redirect(['/responsible-for-production']);
         } else {
             return $this->render('create', [
                 'model' => $model,
@@ -74,7 +74,7 @@ class ResponsibleByProjectTypesController extends Controller
     }
 
     /**
-     * Updates an existing ResponsibleByProjectTypes model.
+     * Updates an existing ResponsibleForProduction model.
      * If update is successful, the browser will be redirected to the 'view' page.
      * @param integer $id
      * @return mixed
@@ -84,7 +84,7 @@ class ResponsibleByProjectTypesController extends Controller
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/responsible-by-project-types']);
+            return $this->redirect(['/responsible-for-production']);
         } else {
             return $this->render('update', [
                 'model' => $model,
@@ -93,7 +93,7 @@ class ResponsibleByProjectTypesController extends Controller
     }
 
     /**
-     * Deletes an existing ResponsibleByProjectTypes model.
+     * Deletes an existing ResponsibleForProduction model.
      * If deletion is successful, the browser will be redirected to the 'index' page.
      * @param integer $id
      * @return mixed
@@ -102,19 +102,19 @@ class ResponsibleByProjectTypesController extends Controller
     {
         $this->findModel($id)->delete();
 
-        return $this->redirect(['/responsible-by-project-types']);
+        return $this->redirect(['/responsible-for-production']);
     }
 
     /**
-     * Finds the ResponsibleByProjectTypes model based on its primary key value.
+     * Finds the ResponsibleForProduction model based on its primary key value.
      * If the model is not found, a 404 HTTP exception will be thrown.
      * @param integer $id
-     * @return ResponsibleByProjectTypes the loaded model
+     * @return ResponsibleForProduction the loaded model
      * @throws NotFoundHttpException if the model cannot be found
      */
     protected function findModel($id)
     {
-        if (($model = ResponsibleByProjectTypes::findOne($id)) !== null) {
+        if (($model = ResponsibleForProduction::findOne($id)) !== null) {
             return $model;
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');

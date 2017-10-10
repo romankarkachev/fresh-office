@@ -2,11 +2,10 @@
 
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
-use kartik\select2\Select2;
-use common\models\DirectMSSQLQueries;
+use kartik\datecontrol\DateControl;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\ReportNofinances */
+/* @var $model common\models\ReportTRAnalytics */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $searchApplied bool */
 ?>
@@ -22,7 +21,44 @@ use common\models\DirectMSSQLQueries;
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchPeriodStart')->widget(DateControl::className(), [
+                        'value' => $model->searchPeriodStart,
+                        'type' => DateControl::FORMAT_DATE,
+                        'language' => 'ru',
+                        'displayFormat' => 'php:d.m.Y',
+                        'saveFormat' => 'php:Y-m-d',
+                        'widgetOptions' => [
+                            'options' => ['placeholder' => 'начало'],
+                            'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                            'layout' => '{input}{picker}{remove}',
+                            'pluginOptions' => [
+                                'todayHighlight' => true,
+                                'weekStart' => 1,
+                                'autoclose' => true,
+                            ],
+                        ],
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchPeriodEnd')->widget(DateControl::className(), [
+                        'value' => $model->searchPeriodEnd,
+                        'type' => DateControl::FORMAT_DATE,
+                        'language' => 'ru',
+                        'displayFormat' => 'php:d.m.Y',
+                        'saveFormat' => 'php:Y-m-d',
+                        'widgetOptions' => [
+                            'options' => ['placeholder' => 'конец'],
+                            'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                            'layout' => '{input}{picker}{remove}',
+                            'pluginOptions' => [
+                                'todayHighlight' => true,
+                                'weekStart' => 1,
+                                'autoclose' => true,
+                            ],
+                        ],
+                    ]) ?>
 
                 </div>
             </div>

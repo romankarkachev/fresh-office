@@ -222,7 +222,7 @@ use yii\helpers\Html;
         .invoice {
             margin: 40px auto;
             text-align: left;
-            width: 80%;
+            /*width: 80%;*/
         }
         .invoice td {
             padding: 5px 0;

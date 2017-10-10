@@ -17,6 +17,7 @@ class ProjectsStates extends \yii\db\ActiveRecord
 {
     /**
      * Статусы проектов.
+     * Таблица в MS SQL - LIST_SPR_PRIZNAK_PROJECT.
      */
     const STATE_СЧЕТ_ОЖИДАЕТ_ОПЛАТЫ = 4;
     const STATE_ОПЛАЧЕНО = 5;
@@ -29,7 +30,12 @@ class ProjectsStates extends \yii\db\ActiveRecord
     const STATE_ОТПРАВЛЕНО = 19;
     const STATE_ДОСТАВЛЕНО = 20;
     const STATE_ЗАВЕРШЕНО = 25;
+    const STATE_САМОПРИВОЗ_ОДОБРЕН = 28;
     const STATE_ТРАНСПОРТ_ЗАКАЗАН = 30;
+    const STATE_ЕДЕТ_К_ЗАКАЗЧИКУ = 31;
+    const STATE_У_ЗАКАЗЧИКА = 32;
+    const STATE_ЕДЕТ_НА_СКЛАД = 33;
+    const STATE_НА_СКЛАДЕ = 34;
     const STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ = 38; // документы ушли от бухгалтера, но менеджер с ними еще не разбирался
     const STATE_ОЖИДАЕТ_ОТПРАВКИ = 43; // менеджер разобрался с документами, чуть ли не вложил в конверты пакеты документов
 
@@ -48,6 +54,16 @@ class ProjectsStates extends \yii\db\ActiveRecord
         self::STATE_СЧЕТ_ОЖИДАЕТ_ОПЛАТЫ,
         self::STATE_ОПЛАЧЕНО,
         self::STATE_ЗАКРЫТИЕ_СЧЕТА,
+        self::STATE_ЗАВЕРШЕНО,
+    ];
+
+    const НАБОР_ДОПУСТИМЫХ_СТАТУСОВ_ПРОИЗВОДСТВО = [
+        self::STATE_САМОПРИВОЗ_ОДОБРЕН,
+        self::STATE_ТРАНСПОРТ_ЗАКАЗАН,
+        self::STATE_ЕДЕТ_К_ЗАКАЗЧИКУ,
+        self::STATE_У_ЗАКАЗЧИКА,
+        self::STATE_ЕДЕТ_НА_СКЛАД,
+        self::STATE_НА_СКЛАДЕ,
     ];
 
     /**

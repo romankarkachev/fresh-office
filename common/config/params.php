@@ -5,5 +5,6 @@ return [
     'senderEmail' => 'noreply@moy-servis.ru',
     'senderName' => 'Робот Аркадий',
     'senderNameRobert' => 'Робот Роберт',
+    'senderNameHenrietta' => 'Робот Генриетта',
     'user.passwordResetTokenExpire' => 3600,
 ];

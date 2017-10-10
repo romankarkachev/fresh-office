@@ -494,7 +494,9 @@ ORDER BY COMPANY_NAME';
                             self::foapi_createNewTaskForManager(
                                 $this->fo_id_company,
                                 $this->fo_id_manager,
-                                'Уважаемый менеджер! Клиент дублирует заявку со следующим обращением: ' . chr(13) . $this->form_message
+                                'Уважаемый менеджер! Клиент дублирует заявку со следующим обращением: ' .
+                                chr(13) . $this->form_message .
+                                chr(13) . ($this->form_phone != null ? 'телефон: ' . $this->form_phone : '') . ($this->form_email != null ? ' ' . $this->form_email : '')
                             );
                         }
                     }

@@ -21,11 +21,11 @@ class DefaultController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['login', 'error'],
+                        'actions' => ['login', 'error', 'request-preview'],
                         'allow' => true,
                     ],
                     [
-                        'actions' => ['logout', 'index'],
+                        'actions' => ['logout', 'index', 'frame'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -74,5 +74,36 @@ class DefaultController extends Controller
     public function actionIndex()
     {
         return $this->render('index');
+    }
+
+    /**
+     * Displays homepage.
+     *
+     * @return string
+     */
+    public function actionRequestPreview()
+    {
+        $document = 'http://docs.google.com/viewer?url=http://31.148.13.223:8081/uploads/transport-requests/gj4qfue7ldm5ambryk0wdltqbyvypd7l.docx';
+
+        $client = new \yii\httpclient\Client();
+        $response = $client->createRequest()
+            ->setMethod('get')
+            ->setUrl($document)
+            ->send();
+        if ($response->isOk) {
+            $content = $response->content;
+            $content = str_replace('', '', $content);
+            var_dump();
+        }
+    }
+
+    /**
+     * Displays homepage.
+     *
+     * @return string
+     */
+    public function actionFrame()
+    {
+        return $this->render('frame');
     }
 }

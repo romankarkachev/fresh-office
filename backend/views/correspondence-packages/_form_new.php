@@ -14,6 +14,7 @@ use common\models\User;
 /* @var $form yii\bootstrap\ActiveForm */
 
 $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span class=\"input-group-btn\"><button class=\"btn btn-default\" type=\"button\" id=\"btnTrackNumber\"><i class=\"fa fa-search\" aria-hidden=\"true\"></i> Отследить</button></span></div>\n{error}";
+$formNameId = strtolower($model->formName());
 ?>
 
 <div class="correspondence-packages-form">
@@ -55,11 +56,11 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
 if (!result.customer_id) {return result.text;}
 
 // подставим идентификатор контрагента в соответствующее поле
-$("#correspondencepackages-fo_id_company").select2("trigger", "select", { 
+$("#' . $formNameId . '-fo_id_company").select2("trigger", "select", { 
     data: { id: result.customer_id, text: result.company_name } 
 });
-if (result.state_name != "") $("#correspondencepackages-statename").val(result.state_name);
-if (result.type_name != "") $("#correspondencepackages-typename").val(result.type_name);
+if (result.state_name != "") $("#' . $formNameId . '-statename").val(result.state_name);
+if (result.type_name != "") $("#' . $formNameId . '-typename").val(result.type_name);
 
 return result.text;
 }'),
@@ -210,10 +211,21 @@ function checkAllDocumentsOnClick() {
     return false;
 } // checkAllDocumentsOnClick()
 
+// Обработчик щелчка по ссылке "Отметить наиболее распространенные документы".
+//
+function checkRegularDocumentsOnClick() {
+    var values = ["1", "2", "3" , "4"];
+    $.each(values, function(index, value) {
+        $("input[data-id = '" + value + "'").iCheck("check");
+    });
+
+    return false;
+} // checkRegularDocumentsOnClick()
+
 // Обработчик щелчка по кнопке "Отследить".
 //
 function btnTrackNumberOnClick() {
-    tracknum = $("#correspondencepackages-track_num").val();
+    tracknum = $("#$formNameId-track_num").val();
     if (tracknum != "" && tracknum != undefined) {
         $("#modal_title").text("Трекинг");
         $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
@@ -227,12 +239,13 @@ function btnTrackNumberOnClick() {
 // Обработчик изменения значения в поле "Трек-номер".
 //
 function trackNumberOnChange() {
-    $("#correspondencepackages-state_id").val("$stateSent").trigger("change");
+    $("#$formNameId-state_id").val("$stateSent").trigger("change");
 }
 
 $(document).on("click", "#checkAllDocuments", checkAllDocumentsOnClick);
+$(document).on("click", "#checkRegularDocuments", checkRegularDocumentsOnClick);
 $(document).on("click", "#btnTrackNumber", btnTrackNumberOnClick);
-$(document).on("change", "#correspondencepackages-track_num", trackNumberOnChange);
+$(document).on("change", "#$formNameId-track_num", trackNumberOnChange);
 JS
 , \yii\web\View::POS_READY);
 ?>

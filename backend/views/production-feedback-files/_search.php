@@ -1,34 +1,58 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
-use kartik\datecontrol\DateControl;
+use yii\widgets\MaskedInput;
+use yii\web\JsExpression;
 use kartik\select2\Select2;
-use common\models\Appeals;
+use kartik\datecontrol\DateControl;
+use common\models\TransportRequests;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\ReportAnalytics */
+/* @var $model common\models\ProductionFeedbackFilesSearch */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $searchApplied bool */
 ?>
 
-<div class="analytics-search">
+<div class="production-feedback-files-search">
     <?php $form = ActiveForm::begin([
-        'action' => ['/reports/analytics'],
+        'action' => ['/production-feedback-files'],
         'method' => 'get',
+        'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
     ]); ?>
 
     <div class="panel panel-info">
-        <div class="panel-heading">Настройка</div>
+        <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
             <div class="row">
                 <div class="col-md-2">
-                    <?= $form->field($model, 'searchAccountSection')->widget(Select2::className(), [
-                        'data' => Appeals::arrayMapOfAccountSectionsForSelect2(),
+                    <?= $form->field($model, 'project_id')->widget(MaskedInput::className(), [
+                        'mask' => '99999',
+                        'clientOptions' => ['placeholder' => ''],
+                    ])->textInput(['maxlength' => true, 'placeholder' => 'ID проекта']) ?>
+
+                </div>
+                <div class="col-md-3">
+                    <?= $form->field($model, 'ca_id')->widget(Select2::className(), [
+                        'initValueText' => TransportRequests::getCustomerName($model->ca_id),
                         'theme' => Select2::THEME_BOOTSTRAP,
-                        'options' => ['placeholder' => '- выберите -'],
-                        'hideSearch' => true,
-                        'pluginOptions' => ['allowClear' => true],
+                        'language' => 'ru',
+                        'options' => ['placeholder' => 'Введите наименование'],
+                        'pluginOptions' => [
+                            'allowClear' => true,
+                            'minimumInputLength' => 1,
+                            'language' => 'ru',
+                            'ajax' => [
+                                'url' => Url::to(['projects/direct-sql-counteragents-list']),
+                                'delay' => 500,
+                                'dataType' => 'json',
+                                'data' => new JsExpression('function(params) { return {q:params.term}; }')
+                            ],
+                            'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
+                            'templateResult' => new JsExpression('function(result) { return result.text; }'),
+                            'templateSelection' => new JsExpression('function (result) { return result.text; }'),
+                        ],
                     ]) ?>
 
                 </div>
@@ -82,9 +106,15 @@ anyDateOnChange();
                     ]) ?>
 
                 </div>
+                <div class="col-md-3">
+                    <?= $form->field($model, 'ofn')->textInput(['placeholder' => 'Поиск по имени файла'])->label('Имя файла') ?>
+
+                </div>
             </div>
             <div class="form-group">
-                <?= Html::submitButton('<i class="fa fa-repeat"></i> Сформировать', ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'id' => 'btnSearch']) ?>
+                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info', 'id' => 'btnSearch']) ?>
+
+                <?= Html::a('Отключить отбор', ['/production-feedback-files'], ['class' => 'btn btn-default']) ?>
 
             </div>
         </div>
@@ -97,13 +127,14 @@ $this->registerJs(<<<JS
 // Функция-обработчик изменения даты в любом из соответствующих полей.
 //
 function anyDateOnChange() {
+    //\$button = $("button[type='submit']");
     \$button = $("#btnSearch");
     \$button.attr("disabled", "disabled");
-    text = \$button.html();
+    text = \$button.text();
     \$button.text("Подождите...");
     setTimeout(function () {
         \$button.removeAttr("disabled");
-        \$button.html(text);
+        \$button.text(text);
     }, 1500);
 }
 JS

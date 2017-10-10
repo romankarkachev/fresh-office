@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\grid\GridView;
+use common\models\CorrespondencePackagesSearch;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\CorrespondencePackagesSearch */
@@ -40,6 +41,27 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                     if ($model->sent_at != null) $border = $model->sent_at;
                     return \common\models\foProjects::downcounter($model->created_at, $border);
                 },
+                'visible' => $searchModel->searchGroupProjectStates != CorrespondencePackagesSearch::CLAUSE_STATE_SENT,
+            ],
+            [
+                'attribute' => 'sent_at',
+                'label' => 'Отправлено',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\CorrespondencePackages */
+
+                    return Yii::$app->formatter->asDate($model->sent_at, 'php:d.m.Y');
+                },
+                'visible' => $searchModel->searchGroupProjectStates == CorrespondencePackagesSearch::CLAUSE_STATE_SENT,
+            ],
+            [
+                'attribute' => 'delivered_at',
+                'label' => 'Доставлено',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\CorrespondencePackages */
+
+                    return Yii::$app->formatter->asDate($model->delivered_at, 'php:d.m.Y');
+                },
+                'visible' => $searchModel->searchGroupProjectStates == CorrespondencePackagesSearch::CLAUSE_STATE_DELIVERED || $searchModel->searchGroupProjectStates == CorrespondencePackagesSearch::CLAUSE_STATE_FINISHED,
             ],
             'customer_name',
             'stateName',

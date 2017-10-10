@@ -23,6 +23,7 @@ use common\models\PostDeliveryKinds;
 use common\models\ProjectsTypes;
 use common\models\CounteragentsPostAddresses;
 use common\models\Counteragents;
+use common\models\TransportRequests;
 
 class ServicesController extends Controller
 {
@@ -480,7 +481,16 @@ class ServicesController extends Controller
         $projects = $query->all();
 
         foreach ($projects as $project) {
+            // проверим, есть ли финансы
             if ($project->financesCount > 0) {
+                // финансы появились, меняем статус пакета и фиксируем текущую дату и текущее время
+                $package = CorrespondencePackages::findOne(['fo_project_id' => $project->ID_LIST_PROJECT_COMPANY]);
+                if ($package != null) {
+                    $package->paid_at = time();
+                    $package->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                    $package->save();
+                }
+
                 // меняем статус проекта в CRM
                 $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ОПЛАЧЕНО;
                 $project->save();
@@ -569,57 +579,61 @@ class ServicesController extends Controller
         foreach ($packages as $package) {
             /* @var $package CorrespondencePackages */
 
-            switch ($package->pd_id) {
-                case PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ:
-                    if ($package->track_num != null) {
+            if ($package->track_num != null) {
+                // если трек вообще задан, то проверим статус доставки
+                $delivered_at = null;
+                switch ($package->pd_id) {
+                    case PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ:
                         $delivered_at = TrackingController::trackPochtaRu($package->track_num);
-                        if ($delivered_at !== false) {
-                            switch ($package->type_id) {
-                                case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
-                                case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ:
-                                    // создание задачи Контроль качества
-                                    try {
-                                        // временно отключено по решению заказчика (предварительно до 01.01.2018)
-                                        //$package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
-                                    } catch (\Exception $exception) {
+                        break;
+                    case PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS:
+                        $delivered_at = TrackingController::trackMajorExpress($package->track_num);
+                        break;
+                }
 
-                                    }
+                if ($delivered_at !== false) {
+                    // посылка доставлена
+                    switch ($package->type_id) {
+                        case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
+                        case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ:
+                            // создание задачи Контроль качества
+                            try {
+                                // временно отключено по решению заказчика (предварительно до 01.01.2018)
+                                //$package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
+                            } catch (\Exception $exception) {
 
-                                    // меняем статус проекта
-                                    $package->delivered_at = $delivered_at;
-                                    $package->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
-                                    $package->save();
-
-                                    // делаем две записи в истории проекта
-                                    $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                                    $package->project->save();
-
-                                    $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
-                                    $package->project->save();
-
-                                    break;
-                                case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА:
-                                case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА:
-                                    $package->delivered_at = $delivered_at;
-                                    $package->state_id = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                                    $package->save();
-
-                                    // делаем запись в истории проекта
-                                    $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                                    $package->project->save();
-
-                                    // создаем задачу
-                                    // временно отключено по решению заказчика (предварительно до 01.01.2018)
-                                    //$package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
-
-                                    break;
                             }
-                        }
-                    }
-                    break;
-                case PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS:
 
-                    break;
+                            // меняем статус пакета
+                            $package->delivered_at = $delivered_at;
+                            $package->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                            $package->save();
+
+                            // делаем две записи в истории проекта
+                            $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                            $package->project->save();
+
+                            $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                            $package->project->save();
+
+                            break;
+                        case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА:
+                        case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА:
+                            $package->delivered_at = $delivered_at;
+                            $package->state_id = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                            $package->save();
+
+                            // делаем запись в истории проекта
+                            $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                            $package->project->save();
+
+                            // создаем задачу
+                            // временно отключено по решению заказчика (предварительно до 01.01.2018)
+                            //$package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
+
+                            break;
+                    }
+                }
             }
         }
 
@@ -801,37 +815,12 @@ class ServicesController extends Controller
 
     public function actionTemp()
     {
-        //$url = 'http://multiclient.major-express.ru/';
-        //$url = 'http://mailroom.major-express.ru/invoice.asmx?WSDL';
-        $url = 'https://ltl-ws.major-express.ru/edclients/edclients.asmx?WSDL';
-
-        $opts = array(
-            'http' => array(
-                'user_agent' => 'PHPSoapClient'
-            )
-        );
-        $context = stream_context_create($opts);
-
-        $soapClientOptions = [
-            'stream_context' => $context,
-            'cache_wsdl' => WSDL_CACHE_NONE,
-            'Credentials' => [
-                'login' => '592477',
-                'password' => '892177',
-            ]
-        ];
-
-        //$client2 = new \SoapClient($url, ['trace' => 1, 'soap_version' => SOAP_1_2]);
-
-        try {
-            $client2 = new \SoapClient($url, $soapClientOptions);
-            //$result = $client2->Login(new \SoapParam($params3, 'Login'));
-            $result = $client2->History('1241515954');
-            var_dump($result);
-        }
-        catch (\Exception $exception) {
-            print "Ошибка работы с SOAP:<br>" . $exception->getMessage()."<br>" . $exception->getTraceAsString();
-            return false;
-        }
+        $tr = new TransportRequests();
+        /*
+        $tr->created_at = strtotime('2017-09-14 15:32:16');
+        $tr->computed_finished_at = $tr->computeFinishedAt();
+        */
+        $tr->created_at = 1506270285;
+        $tr->computed_finished_at = $tr->computeFinishedAt();
     }
 }

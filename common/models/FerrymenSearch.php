@@ -50,7 +50,7 @@ class FerrymenSearch extends Ferrymen
             'transportCount' => 'transport.count',
         ]);
 
-        // LEFT JOIN выполняется быстрее, что подзапрос в SELECT-секции
+        // LEFT JOIN выполняется быстрее, чем подзапрос в SELECT-секции
         // присоединяем количество водителей и транспортных средств
         $query->leftJoin('(SELECT drivers.ferryman_id, COUNT(drivers.id) AS count FROM drivers GROUP BY drivers.ferryman_id) AS drivers', '`ferrymen`.`id` = `drivers`.`ferryman_id`');
         $query->leftJoin('(SELECT transport.ferryman_id, COUNT(transport.id) AS count FROM transport GROUP BY transport.ferryman_id) AS transport', '`ferrymen`.`id` = `transport`.`ferryman_id`');

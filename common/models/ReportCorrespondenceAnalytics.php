@@ -5,6 +5,7 @@ namespace common\models;
 use Yii;
 use yii\base\Model;
 use yii\data\ArrayDataProvider;
+use yii\db\Expression;
 
 /**
  * ReportCorrespondenceAnalytics - это набор отчетов для анализа доставки корреспонденции.
@@ -12,17 +13,18 @@ use yii\data\ArrayDataProvider;
 class ReportCorrespondenceAnalytics extends Model
 {
     /**
-     * Режим выборки запросов на транспорт за период.
+     * Режим выборки пакетов корреспонденции за период.
      */
     const MODE_PERIOD = 1;
 
     /**
-     * Режим выборки запросов на транспорт на дату.
+     * Режим выборки пакетов корреспонденции на дату.
      */
     const MODE_ALL = 2;
 
     const CAPTION_FOR_TABLE1 = 'Таблица 1. Количество отправлений в разрезе способов доставки.';
     const CAPTION_FOR_TABLE2 = 'Таблица 2. Среднее время доставки в разрезе способов доставки.';
+    const CAPTION_FOR_TABLE3 = 'Таблица 3. Среднее время на операции.';
 
     /**
      * Дата начала периода.
@@ -58,7 +60,15 @@ class ReportCorrespondenceAnalytics extends Model
 
             // Таблица 2. Среднее время доставки в разрезе способов доставки.
             'table2_name' => 'Способ доставки',
-            'table2_count' => 'Время',
+            'table2_value' => 'Время',
+
+            // Таблица 3. Среднее время на операции.
+            'table3_name' => 'Операция',
+            'table3_value' => 'Выполняется в среднем за',
+
+            // для отбора
+            'searchPeriodStart' => 'Начало периода',
+            'searchPeriodEnd' => 'Конец периода',
         ];
     }
 
@@ -72,9 +82,27 @@ class ReportCorrespondenceAnalytics extends Model
     }
 
     /**
-     * Преобразует массив из параметров, сворачивая его по полю $columnName, суммируя при этом количество запросов на
-     * транспорт.
-     * @param $array array массив запросов на транспорт
+     * Дополняет запрос условием, если применяется отбор за период.
+     * @param $query \yii\db\ActiveQuery
+     */
+    private function addConditionIfPeriodFilterIs($query)
+    {
+        if ($this->searchPeriodStart != null or $this->searchPeriodEnd != null) {
+            // если указаны обе даты
+            $query->andWhere(['between', 'created_at', strtotime($this->searchPeriodStart . ' 00:00:00'), strtotime($this->searchPeriodEnd . ' 23:59:59')]);
+        } else if ($this->searchPeriodStart != null && $this->searchPeriodEnd == null) {
+            // если указан только начало периода
+            $query->andWhere(['>=', 'created_at', strtotime($this->searchPeriodStart . ' 00:00:00')]);
+        } else if ($this->searchPeriodStart == null && $this->searchPeriodEnd != null) {
+            // если указан только конец периода
+            $query->andWhere(['<=', 'created_at', strtotime($this->searchPeriodEnd . ' 23:59:59')]);
+        }
+    }
+
+    /**
+     * Преобразует массив из параметров, сворачивая его по полю $columnName, суммируя при этом количество пакетов
+     * корреспонденции.
+     * @param $array array массив пакетов корреспонденции
      * @param $tableNum string номер таблицы отчета
      * @param $columnName string наименование колонки, которая суммируется
      * @return array
@@ -102,13 +130,13 @@ class ReportCorrespondenceAnalytics extends Model
 
     /**
      * Возвращает dataProvider из массива в параметрах.
-     * @param $dataArray array массив запросов на транспорт
+     * @param $dataArray array массив пакетов корреспонденции
      * @return ArrayDataProvider
      */
     public function makeDataProviderForTable1($dataArray)
     {
         return new ArrayDataProvider([
-            'modelClass' => 'common\models\ReportTRAnalytics',
+            'modelClass' => 'common\models\ReportCorrespondenceAnalytics',
             'allModels' => $this->collapseTableByField($dataArray, 1, 'pdName'),
             'key' => 'table1_id', // поле, которое заменяет primary key
             'pagination' => false,
@@ -124,35 +152,101 @@ class ReportCorrespondenceAnalytics extends Model
     }
 
     /**
-     * Возвращает dataProvider из массива в параметрах.
-     * @param $dataArray array массив запросов на транспорт
+     * Формирует таблицу 2.
      * @return ArrayDataProvider
      */
-    public function makeDataProviderForTable2($dataArray)
+    public function makeDataProviderForTable2()
     {
+        $query = CorrespondencePackages::find()->select([
+            'table2_id' => 'pd_id',
+            'table2_name' => 'post_delivery_kinds.name',
+            'table2_value' => new Expression('AVG(`delivered_at` - `created_at`)'),
+        ]);
+        $query->joinWith(['pd'])->where('delivered_at IS NOT NULL')->groupBy('pd_id');
+        $this->addConditionIfPeriodFilterIs($query);
+
         return new ArrayDataProvider([
-            'modelClass' => 'common\models\ReportTRAnalytics',
-            'allModels' => $this->collapseTableByField($dataArray, 2, 'regionName'),
+            'modelClass' => 'common\models\ReportCorrespondenceAnalytics',
+            'allModels' => $query->asArray()->all(),
+            'key' => 'table2_id', // поле, которое заменяет primary key
             'pagination' => false,
             'sort' => [
-                'defaultOrder' => ['table2_count' => SORT_DESC],
+                'defaultOrder' => ['table2_value' => SORT_ASC],
                 'attributes' => [
                     'table2_id',
                     'table2_name',
-                    'table2_count',
+                    'table2_value',
                 ],
             ],
         ]);
     }
 
     /**
-     * Создает массив запросов на транспорт с такими полями:
-     * id | state_id | state.name | region_id | region.name | responsible_id | responsible_name | periodicity_id | periodicity_name
+     * Формирует таблицу 3.
+     * @return ArrayDataProvider
+     */
+    public function makeDataProviderForTable3()
+    {
+        $result = [];
+
+        // Документы подготавливаются в среднем за
+        $query = CorrespondencePackages::find()->where('ready_at IS NOT NULL');
+        $this->addConditionIfPeriodFilterIs($query);
+        $result[] = [
+            'table3_name' => 'Подготовка отправлений',
+            'table3_value' => $query->average('ready_at - created_at'),
+        ];
+        unset($query);
+
+        // Документы отправляются в среднем за
+        $query = CorrespondencePackages::find()->where('sent_at IS NOT NULL');
+        $this->addConditionIfPeriodFilterIs($query);
+        $result[] = [
+            'table3_name' => 'Отправка документов',
+            'table3_value' => $query->average('sent_at - ready_at'),
+        ];
+        unset($query);
+
+        // Документы доставляются в среднем за
+        $query = CorrespondencePackages::find()->where('delivered_at IS NOT NULL');
+        $this->addConditionIfPeriodFilterIs($query);
+        $result[] = [
+            'table3_name' => 'Доставка документов',
+            'table3_value' => $query->average('delivered_at - created_at'),
+        ];
+        unset($query);
+
+        // Постоплатные проекты оплачиваются в среднем за
+        $query = CorrespondencePackages::find()->where('paid_at IS NOT NULL');
+        $this->addConditionIfPeriodFilterIs($query);
+        $result[] = [
+            'table3_name' => 'Оплата по постоплате',
+            'table3_value' => $query->average('paid_at - created_at'),
+        ];
+        unset($query);
+
+        return new ArrayDataProvider([
+            'modelClass' => 'common\models\ReportCorrespondenceAnalytics',
+            'allModels' => $result,
+            'pagination' => false,
+            'sort' => [
+                'defaultOrder' => ['table3_value' => SORT_ASC],
+                'attributes' => [
+                    'table3_name',
+                    'table3_value',
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Создает массив пакетов корреспонденции с такими полями:
+     * correspondence_packages.id | pd_id | post_delivery_kinds.name
      * @param $params array массив параметров выборки (условия отбора)
-     * @param $mode integer режим: выборка запросов за указанный пользователем период или вообще всех
+     * @param $mode integer режим: выборка пакетов за указанный пользователем период или вообще всех
      * @return array
      */
-    public function search($params, $mode = self::MODE_PERIOD)
+    public function search($params)
     {
         $this->load($params);
 
@@ -163,92 +257,19 @@ class ReportCorrespondenceAnalytics extends Model
         ]);
         $query->joinWith(['pd']);
 
-        if ($mode == self::MODE_PERIOD)
-            // уточняется запрос
-            // добавляется условие, если оно есть
-            // только для вызова массива запросов на текущую дату
-            if ($this->searchPeriodStart != null or $this->searchPeriodEnd != null) {
-                // если указаны обе даты
-                $query->andWhere(['between', 'created_at', strtotime($this->searchPeriodStart . ' 00:00:00'), strtotime($this->searchPeriodEnd . ' 23:59:59')]);
-            } else if ($this->searchPeriodStart != null && $this->searchPeriodEnd == null) {
-                // если указан только начало периода
-                $query->andWhere(['>=', 'created_at', strtotime($this->searchPeriodStart . ' 00:00:00')]);
-            } else if ($this->searchPeriodStart == null && $this->searchPeriodEnd != null) {
-                // если указан только конец периода
-                $query->andWhere(['<=', 'created_at', strtotime($this->searchPeriodEnd . ' 23:59:59')]);
-            }
-
-        return $query->asArray()->all();
-    }
-
-    /**
-     * Создает массив отходов по запросам на транспорт, переданным в параметрах.
-     * @param $params array массив параметров выборки (условия отбора)
-     * @param $mode integer режим: выборка запросов за указанный пользователем период или вообще всех
-     * @return array
-     */
-    public function searchWaste($params, $mode = self::MODE_PERIOD)
-    {
-        $this->load($params);
-
-        $query = TransportRequestsWaste::find()->select([
-            'transport_requests_waste.id',
-            'fkko_id',
-            'fkkoName' => 'CONCAT(fkko.fkko_code, " - ", fkko.fkko_name)',
-        ]);
-        $query->joinWith(['tr', 'fkko']);
-
-        if ($mode == self::MODE_PERIOD)
-            // уточняется запрос
-            // добавляется условие, если оно есть
-            // только для вызова массива запросов на текущую дату
-            if ($this->searchPeriodStart != null or $this->searchPeriodEnd != null) {
-                // если указаны обе даты
-                $query->andWhere(['between', 'transport_requests.created_at', strtotime($this->searchPeriodStart . ' 00:00:00'), strtotime($this->searchPeriodEnd . ' 23:59:59')]);
-            } else if ($this->searchPeriodStart != null && $this->searchPeriodEnd == null) {
-                // если указан только начало периода
-                $query->andWhere(['>=', 'transport_requests.created_at', strtotime($this->searchPeriodStart . ' 00:00:00')]);
-            } else if ($this->searchPeriodStart == null && $this->searchPeriodEnd != null) {
-                // если указан только конец периода
-                $query->andWhere(['<=', 'transport_requests.created_at', strtotime($this->searchPeriodEnd . ' 23:59:59')]);
-            }
-
-        $query->andWhere('fkko_id IS NOT NULL');
-
-        return $query->asArray()->all();
-    }
-
-    /**
-     * Создает массив типов транспорта по запросам на транспорт, переданным в параметрах.
-     * @param $params array массив параметров выборки (условия отбора)
-     * @param $mode integer режим: выборка запросов за указанный пользователем период или вообще всех
-     * @return array
-     */
-    public function searchTransport($params, $mode = self::MODE_PERIOD)
-    {
-        $this->load($params);
-
-        $query = TransportRequestsTransport::find()->select([
-            'transport_requests_transport.id',
-            'tt_id',
-            'ttName' => 'transport_types.name',
-        ]);
-        $query->joinWith(['tr', 'tt']);
-
-        if ($mode == self::MODE_PERIOD)
-            // уточняется запрос
-            // добавляется условие, если оно есть
-            // только для вызова массива запросов на текущую дату
-            if ($this->searchPeriodStart != null or $this->searchPeriodEnd != null) {
-                // если указаны обе даты
-                $query->andWhere(['between', 'transport_requests.created_at', strtotime($this->searchPeriodStart . ' 00:00:00'), strtotime($this->searchPeriodEnd . ' 23:59:59')]);
-            } else if ($this->searchPeriodStart != null && $this->searchPeriodEnd == null) {
-                // если указан только начало периода
-                $query->andWhere(['>=', 'transport_requests.created_at', strtotime($this->searchPeriodStart . ' 00:00:00')]);
-            } else if ($this->searchPeriodStart == null && $this->searchPeriodEnd != null) {
-                // если указан только конец периода
-                $query->andWhere(['<=', 'transport_requests.created_at', strtotime($this->searchPeriodEnd . ' 23:59:59')]);
-            }
+        // уточняется запрос
+        // добавляется условие, если оно есть
+        // только для вызова массива запросов на текущую дату
+        if ($this->searchPeriodStart != null or $this->searchPeriodEnd != null) {
+            // если указаны обе даты
+            $query->andWhere(['between', 'created_at', strtotime($this->searchPeriodStart . ' 00:00:00'), strtotime($this->searchPeriodEnd . ' 23:59:59')]);
+        } else if ($this->searchPeriodStart != null && $this->searchPeriodEnd == null) {
+            // если указан только начало периода
+            $query->andWhere(['>=', 'created_at', strtotime($this->searchPeriodStart . ' 00:00:00')]);
+        } else if ($this->searchPeriodStart == null && $this->searchPeriodEnd != null) {
+            // если указан только конец периода
+            $query->andWhere(['<=', 'created_at', strtotime($this->searchPeriodEnd . ' 23:59:59')]);
+        }
 
         return $query->asArray()->all();
     }

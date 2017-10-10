@@ -115,7 +115,7 @@ class TransportRequestsDialogs extends \yii\db\ActiveRecord
     }
 
     /**
-     * Возвращает наименование .
+     * Возвращает имя автора записи .
      * @return string
      */
     public function getCreatedByName()

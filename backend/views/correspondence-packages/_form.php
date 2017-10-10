@@ -137,8 +137,10 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
     </div>
 </div>
 <?php
-$url = \yii\helpers\Url::to(['/tracking/pochta-ru']);
+$url = \yii\helpers\Url::to(['/tracking/track-by-number']);
 $url_create_address = \yii\helpers\Url::to(['/correspondence-packages/create-address-form']);
+$formName = $model->formName();
+$formNameId = strtolower($model->formName());
 $name = $model->formName() . '[tpPad]';
 $stateSent = ProjectsStates::STATE_ОТПРАВЛЕНО;
 
@@ -165,15 +167,28 @@ function checkAllDocumentsOnClick() {
     return false;
 } // checkAllDocumentsOnClick()
 
+// Обработчик щелчка по ссылке "Отметить наиболее распространенные документы".
+//
+function checkRegularDocumentsOnClick() {
+    var values = ["1", "2", "3" , "4"];
+    $("input[name ^= '$name']").iCheck("uncheck");
+    $.each(values, function(index, value) {
+        $("input[data-id = '" + value + "'").iCheck("check");
+    });
+
+    return false;
+} // checkRegularDocumentsOnClick()
+
 // Обработчик щелчка по кнопке "Отследить".
 //
 function btnTrackNumberOnClick() {
-    tracknum = $("#correspondencepackages-track_num").val();
-    if (tracknum != "" && tracknum != undefined) {
+    pd = $("#$formNameId-pd_id").val();
+    tracknum = $("#$formNameId-track_num").val();
+    if (tracknum != "" && tracknum != undefined && pd != "" && pd != undefined) {
         $("#modal_title").text("Трекинг");
         $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
         $("#mw_summary").modal();
-        $("#modal_body").load("$url?track_num=" + tracknum);
+        $("#modal_body").load("$url?pd_id=" + pd + "&track_num=" + tracknum);
     }
 
     return false;
@@ -182,13 +197,13 @@ function btnTrackNumberOnClick() {
 // Обработчик изменения значения в поле "Трек-номер".
 //
 function trackNumberOnChange() {
-    $("#correspondencepackages-state_id").val("$stateSent").trigger("change");
+    $("#$formNameId-state_id").val("$stateSent").trigger("change");
 }
 
 // Обработчик щелчка по ссылке "Добавить новый почтовый адрес контрагента".
 //
 function createNewAddressOnClick() {
-    ca_id = $("#correspondencepackages-fo_id_company").val();
+    ca_id = $("#$formNameId-fo_id_company").val();
     if (ca_id != "" && ca_id != undefined) {
         $("#modal_title").text("Новый почтовый адрес");
         $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-success"></i><span class="sr-only">Подождите...</span></p>');
@@ -204,9 +219,10 @@ $("#pjax-form").on("pjax:end", function() {
 });
 
 $(document).on("click", "#checkAllDocuments", checkAllDocumentsOnClick);
+$(document).on("click", "#checkRegularDocuments", checkRegularDocumentsOnClick);
 $(document).on("click", "#btnTrackNumber", btnTrackNumberOnClick);
 $(document).on("click", "#createNewAddress", createNewAddressOnClick);
-$(document).on("change", "#correspondencepackages-track_num", trackNumberOnChange);
+$(document).on("change", "#$formNameId-track_num", trackNumberOnChange);
 JS
 , \yii\web\View::POS_READY);
 ?>

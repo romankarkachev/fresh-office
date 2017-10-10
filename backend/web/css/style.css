@@ -148,3 +148,7 @@ a.link-ajax:hover {
     color: #f00000 !important;
 }
 /* -- */
+
+.mr-5 {
+    margin-right: 8px;
+}

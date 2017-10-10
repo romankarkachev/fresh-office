@@ -17,6 +17,8 @@ use common\models\PeriodicityKinds;
 
 $labelRegion = $model->getAttributeLabel('region_id');
 $add_row_prompt = '<p class="text-muted">Табличная часть пуста.</p>';
+$returnToProcess = '';
+if ($model->state_id == \common\models\TransportRequestsStates::STATE_ЗАКРЫТ) $returnToProcess = ' &nbsp; ' . Html::a('<i class="fa fa-refresh" aria-hidden="true"></i>', '#', ['id' => 'returnToProcess', 'data-id' => $model->id, 'title' => 'Вернуть в обработку']);
 ?>
 
 <div class="transport-requests-form">
@@ -74,7 +76,7 @@ return result.text;
         <div class="col-md-2">
             <div class="form-group field-<?= $model->formName() ?>-state_id">
                 <label class="control-label" for="<?= $model->formName() ?>-state_id"><?= $model->getAttributeLabel('state_id') ?></label>
-                <p><?= $model->stateName ?></p>
+                <p><?= $model->stateName ?><?= $returnToProcess ?></p>
             </div>
         </div>
         <?php endif; ?>
@@ -215,7 +217,7 @@ return result.text;
 
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Запросы на транспорт', ['/transport-requests'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
-        <?= Html::a('Подобные запросы', '#', ['class' => 'btn btn-default btn-lg', 'id' => 'btnShowSimilar', 'title' => 'Показать в модальном окне список подобных запросов (закрытые по этому же контрагенту)']) ?>
+        <?= Html::a('Предыдущие запросы', '#', ['class' => 'btn btn-default btn-lg', 'id' => 'btnShowSimilar', 'title' => 'Показать в модальном окне список подобных запросов (закрытые по этому же контрагенту)']) ?>
 
         <?php if ($model->isNewRecord): ?>
         <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
@@ -228,6 +230,8 @@ return result.text;
 
 </div>
 <?php
+$url_return_to_process = Url::to(['/transport-requests/return-to-process']);
+
 $url_add_fkko = Url::to(['/transport-requests/render-fkko-row']);
 $url_del_fkko = Url::to(['/transport-requests/delete-fkko-row']);
 
@@ -254,6 +258,27 @@ $this->registerJs(<<<JS
 $("input").iCheck({
     checkboxClass: 'icheckbox_square-green',
 });
+
+// Обработчик щелчка по ссылке "Вернуть в обработку".
+//
+function returnToProcessOnClick() {
+    id = $(this).attr("data-id");
+    if (id != "" && confirm("Вы действительно хотите вернуть запрос № " + id + " в обработку?")) {
+        icon = $(this).children();
+        if (icon != undefined) icon.addClass("fa-spin");
+
+        $.get("$url_return_to_process?id=" + id, function(data) {
+            if (data == true)
+                icon.removeClass("fa-refresh").addClass("fa-check-circle-o text-success");
+            else
+                icon.removeClass("fa-refresh").addClass("fa-times text-danger");
+    
+            if (icon != undefined) icon.removeClass("fa-spin");
+        });
+    }
+
+    return false;
+} // returnToProcessOnClick()
 
 // Обработчик щелчка по кнопке "Добавить строку" в табличной части "Отходы".
 //
@@ -371,6 +396,8 @@ function btnShowSimilar() {
 
     return false;
 } // btnShowSimilar()
+
+$(document).on("click", "#returnToProcess", returnToProcessOnClick);
 
 $(document).on("click", "#btnAddFkkoRow", btnAddFkkoRowOnClick);
 $(document).on("click", "a[id ^= 'btnDeleteFkkoRow']", btnDeleteFkkoRowClick);

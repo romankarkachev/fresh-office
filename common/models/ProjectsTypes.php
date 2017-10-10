@@ -15,6 +15,10 @@ use yii\helpers\ArrayHelper;
  */
 class ProjectsTypes extends \yii\db\ActiveRecord
 {
+    /**
+     * Типы проектов.
+     * Таблица в MS SQL - LIST_SPR_PROJECT.
+     */
     const PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА = 3;
     const PROJECT_TYPE_ВЫВОЗ = 4;
     const PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА = 5;
@@ -26,6 +30,13 @@ class ProjectsTypes extends \yii\db\ActiveRecord
     const PROJECT_TYPE_ДОКУМЕНТЫ = 12;
     const PROJECT_TYPE_ОСМОТР_ОБЪЕКТА = 14;
     const PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА = 15;
+
+    const НАБОР_ДОПУСТИМЫХ_ТИПОВ_ПРОИЗВОДСТВО = [
+        self::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА,
+        self::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА,
+        self::PROJECT_TYPE_ВЫВОЗ,
+        self::PROJECT_TYPE_САМОПРИВОЗ,
+    ];
 
     /**
      * @inheritdoc

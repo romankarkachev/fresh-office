@@ -10,7 +10,7 @@ use yii\helpers\Html;
                 <thead>
                     <tr>
                         <th>Документ</th>
-                        <th class="text-center"><?= Html::a('Предоставлен', '#', ['id' => 'checkAllDocuments', 'class' => 'link-ajax', 'title' => 'Выделить все']) ?></th>
+                        <th class="text-center"><?= Html::a('Предоставлен', '#', ['id' => 'checkAllDocuments', 'class' => 'link-ajax', 'title' => 'Выделить все']) ?> &nbsp; <?= Html::a('<i class="fa fa-list-ol" aria-hidden="true"></i>', '#', ['id' => 'checkRegularDocuments', 'class' => 'link-ajax', 'title' => 'Выделить наиболее распространенные']) ?></th>
                     </tr>
                 </thead>
                 <tbody>

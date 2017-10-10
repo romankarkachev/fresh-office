@@ -17,6 +17,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $ready_at
  * @property integer $sent_at
  * @property integer $delivered_at
+ * @property integer $paid_at
  * @property integer $fo_project_id
  * @property integer $fo_id_company
  * @property string $customer_name
@@ -64,7 +65,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     {
         return [
             [['state_id'], 'required'],
-            [['created_at', 'is_manual', 'ready_at', 'sent_at', 'delivered_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'address_id', 'manager_id'], 'integer'],
+            [['created_at', 'is_manual', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'address_id', 'manager_id'], 'integer'],
             [['pad', 'other', 'comment'], 'string'],
             [['customer_name'], 'string', 'max' => 255],
             [['track_num'], 'string', 'max' => 50],
@@ -92,6 +93,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             'ready_at' => 'Дата и время подготовки',
             'sent_at' => 'Дата и время отправки',
             'delivered_at' => 'Дата и время доставки',
+            'paid_at' => 'Дата и время оплаты',
             'fo_project_id' => 'ID проекта',
             'fo_id_company' => 'Контрагент',
             'customer_name' => 'Контрагент',

@@ -8,6 +8,7 @@ use common\models\ReportTRAnalytics;
 /* @var $searchModel common\models\ReportAnalytics */
 /* @var $searchApplied bool */
 /* @var $avgFinish integer среднее время на закрытие запроса */
+/* @var $avgComputedFinish integer среднее время на закрытие запроса (только рабочие дни, без выходных) */
 /* @var $totalCount integer общее количество запросов */
 /* @var $dpTable1 yii\data\ArrayDataProvider */
 /* @var $dpTable2 yii\data\ArrayDataProvider */
@@ -22,11 +23,18 @@ $this->params['breadcrumbs'][] = 'Анализ запросов на транс�
 $avgRep = 'Сколько обрабатывается запрос в среднем &mdash; нет данных.';
 if ($avgFinish > 0)
     $avgRep = 'Запрос обрабатывается в среднем за <strong>' . \common\models\foProjects::downcounter($avgFinish) . '</strong>.';
+
+$avgComputedRep = 'Сколько обрабатывается запрос в среднем &mdash; нет данных.';
+if ($avgComputedFinish > 0) {
+    $avgComputedRep = 'Запрос обрабатывается в среднем за <strong>' . \common\models\foProjects::downcounter($avgComputedFinish) . '</strong>.';
+    $avgComputedRep = str_replace('дня', 'рабочих дня', $avgComputedRep);
+    $avgComputedRep = str_replace('дней', 'рабочих дней', $avgComputedRep);
+}
 ?>
 <div class="reports-tranalytics">
     <?= $this->render('_search_tranalytics', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
 
-    <h4>Всего запросов: <strong><?= $totalCount ?></strong>. <?= $avgRep; ?></h4>
+    <h4>Всего запросов: <strong><?= $totalCount ?></strong>. <?= $avgRep; ?> <?= $avgComputedRep; ?></h4>
     <div class="row">
         <!-- <?= ReportTRAnalytics::CAPTION_FOR_TABLE1 ?> -->
         <div class="col-md-3">

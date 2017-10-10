@@ -87,10 +87,19 @@ $favorite = '/images/favorite16.png';
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\TransportRequests */
 
-                    return nl2br($model->tpWasteLinear);
+                    return nl2br($model->{$column->attribute});
                 },
             ],
-            'tpTransportLinear',
+            [
+                'attribute' => 'tpTransportLinear',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\TransportRequests */
+
+                    return nl2br($model->{$column->attribute});
+                },
+                'options' => ['width' => '300'],
+            ],
             //'unreadMessagesCount',
             //'finished_at',
             //'customer_id',

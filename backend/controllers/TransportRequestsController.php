@@ -255,6 +255,7 @@ class TransportRequestsController extends Controller
                         // закрываем запрос только один первый раз, если он закрывается повторно, то не важно уже это
                         $model->state_id = TransportRequestsStates::STATE_ЗАКРЫТ;
                         $model->finished_at = time();
+                        $model->computed_finished_at = $model->computeFinishedAt();
                     }
 
             if ($model->validate() && $model->save(false)) {

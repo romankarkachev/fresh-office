@@ -13,6 +13,7 @@ Yii::setAlias('@uploads-ferrymen-drivers-fs', '@backend/../uploads/ferrymen-driv
 Yii::setAlias('@uploads-ferrymen-fs', '@backend/../uploads/ferrymen'); // файлы к перевозчикам, полный путь
 Yii::setAlias('@uploads-temp-pdfs', '@backend/../uploads/temp-pdfs'); // проекты в формате PDF для рассылки
 Yii::setAlias('@uploads-production-files-fs', '@backend/../uploads/production-files'); // файлы, которые прикрепляет производство
+Yii::setAlias('@uploads-licenses-files-fs', '@backend/../uploads/licenses-files'); // файлы со сканами страниц лицензии
 
 Yii::setAlias('@uploads-transport-requests-fs', '@backend/../uploads/transport-requests'); // файлы к запросам на транспорт, полный путь
 

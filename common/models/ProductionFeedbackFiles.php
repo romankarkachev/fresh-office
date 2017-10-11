@@ -23,6 +23,9 @@ use dektrium\user\models\Profile;
  * @property string $ofn
  * @property integer $size
  *
+ * @property integer $uploadedByProfile
+ * @property string $uploadedByName
+ *
  * @property User $uploadedBy
  */
 class ProductionFeedbackFiles extends \yii\db\ActiveRecord
@@ -135,7 +138,7 @@ class ProductionFeedbackFiles extends \yii\db\ActiveRecord
      */
     public function getUploadedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'created_by']);
+        return $this->hasOne(Profile::className(), ['user_id' => 'uploaded_by']);
     }
 
     /**
@@ -144,6 +147,6 @@ class ProductionFeedbackFiles extends \yii\db\ActiveRecord
      */
     public function getUploadedByName()
     {
-        return $this->uploaded_by == null ? '' : ($this->uploadedBy->profile == null ? $this->uploadedBy->username : $this->uploadedBy->profile->name);
+        return $this->uploaded_by == null ? '' : ($this->uploadedByProfile == null ? $this->uploadedBy->username : $this->uploadedByProfile->name);
     }
 }

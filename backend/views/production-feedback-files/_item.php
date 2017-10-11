@@ -17,7 +17,7 @@ else
 ?>
 <?php if ($renderHeader): ?>
 <div class="clearfix"></div>
-<h4>Проект <strong><?= $item->project_id ?></strong>, файлы отправлены <?= Yii::$app->formatter->asDate($item->uploaded_at, 'php:d.m.Y в H:i') ?> <?= $icon ?></h4>
+<h4>Проект <strong><?= $item->project_id ?></strong>, файлы отправлены <?= Yii::$app->formatter->asDate($item->uploaded_at, 'php:d.m.Y в H:i') ?> пользователем <?= $item->uploadedByName ?> <?= $icon ?></h4>
 <div class="clearfix"></div>
 <?php endif; ?>
     <?= Html::a(

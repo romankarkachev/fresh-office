@@ -22,7 +22,7 @@ class m171011_063058_create_licenses_requests_table extends Migration
             'created_at' => $this->integer()->notNull()->comment('Дата и время создания'),
             'created_by' => $this->integer()->notNull()->comment('Автор создания'),
             'state_id' => $this->integer()->notNull()->comment('Статус запроса'),
-            'ca_email' => $this->integer()->notNull()->comment('E-mail контрагента'),
+            'ca_email' => $this->string()->notNull()->comment('E-mail контрагента'),
             'ca_name' => $this->string()->comment('Контрагент'),
             'ca_id' => $this->integer()->comment('Контрагент'),
             'comment' => $this->text()->comment('Примечание'),

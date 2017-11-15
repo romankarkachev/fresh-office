@@ -8,11 +8,13 @@ use Yii;
  * This is the model class for table "licenses_requests_fkko".
  *
  * @property integer $id
+ * @property integer $lr_id
  * @property integer $fkko_id
  * @property integer $file_id
  *
  * @property LicensesFiles $file
  * @property Fkko $fkko
+ * @property LicensesRequests $license
  */
 class LicensesRequestsFkko extends \yii\db\ActiveRecord
 {
@@ -30,10 +32,11 @@ class LicensesRequestsFkko extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['fkko_id'], 'required'],
-            [['fkko_id', 'file_id'], 'integer'],
+            [['lr_id', 'fkko_id'], 'required'],
+            [['lr_id', 'fkko_id', 'file_id'], 'integer'],
             [['file_id'], 'exist', 'skipOnError' => true, 'targetClass' => LicensesFiles::className(), 'targetAttribute' => ['file_id' => 'id']],
             [['fkko_id'], 'exist', 'skipOnError' => true, 'targetClass' => Fkko::className(), 'targetAttribute' => ['fkko_id' => 'id']],
+            [['lr_id'], 'exist', 'skipOnError' => true, 'targetClass' => LicensesRequests::className(), 'targetAttribute' => ['lr_id' => 'id']],
         ];
     }
 
@@ -44,9 +47,37 @@ class LicensesRequestsFkko extends \yii\db\ActiveRecord
     {
         return [
             'id' => 'ID',
+            'lr_id' => 'Запрос на лицензию',
             'fkko_id' => 'ФККО',
             'file_id' => 'Файл со сканом',
+            // вычисляемые поля
+            'fkkoRep' => 'ФККО',
         ];
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getLicense()
+    {
+        return $this->hasOne(LicensesRequests::className(), ['id' => 'lr_id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFkko()
+    {
+        return $this->hasOne(Fkko::className(), ['id' => 'fkko_id']);
+    }
+
+    /**
+     * Возвращает представление кода ФККО.
+     * @return string
+     */
+    public function getFkkoRep()
+    {
+        return $this->fkko != null ? $this->fkko->fkko_code . ' - ' . $this->fkko->fkko_name : '';
     }
 
     /**
@@ -58,10 +89,11 @@ class LicensesRequestsFkko extends \yii\db\ActiveRecord
     }
 
     /**
-     * @return \yii\db\ActiveQuery
+     * Возвращает полный путь к изображению со сканом страницы лицензии.
+     * @return string
      */
-    public function getFkko()
+    public function getFileFfp()
     {
-        return $this->hasOne(Fkko::className(), ['id' => 'fkko_id']);
+        return $this->file != null ? $this->file->ffp : '';
     }
 }

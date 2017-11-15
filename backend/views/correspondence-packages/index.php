@@ -17,6 +17,8 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
     <?= $this->render('_search', ['model' => $searchModel]); ?>
 
     <p>
+        <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
+
         <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', '#', ['class' => 'btn btn-default pull-right', 'id' => 'btnComposePackage', 'title' => 'Выделите несколько пакетов документов, чтобы на них на всех назначить одинаковые параметры']) ?>
 
     </p>

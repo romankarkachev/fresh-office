@@ -5,10 +5,12 @@ namespace common\models;
 use Yii;
 use yii\helpers\ArrayHelper;
 use dektrium\user\helpers\Password;
-use dektrium\user\models\Profile;
+use common\models\Profile;
 use dektrium\user\models\User as BaseUser;
 
 /**
+ * @property AuthItem $role
+ *
  * @property Profile $profile
  */
 class User extends BaseUser
@@ -18,6 +20,12 @@ class User extends BaseUser
      * @var string
      */
     public $name;
+
+    /**
+     * Идентификатор пользователя во Fresh Office.
+     * @var integer
+     */
+    public $fo_id;
 
     /**
      * Роль.
@@ -52,6 +60,7 @@ class User extends BaseUser
 
         $rules[] = [['name', 'role_id'], 'required', 'on' => 'create'];
         $rules[] = [['username', 'email'], 'required', 'on' => 'update'];
+        $rules[] = [['fo_id'], 'integer'];
         $rules[] = [['role_id'], 'string'];
         $rules['password_confirm'] = ['password', 'string', 'min' => 6];
         $rules[] = ['password_confirm', 'required', 'on' => 'create'];
@@ -69,6 +78,7 @@ class User extends BaseUser
         $result = parent::attributeLabels();
 
         $result['email'] = 'E-mail';
+        $result['fo_id'] = 'Пользователь Fresh Office';
         $result['name'] = 'ФИО';
         $result['role_id'] = 'Роль';
         $result['password_confirm'] = 'Подтверждение пароля';
@@ -108,6 +118,7 @@ class User extends BaseUser
 
         // заполнение профиля
         $this->profile->name = $this->name;
+        $this->profile->fo_id = $this->fo_id;
         $this->profile->save();
 
         return true;
@@ -124,6 +135,18 @@ class User extends BaseUser
             ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`='.User::tableName().'.`id`')
             ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
             ->where(['`auth_assignment`.`item_name`' => 'sales_department_manager'])->orderBy('profile.name')->all(), 'id', 'profile.name');
+    }
+
+    /**
+     * Делает запрос с целью установления наименования менеджера по имеющемуся идентификатору.
+     * @param $id integer идентификатор менеджера
+     * @return string
+     */
+    public static function getFreshOfficeManagerName($id)
+    {
+        $man = DirectMSSQLQueries::fetchManager($id);
+        if (is_array($man)) if (count($man) > 0) return $man[0]['name'];
+        return '';
     }
 
     /**
@@ -158,5 +181,23 @@ class User extends BaseUser
     {
         return $this->hasOne(AuthItem::className(), ['name' => 'item_name'])
             ->via('userRoles');
+    }
+
+    /**
+     * Возвращает наименование роли пользователя.
+     * @return string
+     */
+    public function getRoleName()
+    {
+        return $this->role != null ? $this->role->name : '';
+    }
+
+    /**
+     * Возвращает описание роли пользователя.
+     * @return string
+     */
+    public function getRoleDescription()
+    {
+        return $this->role != null ? $this->role->description : '';
     }
 }

@@ -24,6 +24,7 @@ use yii\helpers\FileHelper;
  * @property Organizations $organization
  * @property User $uploadedBy
  * @property LicensesFkkoPages[] $licensesFkkoPages
+ * @property LicensesRequestsFkko[] $licensesRequestsFkkos
  */
 class LicensesFiles extends \yii\db\ActiveRecord
 {
@@ -167,7 +168,7 @@ class LicensesFiles extends \yii\db\ActiveRecord
      */
     public function checkIfUsed()
     {
-        if ($this->getLicensesFkkoPages()->count() > 0) return true;
+        if ($this->getLicensesRequestsFkkos()->count() > 0) return true;
 
         return false;
     }
@@ -241,6 +242,14 @@ class LicensesFiles extends \yii\db\ActiveRecord
     public function getUploadedByName()
     {
         return $this->uploaded_by == null ? '' : ($this->uploadedByProfile == null ? $this->uploadedBy->username : $this->uploadedByProfile->name);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getLicensesRequestsFkkos()
+    {
+        return $this->hasMany(LicensesRequestsFkko::className(), ['file_id' => 'id']);
     }
 
     /**

@@ -19,13 +19,16 @@ class m171011_175412_create_licenses_requests_fkko_table extends Migration
 
         $this->createTable('licenses_requests_fkko', [
             'id' => $this->primaryKey(),
+            'lr_id' => $this->integer()->notNull()->comment('Запрос на лицензию'),
             'fkko_id' => $this->integer()->notNull()->comment('ФККО'),
             'file_id' => $this->integer()->comment('Файл со сканом'),
         ], $tableOptions);
 
+        $this->createIndex('lr_id', 'licenses_requests_fkko', 'lr_id');
         $this->createIndex('fkko_id', 'licenses_requests_fkko', 'fkko_id');
         $this->createIndex('file_id', 'licenses_requests_fkko', 'file_id');
 
+        $this->addForeignKey('fk_licenses_requests_fkko_lr_id', 'licenses_requests_fkko', 'lr_id', 'licenses_requests', 'id');
         $this->addForeignKey('fk_licenses_requests_fkko_fkko_id', 'licenses_requests_fkko', 'fkko_id', 'fkko', 'id');
         $this->addForeignKey('fk_licenses_requests_fkko_file_id', 'licenses_requests_fkko', 'file_id', 'licenses_files', 'id');
     }
@@ -37,9 +40,11 @@ class m171011_175412_create_licenses_requests_fkko_table extends Migration
     {
         $this->dropForeignKey('fk_licenses_requests_fkko_file_id', 'licenses_requests_fkko');
         $this->dropForeignKey('fk_licenses_requests_fkko_fkko_id', 'licenses_requests_fkko');
+        $this->dropForeignKey('fk_licenses_requests_fkko_lr_id', 'licenses_requests_fkko');
 
         $this->dropIndex('file_id', 'licenses_requests_fkko');
         $this->dropIndex('fkko_id', 'licenses_requests_fkko');
+        $this->dropIndex('lr_id', 'licenses_requests_fkko');
 
         $this->dropTable('licenses_requests_fkko');
     }

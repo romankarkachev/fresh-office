@@ -15,6 +15,10 @@ use yii\helpers\ArrayHelper;
  */
 class LicensesRequestsStates extends \yii\db\ActiveRecord
 {
+    const LICENSE_STATE_НОВЫЙ = 1;
+    const LICENSE_STATE_ОДОБРЕН = 2;
+    const LICENSE_STATE_ОТКАЗ = 3;
+
     /**
      * @inheritdoc
      */

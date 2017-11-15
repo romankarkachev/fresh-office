@@ -8,17 +8,6 @@ use yii\helpers\Html;
 
 $this->title = Yii::t('user', 'Profile settings');
 $this->params['breadcrumbs'][] = $this->title;
-
-$this->params['content-block'] = 'Профиль';
-$this->params['content-additional'] = 'Ваш персональный раздел, где Вы можете задать информацию о себе, прикрепить аватар, изменить пароль.';
-
-$pifp = Yii::getAlias('@uploads-profiles').'/';
-$avatar = '';
-if ($model->avatar_fn != null && $model->avatar_fn != '')
-    if ($model->avatar_ffp != null && $model->avatar_ffp != '')
-        if (file_exists($model->avatar_ffp)) {
-            $avatar = '<p class="text-center"><img src="'.$pifp.$model->avatar_fn.'" height="200" /></p>';
-        }
 ?>
 
 <div class="row">
@@ -31,7 +20,6 @@ if ($model->avatar_fn != null && $model->avatar_fn != '')
                 <?= Html::encode($this->title) ?>
             </div>
             <div class="panel-body">
-                <?= $avatar ?>
                 <?php $form = \yii\widgets\ActiveForm::begin([
                     'id' => 'profile-form',
                     'options' => ['class' => 'form-horizontal'],
@@ -43,8 +31,6 @@ if ($model->avatar_fn != null && $model->avatar_fn != '')
                     'enableClientValidation' => false,
                     'validateOnBlur'         => false,
                 ]); ?>
-
-                <?= $form->field($model, 'imageFile')->fileInput() ?>
 
                 <?= $form->field($model, 'name') ?>
 

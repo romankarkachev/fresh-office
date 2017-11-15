@@ -58,6 +58,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-user-plus text-info"></i> Ответственные для новых', 'url' => ['/responsible-fornewca']],
                 ['label' => 'Ответственные по типам проектов', 'url' => ['/responsible-by-project-types']],
                 ['label' => 'Получатели корреспонденции от производства', 'url' => ['/responsible-for-production']],
+                ['label' => 'Типы контента загружаемых файлов', 'url' => ['/uploading-files-meanings']],
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-users text-info"></i> Пользователи', 'url' => ['/users']],
             ],
@@ -94,6 +95,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => 'Производство', 'url' => ['/production']],
                 ['label' => 'Файлы обратной связи', 'url' => ['/production-feedback-files']],
                 '<li class="dropdown-header">Лицензии</li>',
+                ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
                 ['label' => 'Файлы сканов', 'url' => ['/licenses-files']],
             ],
         ],
@@ -150,6 +152,7 @@ elseif (Yii::$app->user->can('sales_department_head'))
         ['label' => '<i class="fa fa-magic fa-lg text-success"></i> Мастер обработки обращений', 'url' => ['/appeals/wizard']],
         ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+        ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
         [
             'label' => 'Отчеты',
             'url' => '#',
@@ -165,6 +168,7 @@ elseif (Yii::$app->user->can('sales_department_head'))
 elseif (Yii::$app->user->can('sales_department_manager'))
     $items = [
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+        ['label' => 'Запрос лицензии', 'url' => ['/licenses-requests/create']],
     ];
 elseif (Yii::$app->user->can('operator'))
     $items = [
@@ -227,6 +231,11 @@ elseif (Yii::$app->user->can('head_assist'))
                 ['label' => 'Марки автомобилей', 'url' => ['/transport-brands']],
             ],
         ],
+    ];
+elseif (Yii::$app->user->can('licenses_upload'))
+    // Загрузка файлов сканов лицензий
+    $items = [
+        ['label' => 'Файлы сканов', 'url' => ['/licenses-files']],
     ];
 
 $items[] = '<li>'

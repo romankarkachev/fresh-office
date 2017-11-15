@@ -77,7 +77,7 @@ class ProductionFeedbackForm extends Model
             [['action', 'project_id', 'ca_id'], 'integer'],
             [['ca_name', 'message_subject'], 'string'],
             [['message_body', 'tp'], 'safe'],
-            [['files'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 20],
+            [['files'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 30],
         ];
     }
 

@@ -13,7 +13,7 @@ $this->params['breadcrumbs'][] = $details['breadcrumbs'];
         <h4><i class="fa fa-bolt"></i> Невозможно удалить запись &laquo<?= $details['modelRep'] ?>&raquo;!</h4>
         <p>Элемент не может быть удален, поскольку используется в других объектах.</p>
         <hr>
-        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> '. $details['buttonCaption'], $details['buttonUrl'], ['class' => 'btn btn-outline-primary btn-lg', 'title' => 'Вернуться в список']) ?>
+        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> '. $details['buttonCaption'], $details['buttonUrl'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список']) ?>
 
     </div>
 </div>

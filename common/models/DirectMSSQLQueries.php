@@ -88,18 +88,44 @@ ORDER BY PRIZNAK_PROJECT';
 
     /**
      * Возвращает в виде массива менеджеров CRM.
+     * @param $forSelect2 bool признак выборки для виджетов select2 (по-другому будет называться поле на выходе)
+     * @param $q string (строка запроса, для поиска менеджера по имени)
      * @return array
      */
-    public static function fetchManagers()
+    public static function fetchManagers($forSelect2 = false, $q = null)
     {
+        // определимся, как будет называться поле с наименованием на выходе
+        $fieldName = 'name';
+        if ($forSelect2 === true) $fieldName = 'text';
+
+        // условие отбора
+        $condition = '';
+        if (isset($q)) $condition = chr(13) . 'WHERE MANAGER_NAME LIKE \'%' . $q . '%\'';
         $query_text = '
-SELECT
-    ID_MANAGER AS id,
-    MANAGER_NAME AS name
-FROM CBaseCRM_Fresh_7x.dbo.MANAGERS
-ORDER BY name';
+SELECT ID_MANAGER AS id, MANAGER_NAME AS ' . $fieldName . '
+FROM CBaseCRM_Fresh_7x.dbo.MANAGERS' . $condition .'
+ORDER BY MANAGER_NAME';
 
         return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+    }
+
+    /**
+     * Возвращает данные менеджера.
+     * @param $id integer идентификатор менеджера
+     * @return array
+     */
+    public static function fetchManager($id)
+    {
+        if (intval($id) > 0) {
+            $query_text = '
+SELECT ID_MANAGER AS id, MANAGER_NAME AS name
+FROM CBaseCRM_Fresh_7x.dbo.MANAGERS
+WHERE ID_MANAGER=' . intval($id);
+
+            return Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+        }
+
+        return [];
     }
 
     /**
@@ -252,7 +278,7 @@ ORDER BY LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT';
     AND';
 
         $today = new Expression('CONVERT(datetime, \''. date('Y-m-d', time()) .'T00:00:00.000\', 126)');
-        $zwo_days_plus = new Expression('CONVERT(datetime, \''. date('Y-m-d', (time() + 3*24*3600)) .'T23:59:59.000\', 126)');
+        $zwo_days_plus = new Expression('CONVERT(datetime, \''. date('Y-m-d', (time() + 1*24*3600)) .'T23:59:59.000\', 126)');
 
         $query_text = '
 SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id,
@@ -645,6 +671,33 @@ WHERE COMPANY.ID_COMPANY IN (' . $ca_ids . ')';
         }
 
         return $result;
+    }
+
+    /**
+     * Выполняет идентификацию контрагента по режиму и значению из параметров.
+     * @param $value string значение для поиска
+     * @param $mode string режим поиска (email, name, phone)
+     * @return mixed
+     */
+    public static function tryToIdentifyCounteragent($value, $mode = 'email')
+    {
+        switch ($mode) {
+            case 'email':
+                $query_text = '
+SELECT DISTINCT COMPANY.ID_COMPANY AS caId, COMPANY.COMPANY_NAME AS caName,
+             MANAGERS.ID_MANAGER AS managerId, MANAGERS.MANAGER_NAME AS managerName,
+             STUFF((SELECT \', \' + email FROM LIST_EMAIL_CLIENT LEC WHERE LEC.ID_COMPANY = LIST_EMAIL_CLIENT.ID_COMPANY FOR XML PATH(\'\')), 1, 1, \'\') AS contact
+FROM CBaseCRM_Fresh_7x.dbo.LIST_EMAIL_CLIENT
+LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_EMAIL_CLIENT.ID_COMPANY
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
+WHERE email LIKE \'%' . $value . '%\' AND COMPANY_NAME IS NOT NULL
+ORDER BY COMPANY_NAME';
+                $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
+                if (count($result) > 0) return $result[0];
+                break;
+        }
+
+        return false;
     }
 
     /**

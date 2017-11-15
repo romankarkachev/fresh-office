@@ -12,7 +12,7 @@ return [
             'modelMap' => [
                 'User' => 'common\models\User',
                 'UserSearch' => 'common\models\UserSearch',
-                //'Profile' => 'common\models\Profile',
+                'Profile' => 'common\models\Profile',
             ],
             'controllerMap' => [
                 'admin' => 'backend\controllers\UsersController',
@@ -50,7 +50,7 @@ return [
         'gii' => [
             'class' => \yii\gii\Module::className(),
             //'allowedIPs' => ['*'],
-            'allowedIPs' => ['127.0.0.1', '185.154.73.31'],
+            'allowedIPs' => ['127.0.0.1', '185.154.73.*'],
         ]
     ],
     'components' => [

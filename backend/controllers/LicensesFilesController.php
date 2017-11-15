@@ -25,9 +25,14 @@ class LicensesFilesController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete'],
                 'rules' => [
                     [
+                        'actions' => ['index', 'create', 'update'],
+                        'allow' => true,
+                        'roles' => ['root', 'licenses_upload'],
+                    ],
+                    [
+                        'actions' => ['delete'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -130,6 +135,16 @@ class LicensesFilesController extends Controller
     public function actionDelete($id)
     {
         $model = $this->findModel($id);
+        if ($model->checkIfUsed())
+            return $this->render('/common/cannot_delete', [
+                'details' => [
+                    'breadcrumbs' => ['label' => 'Сканы лицензий', 'url' => ['/licenses-files']],
+                    'modelRep' => $model->ofn,
+                    'buttonCaption' => 'Сканы лицензий',
+                    'buttonUrl' => ['/licenses-files'],
+                ],
+            ]);
+
         $model->delete();
 
         return $this->redirect(['/licenses-files']);

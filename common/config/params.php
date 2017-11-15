@@ -6,5 +6,6 @@ return [
     'senderName' => 'Робот Аркадий',
     'senderNameRobert' => 'Робот Роберт',
     'senderNameHenrietta' => 'Робот Генриетта',
+    'senderNameSvetozar' => 'Робот Светозар',
     'user.passwordResetTokenExpire' => 3600,
 ];

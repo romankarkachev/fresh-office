@@ -42,6 +42,7 @@ $this->params['breadcrumbs'][] = 'Транспорт';
             'stateName',
             'brandName',
             'ttName',
+            // колонка преобразована в другую и скрыта за ненадобностью
             [
                 'header' => 'VIN и госномер',
                 'value' => function ($model, $key, $index, $column) {
@@ -53,10 +54,29 @@ $this->params['breadcrumbs'][] = 'Транспорт';
                     if ($model->trailer_rn != null && $model->trailer_rn != '') $result .= ' прицеп ' . $model->trailer_rn;
                     return $result;
                 },
+                'visible' => false,
             ],
-            //'vin',
-            //'rn',
-            //'trailer_rn',
+            [
+                'header' => 'Госномер',
+                'value' => function ($model, $key, $index, $column) {
+                    /** @var $model \common\models\Transport */
+                    /** @var $column \yii\grid\DataColumn */
+
+                    $result = '';
+                    if ($model->rn != null && $model->rn != '') $result .= ' г/н ' . $model->rn;
+                    if ($model->trailer_rn != null && $model->trailer_rn != '') $result .= ' прицеп ' . $model->trailer_rn;
+                    return $result;
+                },
+            ],
+            [
+                'attribute' => 'inspDetails',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Transport */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return nl2br($model->{$column->attribute});
+                }
+            ],
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
@@ -75,7 +95,7 @@ $this->params['breadcrumbs'][] = 'Транспорт';
                     },
                     'inspections' => function ($url, $model) {
                         // количество техсмотров
-                        $inspCount = $model->inspCount == null || $model->inspCount == 0 ? '' : ' (<strong>' . $model->inspCount . '</strong>)';
+                        $inspCount = $model->inspCount == null || $model->inspCount == 0 ? '' : ' (' . $model->inspCount . ')';
 
                         return Html::a('<i class="fa fa-truck"></i>', ['ferrymen/transports-inspections', 'id' => $model->id], ['title' => Yii::t('yii', 'Техосмотры') . $inspCount, 'class' => 'btn btn-xs btn-default']);
                     },

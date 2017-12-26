@@ -31,6 +31,7 @@ $this->params['breadcrumbs'][] = 'Водители';
                 'format' => 'raw',
                 'value' => function ($model, $key, $index, $column) {
                     /* @var $model \common\models\Drivers */
+                    /* @var $column \yii\grid\DataColumn */
 
                     return Html::a($model->{$column->attribute}, [
                         '/ferrymen-drivers', 'DriversSearch' => ['ferryman_id' => $model->ferryman_id]
@@ -45,6 +46,8 @@ $this->params['breadcrumbs'][] = 'Водители';
                 'label' => 'ФИО',
                 'value' => function ($model) {
                     /* @var $model \common\models\Drivers */
+                    /* @var $column \yii\grid\DataColumn */
+
                     return $model->surname . ' ' . $model->name . ' ' . $model->patronymic;
                 },
             ],
@@ -52,6 +55,8 @@ $this->params['breadcrumbs'][] = 'Водители';
                 'header' => 'Паспорт',
                 'value' => function ($model) {
                     /* @var $model \common\models\Drivers */
+                    /* @var $column \yii\grid\DataColumn */
+
                     $result = '';
                     if ($model->pass_serie != null)
                         $result .= $model->pass_serie;
@@ -66,6 +71,8 @@ $this->params['breadcrumbs'][] = 'Водители';
                 'attribute' => 'phone',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Drivers */
+                    /* @var $column \yii\grid\DataColumn */
+
                     return \common\models\Drivers::normalizePhoneNumber($model->{$column->attribute});
                 }
             ],
@@ -79,6 +86,8 @@ $this->params['breadcrumbs'][] = 'Водители';
                 'attribute' => 'instrDetails',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Drivers */
+                    /* @var $column \yii\grid\DataColumn */
+
                     return nl2br($model->{$column->attribute});
                 }
             ],

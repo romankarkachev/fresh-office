@@ -2,8 +2,8 @@
 
 namespace backend\controllers;
 
-use common\models\TransportRequestsDialogs;
-use common\models\TransportRequestsDialogsSearch;
+use common\models\foProjects;
+use common\models\User;
 use Yii;
 use common\models\TransportRequests;
 use common\models\TransportRequestsSearch;
@@ -12,10 +12,14 @@ use common\models\TransportRequestsFilesSearch;
 use common\models\TransportRequestsStates;
 use common\models\TransportRequestsTransport;
 use common\models\TransportRequestsWaste;
+use common\models\TransportRequestsDialogs;
+use common\models\TransportRequestsDialogsSearch;
+use common\models\PackingTypeReplaceForm;
 use common\models\Fkko;
 use common\models\PackingTypes;
 use yii\data\ActiveDataProvider;
 use yii\helpers\ArrayHelper;
+use yii\helpers\Html;
 use yii\web\Controller;
 use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
@@ -37,17 +41,18 @@ class TransportRequestsController extends Controller
             'access' => [
                 'class' => AccessControl::className(),
                 'only' => [
-                    'index', 'create', 'update', 'delete', 'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
+                    'index', 'create', 'update', 'delete', 'unit-mass-repalce',
+                    'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
                     'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
                     'return-to-process', 'meignored', 'toggle-favorite', 'mark-as-read',
                     'similar-statements', 'compose-region-fields',
                     'dialog-messages-list', 'dialog-private-messages-list', 'add-dialog-message', 'add-private-dialog-message',
-                    'upload-files', 'download-file', 'delete-file',
+                    'upload-files', 'download-file', 'delete-file', 'preview-file',
                 ],
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root', 'logist', 'sales_department_head', 'sales_department_manager'],
+                        'roles' => ['root', 'logist', 'sales_department_head', 'sales_department_manager', 'head_assist'],
                     ],
                 ],
             ],
@@ -343,6 +348,72 @@ class TransportRequestsController extends Controller
         $this->findModel($id)->delete();
 
         return $this->redirect(['/transport-requests']);
+    }
+
+    /**
+     * Отображает форму обработки единиц измерения в запросах на транспорт.
+     * Необходимо выбрать две единицы измерения: одну искомую и вторую для замены на нее. При этом при успешном
+     * выполнении операции искомая единица измерения будет удалена физически.
+     * Выполняется в транзакции.
+     * @return mixed
+     * @throws \Exception если произойдет ошибка в выполнении запроса
+     */
+    public function actionPackingTypeMassReplace()
+    {
+        $model = new PackingTypeReplaceForm();
+
+        if ($model->load(Yii::$app->request->post())) {
+            if ($model->src_pt_id != $model->dest_pt_id) {
+                // для начала убедимся, что оба они существуют
+                $newPackingType = PackingTypes::findOne($model->dest_pt_id);
+                $oldPackingType = PackingTypes::findOne($model->src_pt_id);
+
+                if ($newPackingType != null && $oldPackingType != null) {
+                    $rowsAffected = 0;
+                    $connection = Yii::$app->db;
+                    $transaction = $connection->beginTransaction();
+                    try {
+                        // выполним массовую замену
+                        $rowsAffected = $connection->createCommand()->update(TransportRequestsWaste::tableName(), [
+                            // новое значение
+                            'packing_id' => $model->dest_pt_id,
+                        ], [
+                            // условие
+                            'packing_id' => $model->src_pt_id,
+                        ])->execute();
+
+                        if ($rowsAffected > 0) {
+                            // выполним переименование
+                            if ($model->new_src_name != null && $model->new_src_name != '') {
+                                $newPackingType->name = $model->new_src_name;
+                                $newPackingType->save();
+                            }
+
+                            // удалим старый вид упаковки
+                            $oldPackingType->delete();
+
+                            $transaction->commit();
+
+                            Yii::$app->session->setFlash('success', 'Замена успешно выполнена. Количество строк, которые затронули изменения: ' . $rowsAffected . '. Вид упаковки ID ' . $model->src_pt_id . ' успешно удален.');
+                            $model = new PackingTypeReplaceForm();
+                            $model->dest_pt_id = $newPackingType->id;
+                        }
+                        else Yii::$app->session->setFlash('warning', 'Изменения не затронули ни одну строку. Вероятно, старый вид упаковки нигде не использован. В этом случае удалите его самостоятельно из справочника &laquo;' . Html::a('Виды упаковки', [
+                                '/packing-types', 'PackingTypesSearch' => ['id' => $model->src_pt_id]
+                            ], ['target' => '_blank', 'title' => 'Откроется в новом окне']). '&raquo;.');
+                    } catch (\Exception $e) {
+                        $transaction->rollBack();
+                        throw $e;
+                    }
+                }
+                else Yii::$app->session->setFlash('warning', 'Один или оба из выбранных видов упаковки не существует. Ничего не было выполнено.');
+            }
+            else Yii::$app->session->setFlash('warning', 'Выбран один и тот же вид упаковки. Ничего не было выполнено.');
+        }
+
+        return $this->render('packing_type_mass_replace', [
+            'model' => $model,
+        ]);
     }
 
     /**
@@ -793,5 +864,40 @@ class TransportRequestsController extends Controller
         }
         else
             throw new NotFoundHttpException('Файл не обнаружен.');
+    }
+
+    /**
+     * Выполняет предварительный показ изображения.
+     */
+    public function actionPreviewFile($id)
+    {
+        $model = TransportRequestsFiles::findOne($id);
+        if ($model != null) {
+            if ($model->isImage())
+                return \yii\helpers\Html::img(Yii::getAlias('@uploads-transport-requests') . '/' . $model->fn, ['width' => '100%']);
+            else
+                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/transport-requests/download-file', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
+        }
+
+        return false;
+    }
+
+    /**
+     * Подсчитывает количество использований вида упаковки, переданного в параметрах и возвращает форматированный результат.
+     * @param $pt_id integer
+     * @return string|bool
+     */
+    public function actionCountPtRows($pt_id)
+    {
+        $pt_id = intval($pt_id);
+        if ($pt_id > 0) {
+            $count = TransportRequestsWaste::find()->where(['packing_id' => $pt_id])->count();
+            if ($count > 0)
+                return 'Вид упаковки использован в ' . foProjects::declension($count, ['строке','строках','строках']) . '.';
+            else
+                return 'Данный вид упаковки не использован ни в одной строке табличной части.';
+        }
+
+        return false;
     }
 }

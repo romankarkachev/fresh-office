@@ -40,7 +40,9 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                     /* @var $model \common\models\CorrespondencePackages */
 
                     $border = time();
-                    if ($model->sent_at != null) $border = $model->sent_at;
+                    // было раньше так:
+                    //if ($model->sent_at != null) $border = $model->sent_at;
+                    if ($model->ready_at != null) $border = $model->ready_at;
                     return \common\models\foProjects::downcounter($model->created_at, $border);
                 },
                 'visible' => $searchModel->searchGroupProjectStates != CorrespondencePackagesSearch::CLAUSE_STATE_SENT,
@@ -114,7 +116,7 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
             <div class="modal-header">
                 <h4 id="modal_title" class="modal-title">Modal title</h4>
             </div>
-            <div id="modal_body" class="modal-body">
+            <div id="modal_body_compose_addr" class="modal-body">
                 <p>One fine body…</p>
             </div>
             <div class="modal-footer">
@@ -138,9 +140,9 @@ function btnComposePackageFormOnClick() {
     if (ids == "") return false;
 
     $("#modal_title").text("Формирование отправления из пакетов документов");
-    $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+    $("#modal_body_compose_addr").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
     $("#mw_compose").modal();
-    $("#modal_body").load("$url_form?ids=" + ids);
+    $("#modal_body_compose_addr").load("$url_form?ids=" + ids);
 
     return false;
 } // btnComposePackageFormOnClick()

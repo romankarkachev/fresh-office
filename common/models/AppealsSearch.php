@@ -74,6 +74,10 @@ class AppealsSearch extends Appeals
                 'request_user_ip',
                 //'appealStateName',
                 //'caStateName',
+                'createdByProfileName' => [
+                    'asc' => ['profile.name' => SORT_ASC],
+                    'desc' => ['profile.name' => SORT_DESC],
+                ],
                 'appealSourceName' => [
                     'asc' => ['appeal_sources.name' => SORT_ASC],
                     'desc' => ['appeal_sources.name' => SORT_DESC],
@@ -82,7 +86,7 @@ class AppealsSearch extends Appeals
         ]);
 
         $this->load($params);
-        $query->joinWith(['as']);
+        $query->joinWith(['createdByProfile', 'as']);
 
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails

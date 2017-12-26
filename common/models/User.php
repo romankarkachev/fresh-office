@@ -52,7 +52,6 @@ class User extends BaseUser
 
     /**
      * @inheritdoc
-     * @return \common\models\User
      */
     public function rules()
     {

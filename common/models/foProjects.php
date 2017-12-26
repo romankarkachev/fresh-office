@@ -140,7 +140,7 @@ class foProjects extends \yii\db\ActiveRecord
      * @param bool $onlyword
      * @return string
      */
-    private static function declension($digit, $expr, $onlyword=false){
+    public static function declension($digit, $expr, $onlyword=false) {
         if (!is_array($expr)) $expr = array_filter(explode(' ', $expr));
         if (empty($expr[2])) $expr[2] = $expr[1];
         $i = preg_replace('/[^0-9]+/s', '', $digit) % 100;
@@ -163,7 +163,7 @@ class foProjects extends \yii\db\ActiveRecord
      * @param $endPeriod integer конец периода в формате TIMESTAMP
      * @return string
      */
-    public static function downcounter($startPeriod, $endPeriod=false){
+    public static function downcounter($startPeriod, $endPeriod=false) {
         $startPeriod = intval($startPeriod);
         $check_time = $startPeriod;
         if ($endPeriod !== false) {

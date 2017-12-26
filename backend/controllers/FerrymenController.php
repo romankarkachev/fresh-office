@@ -21,6 +21,7 @@ use common\models\TransportInspectionsSearch;
 use common\models\FerrymenFiles;
 use common\models\FerrymenFilesSearch;
 use yii\helpers\Html;
+use yii\httpclient\Client;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -48,11 +49,12 @@ class FerrymenController extends Controller
                     'upload-files', 'download-file', 'preview-file', 'delete-file',
                     'drivers-instructings', 'create-instructing', 'delete-instructing',
                     'transports-inspections', 'create-inspection', 'delete-inspection',
+                    'list-of-packing-ferrymen-for-typeahead', 'validate-ati-code',
                 ],
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root', 'logist'],
+                        'roles' => ['root', 'logist', 'head_assist'],
                     ],
                 ],
             ],
@@ -635,5 +637,66 @@ class FerrymenController extends Controller
         }
         else
             throw new NotFoundHttpException('Запрошенная страница не существует.');
+    }
+
+    /**
+     * Функция выполняет поиск перевозчика по наименованию, переданному в параметрах.
+     * Для виджетов Typeahead.
+     * @param $q string
+     * @return array|\yii\db\ActiveRecord[]
+     */
+    public function actionListOfFerrymenForTypeahead($q)
+    {
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+
+            $query = Ferrymen::find()->select([
+                'id',
+                'value' => 'name',
+                'description' => 'CONCAT(ferrymanDrivers.details, " ", ferrymanTransport.details)',
+                'drivers' => 'ferrymanDrivers.details',
+                'transport' => 'ferrymanTransport.details',
+            ])->leftJoin('(
+            SELECT
+                drivers.ferryman_id,
+                COUNT(drivers.id) AS count,
+                GROUP_CONCAT(CONCAT(drivers.surname, " ", drivers.name, " ", drivers.patronymic) SEPARATOR ", ") AS details
+            FROM drivers
+            GROUP BY drivers.ferryman_id
+        ) AS ferrymanDrivers', '`ferrymen`.`id` = `ferrymanDrivers`.`ferryman_id`')
+            ->leftJoin('(
+            SELECT
+                transport.ferryman_id,
+                COUNT(transport.id) AS count,
+                GROUP_CONCAT(CONCAT(transport.vin, " ", transport.rn, CASE WHEN (transport.trailer_rn IS NULL OR transport.trailer_rn="") THEN "" ELSE CONCAT(" прицеп ", transport.trailer_rn) END) SEPARATOR ", ") AS details
+            FROM transport
+            GROUP BY transport.ferryman_id
+        ) AS ferrymanTransport', '`ferrymen`.`id` = `ferrymanTransport`.`ferryman_id`')
+            ->andFilterWhere([
+                'or',
+                ['like', 'name', $q],
+                ['like', 'ferrymanDrivers.details', $q],
+                ['like', 'ferrymanTransport.details', $q],
+            ])->orderBy('name');
+
+            return $query->asArray()->all();
+        }
+    }
+
+    /**
+     *
+     * @param $ati_code
+     * @return bool
+     */
+    public function actionValidateAtiCode($ati_code)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $client = new Client(['baseUrl' => 'http://api.ati.su/v1.2/summary/']);
+        $response = $client->get($ati_code)->send();
+        if ($response->isOk)
+            return true;
+        else
+            return $response->data;
     }
 }

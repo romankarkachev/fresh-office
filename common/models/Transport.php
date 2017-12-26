@@ -40,11 +40,16 @@ use yii\db\ActiveRecord;
 class Transport extends \yii\db\ActiveRecord
 {
     /**
-     * Количество техосмотров, для вложенного подзапроса.
-     * Виртуальное поле.
-     * @var integer
+     * Вычисляемое виртуальное поле.
+     * @var integer количество техосмотров транспортного средства
      */
     public $inspCount;
+
+    /**
+     * Вычисляемое виртуальное поле.
+     * @var integer техосмотры транспортного средства в строку через запятую
+     */
+    public $inspDetails;
 
     /**
      * @inheritdoc
@@ -99,6 +104,8 @@ class Transport extends \yii\db\ActiveRecord
             'stateName' => 'Статус',
             'ttName' => 'Тип',
             'brandName' => 'Марка',
+            'inspCount' => 'Техосмотров',
+            'inspDetails' => 'Техосмотры',
         ];
     }
 

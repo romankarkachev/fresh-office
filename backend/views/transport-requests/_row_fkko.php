@@ -7,6 +7,7 @@ use yii\web\JsExpression;
 use kartik\select2\Select2;
 use kartik\typeahead\Typeahead;
 use common\models\DangerClasses;
+use common\models\PackingTypes;
 use common\models\AggregateStates;
 use common\models\Units;
 
@@ -99,48 +100,23 @@ if (!$model->isNewRecord)
                 </div>
             </div>
             <div class="col-md-2">
-                <div class="form-group field-<?= $formName ?>-newPacktingType">
-                    <label class="control-label" for="<?= $formName ?>-newPacktingType"><?= $model->getAttributeLabel('packing_id') ?></label>
-                    <?= Typeahead::widget([
+                <div class="form-group field-<?= $formName ?>-packing_id required">
+                    <label class="control-label" for="<?= $formName ?>-packing_id"><?= $model->getAttributeLabel('packing_id') ?></label>
+                    <?= Select2::widget([
                         'model' => $model,
-                        'name' => $trFormName . '[tpWaste]['.$counter.'][newPacktingType]',
-                        'value' => $model->packing != null ? $model->packing->name : '',
+                        'name' => $trFormName . '[tpWaste]['.$counter.'][packing_id]',
+                        'value' => $model->packing_id,
+                        'initValueText' => $model->packingName,
+                        'data' => PackingTypes::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'size' => Select2::SMALL,
+                        'language' => 'ru',
                         'options' => [
-                            'id' => $formName . '-newPacktingType-' . $counter,
-                            'class' => 'form-control input-sm',
+                            'id' => $trFormName . '-packing_id-'.$counter,
                             'data-counter' => $counter,
-                            'placeholder' => 'Введите вид упаковки',
+                            'placeholder' => '- выберите -'
                         ],
-                        'scrollable' => true,
-                        'pluginOptions' => ['highlight' => true],
-                        'dataset' => [
-                            [
-                                'remote' => [
-                                    'url' => Url::to(['transport-requests/list-of-packing-types-for-typeahead']),
-                                    'rateLimitWait' => 500,
-                                    'prepare' => new JsExpression('
-                                        function prepare(query, settings) {
-                                            settings.url += "?q=" + query + "&counter=' . $counter .'";
-                                            return settings;
-                                        }
-                                    ')
-                                ],
-                                'limit' => 10,
-                                'display' => 'value',
-                            ],
-                        ],
-                        'pluginEvents' => [
-                            'typeahead:select' => '
-                                function(ev, suggestion) {
-                                    $("#' . $formName . '-packing_id-' . $counter . '").val(suggestion.id); // тип услуги
-                                }
-                            ',
-                            'typeahead:asyncreceive' => 'function() {
-                                $("#' . $formName . '-packing_id-' . $counter .'").val(null); // тип услуги
-                            }
-                            ',
-                        ],
-                    ]); ?>
+                    ]) ?>
 
                     <p class="help-block help-block-error"></p>
                 </div>
@@ -243,10 +219,6 @@ if (!$model->isNewRecord)
         </div>
         <?= Html::input('hidden', $trFormName . '[tpWaste]['.$counter.'][fkko_id]', $model->fkko_id, [
             'id' => $formName . '-fkko_id-' . $counter,
-        ]) ?>
-
-        <?= Html::input('hidden', $trFormName . '[tpWaste]['.$counter.'][packing_id]', $model->packing_id, [
-            'id' => $formName . '-packing_id-' . $counter,
         ]) ?>
 
     </div>

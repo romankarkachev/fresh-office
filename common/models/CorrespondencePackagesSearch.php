@@ -26,7 +26,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
 
     /**
      * Флаг для управления статусами в выборке.
-     * @var bool
+     * @var integer
      */
     public $searchGroupProjectStates;
 

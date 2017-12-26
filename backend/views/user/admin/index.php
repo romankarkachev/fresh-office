@@ -3,6 +3,7 @@
 use yii\data\ActiveDataProvider;
 use yii\grid\GridView;
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\web\View;
 use yii\widgets\Pjax;
 use dektrium\user\models\UserSearch;
@@ -38,13 +39,28 @@ $this->params['content-additional'] = 'Создание, удаление пол
     'layout' => '{items}{pager}',
     'tableOptions' => ['class' => 'table table-striped table-hover'],
     'columns' => [
-        'username',
+        [
+            'attribute' => 'username',
+            'format' => 'raw',
+            'value' => function($model, $key, $index, $column) {
+                /* @var $model \common\models\User */
+                /* @var $column \yii\grid\DataColumn */
+
+                $icon = '';
+                if ($model->fo_id != null) $icon = ' ' . Html::img(Url::to(['/images/freshoffice16.png']), ['title' => 'Пользователь привязан к учетной записи во Fresh Office']);
+
+                return $model->{$column->attribute} . $icon;
+            },
+        ],
         'email:email',
         'profileName',
         'roleName',
         [
             'header' => Yii::t('user', 'Block status'),
-            'value' => function ($model) {
+            'value' => function($model, $key, $index, $column) {
+                /* @var $model \common\models\User */
+                /* @var $column \yii\grid\DataColumn */
+
                 if ($model->isBlocked) {
                     return Html::a(Yii::t('user', 'Unblock'), ['block', 'id' => $model->id], [
                         'class' => 'btn btn-xs btn-success btn-block',

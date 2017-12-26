@@ -27,7 +27,7 @@ class TransportTypesController extends Controller
                 'rules' => [
                     [
                         'allow' => true,
-                        'roles' => ['root', 'logist'],
+                        'roles' => ['root', 'logist', 'head_assist'],
                     ],
                 ],
             ],

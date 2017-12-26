@@ -29,10 +29,12 @@ use yii\helpers\ArrayHelper;
  * @property string $request_user_agent
  * @property string $request_user_ip
  *
+ * @property string $createdByProfileName
  * @property string $appealStateName
  * @property string $caStateName
  *
  * @property User $createdBy
+ * @property User $createdByProfile
  * @property AppealSources $as
  * @property AppealsFiles[] $appealsFiles
  */
@@ -132,6 +134,8 @@ class Appeals extends \yii\db\ActiveRecord
             'request_user_ip' => 'IP отправителя',
             'files' => 'Файлы',
             // для сортировки
+            'createdByName' => 'Автор',
+            'createdByProfileName' => 'Автор',
             'appealSourceName' => 'Источник обращения',
             'appealStateName' => 'Статус обращения',
             'caStateName' => 'Статус клиента',
@@ -1040,6 +1044,23 @@ WHERE COMPANY.ID_COMPANY = ' . $this->fo_id_company;
     {
         return $this->created_by == null ? '' : ($this->createdBy->profile == null ? $this->createdBy->username :
             $this->createdBy->username . ' (' . $this->createdBy->profile->name . ')');
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedByProfile()
+    {
+        return $this->hasOne(Profile::className(), ['user_id' => 'created_by']);
+    }
+
+    /**
+     * Возвращает имя создателя записи.
+     * @return string
+     */
+    public function getCreatedByProfileName()
+    {
+        return $this->createdByProfile != null ? ($this->createdByProfile->name != null ? $this->createdByProfile->name : $this->createdBy->username) : '';
     }
 
     /**

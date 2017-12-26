@@ -97,11 +97,22 @@ class TransportSearch extends Transport
             '*',
             'id' => 'transport.id',
             'state_id' => 'transport.state_id',
-            'inspCount' => '(
-                SELECT COUNT(id) FROM transport_inspections
-                WHERE `transport`.`id` = `transport_inspections`.`transport_id`
-            )',
+            'inspCount' => 'insp.count',
+            'inspDetails' => 'insp.details',
         ]);
+
+        // LEFT JOIN выполняется быстрее, что подзапрос в SELECT-секции
+        // присоединяем количество и список инструктажей
+        $query->leftJoin('(
+            SELECT
+                transport_inspections.inspected_at,
+                transport_inspections.transport_id,
+                COUNT(transport_inspections.id) AS count,
+                GROUP_CONCAT(CONCAT(DATE_FORMAT(transport_inspections.inspected_at, \'%d.%m.%Y\'), " (",  transport_inspections.place, ")") ORDER BY transport_inspections.inspected_at DESC SEPARATOR ", ") AS details
+            FROM transport_inspections
+            GROUP BY transport_inspections.transport_id
+        ) AS insp', '`transport`.`id` = `insp`.`transport_id`');
+
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [

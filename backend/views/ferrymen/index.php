@@ -26,14 +26,52 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
         'summary' => "Показаны записи с <strong>{begin}</strong> по <strong>{end}</strong>, на странице <strong>{count}</strong>, всего <strong>{totalCount}</strong>. Страница <strong>{page}</strong> из <strong>{pageCount}</strong>.",
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            'name',
+            [
+                'attribute' => 'name',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Ferrymen */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $created_at = '';
+                    $updated_at = '';
+
+                    if ($model->created_at != null) $created_at = ($model->{$column->attribute} != null ? '<br />' : '') . '<small class="text-muted" title="Дата создания">Создан: ' . Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y H:i') . '</small>';
+
+                    if ($model->updated_at != null) $updated_at = ($created_at != '' || $model->{$column->attribute} != null ? '<br />' : '') . '<small class="text-muted" title="Дата обновления">Обновлен: ' . Yii::$app->formatter->asDate($model->updated_at, 'php:d.m.Y H:i') . '</small>';
+
+                    return $model->{$column->attribute} . $created_at . $updated_at;
+                },
+            ],
             [
                 'attribute' => 'driversCount',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Ferrymen */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return Html::a($model->{$column->attribute}, [
+                        '/ferrymen-drivers', 'DriversSearch' => ['ferryman_id' => $model->id]
+                    ], [
+                        'title' => 'Показать водителей этого перевозчика',
+                    ]);
+                },
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
             [
                 'attribute' => 'transportCount',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Ferrymen */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return Html::a($model->{$column->attribute}, [
+                        '/ferrymen-transport', 'TransportSearch' => ['ferryman_id' => $model->id]
+                    ], [
+                        'title' => 'Показать транспорт этого перевозчика',
+                    ]);
+                },
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
@@ -46,6 +84,8 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Ferrymen */
+                    /* @var $column \yii\grid\DataColumn */
+
                     $result = '';
                     if ($model->contact_person != null) {
                         if ($result != '') $result .= '<br />';
@@ -66,7 +106,7 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
                     }
 
                     return $result;
-                }
+                },
             ],
             [
                 'attribute' => 'contact_person_dir',
@@ -74,6 +114,8 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\Ferrymen */
+                    /* @var $column \yii\grid\DataColumn */
+
                     $result = '';
                     if ($model->contact_person_dir != null) {
                         if ($result != '') $result .= '<br />';

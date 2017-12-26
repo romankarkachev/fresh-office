@@ -18,8 +18,8 @@ class FileStorageSearch extends FileStorage
     public function rules()
     {
         return [
-            [['id', 'uploaded_at', 'uploaded_by', 'type_id', 'size'], 'integer'],
-            [['ffp', 'fn', 'ofn'], 'safe'],
+            [['id', 'uploaded_at', 'uploaded_by', 'ca_id', 'type_id', 'size'], 'integer'],
+            [['ca_name', 'ffp', 'fn', 'ofn'], 'safe'],
         ];
     }
 
@@ -77,9 +77,8 @@ class FileStorageSearch extends FileStorage
         $this->load($params);
         $query->joinWith(['type', 'uploadedByProfile']);
 
-        if (!$this->validate()) {
-            // uncomment the following line if you do not want to return any records when validation fails
-            // $query->where('0=1');
+        if (!$this->validate() || (empty($this->ca_id))) {
+            $query->where('0=1');
             return $dataProvider;
         }
 
@@ -88,11 +87,13 @@ class FileStorageSearch extends FileStorage
             'id' => $this->id,
             'uploaded_at' => $this->uploaded_at,
             'uploaded_by' => $this->uploaded_by,
+            'ca_id' => $this->ca_id,
             'type_id' => $this->type_id,
             'size' => $this->size,
         ]);
 
-        $query->andFilterWhere(['like', 'ffp', $this->ffp])
+        $query->andFilterWhere(['like', 'ca_name', $this->ca_name])
+            ->andFilterWhere(['like', 'ffp', $this->ffp])
             ->andFilterWhere(['like', 'fn', $this->fn])
             ->andFilterWhere(['like', 'ofn', $this->ofn]);
 

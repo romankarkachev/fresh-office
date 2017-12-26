@@ -23,6 +23,7 @@ use yii\db\ActiveRecord;
  * @property string $dl_issued_at
  * @property string $driver_license_index
  * @property string $phone
+ * @property string $phone2
  * @property string $pass_serie
  * @property string $pass_num
  * @property string $pass_issued_at
@@ -41,16 +42,14 @@ use yii\db\ActiveRecord;
 class Drivers extends \yii\db\ActiveRecord
 {
     /**
-     * Количество инструктажей водителя.
      * Вычисляемое виртуальное поле.
-     * @var integer
+     * @var integer количество инструктажей водителя
      */
     public $instrCount;
 
     /**
-     * Инструктажи водителя.
      * Вычисляемое виртуальное поле.
-     * @var integer
+     * @var integer инструктажи водителя в строку через запятую
      */
     public $instrDetails;
 
@@ -73,7 +72,7 @@ class Drivers extends \yii\db\ActiveRecord
             [['dl_issued_at', 'pass_issued_at'], 'safe'],
             [['surname', 'name', 'patronymic'], 'string', 'max' => 50],
             [['driver_license', 'driver_license_index'], 'string', 'max' => 30],
-            [['phone'], 'string', 'min' => 15],
+            [['phone', 'phone2'], 'string', 'min' => 15],
             [['pass_serie', 'pass_num'], 'string', 'max' => 10],
             [['pass_issued_by'], 'string', 'max' => 150],
             [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
@@ -104,6 +103,7 @@ class Drivers extends \yii\db\ActiveRecord
             'driver_license' => 'Водительское удостоверение',
             'dl_issued_at' => 'ВУ выдано', // Дата выдачи водительского удостоверения
             'phone' => 'Телефон',
+            'phone2' => 'Другой телефон',
             'pass_serie' => 'Серия',
             'pass_num' => 'Номер',
             'pass_issued_at' => 'Дата выдачи',
@@ -112,7 +112,7 @@ class Drivers extends \yii\db\ActiveRecord
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
             'stateName' => 'Статус',
-            'instrCount' => 'Инструктажи',
+            'instrCount' => 'Инструктажей',
             'instrDetails' => 'Инструктажи',
         ];
     }
@@ -172,7 +172,7 @@ class Drivers extends \yii\db\ActiveRecord
     public function beforeDelete()
     {
         if (parent::beforeDelete()) {
-            // Удаление связанных объектов перед удалением документа
+            // Удаление связанных объектов перед удалением объекта
 
             // удаляем возможные файлы
             // deleteAll не вызывает beforeDelete, поэтому делаем перебор

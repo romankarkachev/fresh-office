@@ -29,9 +29,14 @@ class ProjectsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['index', 'update', 'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman', 'direct-sql-counteragents-list'],
+                        'actions' => ['direct-sql-counteragents-list'],
                         'allow' => true,
-                        'roles' => ['root', 'logist', 'sales_department_manager'],
+                        'roles' => ['@'],
+                    ],
+                    [
+                        'actions' => ['index', 'update', 'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman'],
+                        'allow' => true,
+                        'roles' => ['root', 'logist', 'sales_department_manager', 'head_assist'],
                     ],
                 ],
             ],

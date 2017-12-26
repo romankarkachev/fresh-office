@@ -81,6 +81,12 @@ use common\models\Ferrymen;
 
         </div>
         <div class="col-md-2">
+            <?= $form->field($model, 'phone2', ['template' => '{label}<div class="input-group"><span class="input-group-addon">+7</span>{input}</div>{error}'])->widget(\yii\widgets\MaskedInput::className(), [
+                'mask' => '(999) 999-99-99',
+            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите номер телефона']) ?>
+
+        </div>
+        <div class="col-md-2">
             <label for="<?= strtolower($model->formName()) ?>-has_smartphone" class="control-label"><?= $model->getAttributeLabel('has_smartphone') ?></label>
             <?= $form->field($model, 'has_smartphone')->checkbox()->label(false) ?>
 

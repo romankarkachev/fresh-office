@@ -32,125 +32,44 @@ $formNameId = strtolower($model->formName());
             ?>
         </div>
         <div class="col-md-7">
-            <div class="panel panel-success">
-                <div class="panel-heading">Проект</div>
-                <div class="panel-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <?= $form->field($model, 'fo_project_id')->widget(Select2::className(), [
-                                'theme' => Select2::THEME_BOOTSTRAP,
-                                'language' => 'ru',
-                                'options' => ['placeholder' => 'Введите ID проекта'],
-                                'pluginOptions' => [
-                                    'minimumInputLength' => 1,
-                                    'language' => 'ru',
-                                    'ajax' => [
-                                        'url' => Url::to(['documents/direct-sql-get-project-data']),
-                                        'delay' => 500,
-                                        'dataType' => 'json',
-                                        'data' => new JsExpression('function(params) { return {project_id:params.term}; }')
-                                    ],
-                                    'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
-                                    'templateResult' => new JsExpression('function(result) { return result.text; }'),
-                                    'templateSelection' => new JsExpression('function (result) {
-if (!result.customer_id) {return result.text;}
-
-// подставим идентификатор контрагента в соответствующее поле
-$("#' . $formNameId . '-fo_id_company").select2("trigger", "select", { 
-    data: { id: result.customer_id, text: result.company_name } 
-});
-if (result.state_name != "") $("#' . $formNameId . '-statename").val(result.state_name);
-if (result.type_name != "") $("#' . $formNameId . '-typename").val(result.type_name);
-
-return result.text;
-}'),
-                                ],
-                            ]) ?>
-
-                        </div>
-                        <div class="col-md-6">
-                            <?= $form->field($model, 'fo_id_company')->widget(Select2::className(), [
-                                'initValueText' => $model->customer_name,
-                                'theme' => Select2::THEME_BOOTSTRAP,
-                                'language' => 'ru',
-                                'options' => ['placeholder' => 'Введите наименование'],
-                                'pluginOptions' => [
-                                    'minimumInputLength' => 1,
-                                    'language' => 'ru',
-                                    'ajax' => [
-                                        'url' => Url::to(['projects/direct-sql-counteragents-list']),
-                                        'delay' => 500,
-                                        'dataType' => 'json',
-                                        'data' => new JsExpression('function(params) { return {q:params.term}; }')
-                                    ],
-                                    'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
-                                    'templateResult' => new JsExpression('function(result) { return result.text; }'),
-                                    'templateSelection' => new JsExpression('function (result) {
+            <div class="row">
+                <div class="col-md-6">
+                    <?= $form->field($model, 'fo_id_company')->widget(Select2::className(), [
+                        'initValueText' => $model->customer_name,
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'language' => 'ru',
+                        'options' => ['placeholder' => 'Введите наименование'],
+                        'pluginOptions' => [
+                            'minimumInputLength' => 1,
+                            'language' => 'ru',
+                            'ajax' => [
+                                'url' => Url::to(['projects/direct-sql-counteragents-list']),
+                                'delay' => 500,
+                                'dataType' => 'json',
+                                'data' => new JsExpression('function(params) { return {q:params.term}; }')
+                            ],
+                            'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
+                            'templateResult' => new JsExpression('function(result) { return result.text; }'),
+                            'templateSelection' => new JsExpression('function (result) {
 if (!result.custom) return result.text;
 $("#transportrequests-customer_name").val(result.text);
 return result.text;
 }'),
-                                ],
-                            ]) ?>
+                        ],
+                    ]) ?>
 
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6">
-                            <?= $form->field($model, 'stateName')->textInput(['disabled' => true]) ?>
+                </div>
+                <div class="col-md-6">
+                    <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
+                        'data' => User::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                    ]) ?>
 
-                        </div>
-                        <div class="col-md-6">
-                            <?= $form->field($model, 'typeName')->textInput(['disabled' => true]) ?>
-
-                        </div>
-                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-md-2">
-            <?= $form->field($model, 'pd_id')->widget(Select2::className(), [
-                'data' => PostDeliveryKinds::arrayMapForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-            ]) ?>
-
-        </div>
-        <div class="col-md-3">
-            <?= $form->field($model, 'track_num', ['template' => $inputGroupTemplate])
-                ->textInput([
-                    'maxlength' => true,
-                    //'disabled' => $model->track_num != null,
-                    'placeholder' => 'Введите идентификатор отправления',
-                    'title' => 'Введите идентификатор отправления',
-                ]) ?>
-
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
-                'data' => ProjectsStates::arrayMapForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-            ]) ?>
-
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
-                'data' => User::arrayMapForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-            ]) ?>
-
-        </div>
-    </div>
-    <div class="row">
-        <div class="col-md-6">
             <?= $form->field($model, 'other')->textarea(['rows' => 3, 'placeholder' => 'Введите наименования других документов из этого пакета']) ?>
 
-        </div>
-        <div class="col-md-6">
             <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите примечание']) ?>
 
         </div>
@@ -159,7 +78,7 @@ return result.text;
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Пакеты корреспонденции', ['/correspondence-packages'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
         <?php if ($model->isNewRecord): ?>
-        <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
+        <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать черновик', ['class' => 'btn btn-success btn-lg']) ?>
         <?php else: ?>
         <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
         <?php endif; ?>

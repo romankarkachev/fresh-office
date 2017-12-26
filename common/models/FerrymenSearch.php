@@ -46,14 +46,31 @@ class FerrymenSearch extends Ferrymen
             '*',
             'id' => 'ferrymen.id',
             'name' => 'ferrymen.name',
-            'driversCount' => 'drivers.count',
-            'transportCount' => 'transport.count',
+            'driversCount' => 'ferrymanDrivers.count',
+            'driversDetails' => 'ferrymanDrivers.details',
+            'transportCount' => 'ferrymanTransport.count',
+            'transportDetails' => 'ferrymanTransport.details',
         ]);
 
         // LEFT JOIN выполняется быстрее, чем подзапрос в SELECT-секции
-        // присоединяем количество водителей и транспортных средств
-        $query->leftJoin('(SELECT drivers.ferryman_id, COUNT(drivers.id) AS count FROM drivers GROUP BY drivers.ferryman_id) AS drivers', '`ferrymen`.`id` = `drivers`.`ferryman_id`');
-        $query->leftJoin('(SELECT transport.ferryman_id, COUNT(transport.id) AS count FROM transport GROUP BY transport.ferryman_id) AS transport', '`ferrymen`.`id` = `transport`.`ferryman_id`');
+        // присоединяем количество и состав водителей
+        $query->leftJoin('(
+            SELECT
+                drivers.ferryman_id,
+                COUNT(drivers.id) AS count,
+                GROUP_CONCAT(CONCAT(drivers.surname, " ", drivers.name, " ", drivers.patronymic) SEPARATOR ", ") AS details
+            FROM drivers
+            GROUP BY drivers.ferryman_id
+        ) AS ferrymanDrivers', '`ferrymen`.`id` = `ferrymanDrivers`.`ferryman_id`');
+
+        $query->leftJoin('(
+            SELECT
+                transport.ferryman_id,
+                COUNT(transport.id) AS count,
+                GROUP_CONCAT(CONCAT(transport.vin, " ", transport.rn, " ", transport.trailer_rn) SEPARATOR ", ") AS details
+            FROM transport
+            GROUP BY transport.ferryman_id
+        ) AS ferrymanTransport', '`ferrymen`.`id` = `ferrymanTransport`.`ferryman_id`');
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,

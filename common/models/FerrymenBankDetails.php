@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "ferrymen_bank_details".
@@ -25,6 +26,12 @@ use Yii;
  */
 class FerrymenBankDetails extends \yii\db\ActiveRecord
 {
+    /**
+     * Виртуальное вычисляемое поле.
+     * @var string представление счета в виде: [номер счета] в [банк].
+     */
+    public $accountRep;
+
     /**
      * @inheritdoc
      */
@@ -75,6 +82,23 @@ class FerrymenBankDetails extends \yii\db\ActiveRecord
             'contract_date' => 'Дата договора',
             'comment' => 'Примечания',
         ];
+    }
+
+    /**
+     * Делает выборку способов расчетов с перевозчиками и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @param $ferryman_id integer идентификатор перевозчика
+     * @return array
+     */
+    public static function arrayMapForSelect2($ferryman_id)
+    {
+        if (!isset($ferryman_id)) return [];
+
+        $query = FerrymenBankDetails::find();
+        $query->select(['id', 'accountRep' => 'CONCAT(bank_an, " в ", bank_name)']);
+        $query->where(['ferryman_id' => $ferryman_id]);
+
+        return ArrayHelper::map($query->all(), 'id', 'accountRep');
     }
 
     /**

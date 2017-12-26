@@ -31,6 +31,26 @@ use dektrium\user\models\Profile;
 class FileStorage extends \yii\db\ActiveRecord
 {
     /**
+     * путь к корневой папке хранилища
+     */
+    const ROOT_FOLDER = '/mnt/crmshare';
+
+    /**
+     * @var string наименование папки для поиска вручную, если система не смогла подобрать ее самостоятельно
+     */
+    public $folder_seek;
+
+    /**
+     * @var bool признак необходимости создания папки
+     */
+    public $needToCreateFolder;
+
+    /**
+     * @var string наименование папки контрагента
+     */
+    public $caFolderName;
+
+    /**
      * @var UploadedFile
      */
     public $file;
@@ -52,8 +72,9 @@ class FileStorage extends \yii\db\ActiveRecord
             [['ffp', 'fn', 'ofn', 'file'], 'required'],
             [['ca_id', 'type_id', 'file'], 'required', 'on' => 'create'],
             [['ca_id', 'type_id'], 'required', 'on' => 'update'],
-            [['uploaded_at', 'uploaded_by', 'ca_id', 'type_id', 'size'], 'integer'],
+            [['uploaded_at', 'uploaded_by', 'ca_id', 'type_id', 'size', 'needToCreateFolder'], 'integer'],
             [['ca_name', 'ffp', 'fn', 'ofn'], 'string', 'max' => 255],
+            ['caFolderName', 'safe'],
             [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => UploadingFilesMeanings::className(), 'targetAttribute' => ['type_id' => 'id']],
             [['uploaded_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['uploaded_by' => 'id']],
             [['file'], 'file', 'skipOnEmpty' => true],
@@ -80,6 +101,7 @@ class FileStorage extends \yii\db\ActiveRecord
             // вычисляемые поля
             'uploadedByProfileName' => 'Загрузил',
             'typeName' => 'Тип',
+            'caFolderName' => 'Папка контрагента',
         ];
     }
 
@@ -123,9 +145,11 @@ class FileStorage extends \yii\db\ActiveRecord
      * Если папка не существует, она будет создана. Если создание провалится, будет возвращено false.
      * @return bool|string
      */
-    public static function getUploadsFilepath()
+    public function getUploadsFilepath()
     {
-        $filepath = Yii::getAlias('@uploads-storage-fs');
+        if ($this->caFolderName == '' || $this->caFolderName == null) return false;
+
+        $filepath = FileStorage::ROOT_FOLDER . '/' . $this->caFolderName;
         if (!is_dir($filepath)) {
             if (!FileHelper::createDirectory($filepath, 0775, true)) return false;
         }

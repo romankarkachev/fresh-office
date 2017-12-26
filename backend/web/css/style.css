@@ -152,3 +152,8 @@ a.link-ajax:hover {
 .mr-5 {
     margin-right: 8px;
 }
+
+#frmFerrymanSearchEntire .tt-menu {
+    max-height: 650px;
+    overflow-y: auto;
+}

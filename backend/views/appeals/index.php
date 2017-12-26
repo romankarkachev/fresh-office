@@ -52,6 +52,10 @@ $this->params['breadcrumbs'][] = 'Обращения';
                 'contentOptions' => ['class' => 'text-center'],
                 'options' => ['width' => '130'],
             ],
+            [
+                'attribute' => 'createdByProfileName',
+                'visible' => Yii::$app->user->can('root'),
+            ],
             'fo_company_name',
             [
                 'attribute' => 'appealSourceName',

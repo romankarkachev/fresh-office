@@ -29,6 +29,7 @@ use yii\helpers\ArrayHelper;
  * @property string $email_dir
  * @property string $contact_person_dir
  * @property string $post_dir
+ * @property string $ati_code
  *
  * @property User $createdBy
  * @property User $updatedBy
@@ -42,18 +43,28 @@ use yii\helpers\ArrayHelper;
 class Ferrymen extends \yii\db\ActiveRecord
 {
     /**
-     * Количество водителей у перевозчика.
      * Вычисляемое виртуальное поле.
-     * @var integer
+     * @var integer количество водителей у перевозчика
      */
     public $driversCount;
 
     /**
-     * Количество транспортных средств у перевозчика.
      * Вычисляемое виртуальное поле.
-     * @var integer
+     * @var integer перечень водителей перевозчика в строку через запятую
+     */
+    public $driversDetails;
+
+    /**
+     * Вычисляемое виртуальное поле.
+     * @var integer количество транспортных средств у перевозчика
      */
     public $transportCount;
+
+    /**
+     * Вычисляемое виртуальное поле.
+     * @var integer перечень транспортных средств перевозчика в строку через запятую
+     */
+    public $transportDetails;
 
     /**
      * Статусы перевозчиков, водителей, транспорта
@@ -87,6 +98,7 @@ class Ferrymen extends \yii\db\ActiveRecord
             [['name', 'email', 'email_dir'], 'string', 'max' => 255],
             [['phone', 'contact_person', 'phone_dir', 'contact_person_dir'], 'string', 'max' => 50],
             [['post', 'post_dir'], 'string', 'max' => 100],
+            [['ati_code'], 'string', 'max' => 9],
             [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['opfh_id'], 'exist', 'skipOnError' => true, 'targetClass' => Opfh::className(), 'targetAttribute' => ['opfh_id' => 'id']],
@@ -121,6 +133,7 @@ class Ferrymen extends \yii\db\ActiveRecord
             'email_dir' => 'E-mail',
             'contact_person_dir' => 'Имя',
             'post_dir' => 'Должность',
+            'ati_code' => 'Код АТИ',
             // для вычисляемых полей
             'ftName' => 'Тип',
             'pcName' => 'Условия оплаты',
@@ -353,6 +366,7 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return $this->hasOne(User::className(), ['id' => 'updated_by']);
     }
+
     /**
      * @return \yii\db\ActiveQuery
      */

@@ -121,8 +121,6 @@ return result.text;
             <?= $form->field($model, 'tpWasteErrors', ['template' => "{error}"])->staticControl() ?>
 
             <div id="block-tpWaste">
-                <p class="lead text-danger"><strong>Внимание!</strong></p>
-                <p>Когда набираете вид упаковки и система отображает подходящий вид в списке, то вы обязаны его выбрать (щелкнуть мышью на него). Если нет подходящего (или система ничего не предлагает), тогда нормально, можете не щелкать. Каждый раз, когда Вам предлагается выбрать например, &laquo;Контейнер&raquo;, а Вы его не выбираете, она создает новый вид, у нас их уже десятки одинаковых. Это недопустимо.</p>
                 <?php
                 if (count($waste) == 0) echo $add_row_prompt;
 
@@ -217,6 +215,7 @@ return result.text;
 
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Запросы на транспорт', ['/transport-requests'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
+
         <?= Html::a('Предыдущие запросы', '#', ['class' => 'btn btn-default btn-lg', 'id' => 'btnShowSimilar', 'title' => 'Показать в модальном окне список подобных запросов (закрытые по этому же контрагенту)']) ?>
 
         <?php if ($model->isNewRecord): ?>

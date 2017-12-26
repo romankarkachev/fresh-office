@@ -2,10 +2,12 @@
 
 namespace backend\controllers;
 
-use common\models\CounteragentsPostAddresses;
 use Yii;
 use common\models\CorrespondencePackages;
 use common\models\CorrespondencePackagesSearch;
+use common\models\CorrespondencePackagesFiles;
+use common\models\CorrespondencePackagesFilesSearch;
+use common\models\CounteragentsPostAddresses;
 use common\models\PostDeliveryKinds;
 use common\models\ProjectsStates;
 use common\models\ComposePackageForm;
@@ -13,6 +15,7 @@ use common\models\PadKinds;
 use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
+use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 
@@ -31,14 +34,23 @@ class CorrespondencePackagesController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
+                        'actions' => ['download-file'],
+                        'allow' => true,
+                        'roles' => ['?', '@'],
+                    ],
+                    [
                         'actions' => ['delete'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
                     [
-                        'actions' => ['index', 'create', 'update', 'compose-package-form', 'compose-package', 'create-address-form'],
+                        'actions' => [
+                            'index', 'create', 'update',
+                            'compose-package-form', 'compose-package', 'create-address-form',
+                            'upload-files', 'preview-file', 'delete-file',
+                        ],
                         'allow' => true,
-                        'roles' => ['root', 'operator'],
+                        'roles' => ['root', 'operator_head'],
                     ],
                 ],
             ],
@@ -107,8 +119,17 @@ class CorrespondencePackagesController extends Controller
             if ($model->save()) return $this->redirect(['/correspondence-packages']);
         }
 
+        // файлы к объекту
+        $searchModel = new CorrespondencePackagesFilesSearch();
+        $dpFiles = $searchModel->search([$searchModel->formName() => ['cp_id' => $model->id]]);
+        $dpFiles->setSort([
+            'defaultOrder' => ['uploaded_at' => SORT_DESC],
+        ]);
+        $dpFiles->pagination = false;
+
         return $this->render('update', [
             'model' => $model,
+            'dpFiles' => $dpFiles,
         ]);
     }
 
@@ -217,5 +238,95 @@ class CorrespondencePackagesController extends Controller
                 'model' => $model,
             ]);
         }
+    }
+
+    /**
+     * Загрузка файлов, перемещение их из временной папки, запись в базу данных.
+     * @return mixed
+     */
+    public function actionUploadFiles()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $obj_id = Yii::$app->request->post('obj_id');
+        $upload_path = CorrespondencePackagesFiles::getUploadsFilepath();
+        if ($upload_path === false) return 'Невозможно создать папку для хранения загруженных файлов!';
+
+        // массив загружаемых файлов
+        $files = $_FILES['files'];
+        // массив имен загружаемых файлов
+        $filenames = $files['name'];
+        if (count($filenames) > 0)
+            for ($i=0; $i < count($filenames); $i++) {
+                // идиотское действие, но без него
+                // PHP Strict Warning: Only variables should be passed by reference
+                $tmp = explode('.', basename($filenames[$i]));
+                $ext = end($tmp);
+                $filename = mb_strtolower(Yii::$app->security->generateRandomString() . '.'.$ext, 'utf-8');
+                $filepath = $upload_path . '/' . $filename;
+                if (move_uploaded_file($files['tmp_name'][$i], $filepath)) {
+                    $fu = new CorrespondencePackagesFiles();
+                    $fu->cp_id = $obj_id;
+                    $fu->ffp = $filepath;
+                    $fu->fn = $filename;
+                    $fu->ofn = $filenames[$i];
+                    $fu->size = filesize($filepath);
+                    if ($fu->validate()) $fu->save(); else return 'Загруженные данные неверны.';
+                };
+            };
+
+        return [];
+    }
+
+    /**
+     * Отдает на скачивание файл, на который позиционируется по идентификатору из параметров.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
+    public function actionDownloadFile($id)
+    {
+        if (is_numeric($id)) if ($id > 0) {
+            $model = CorrespondencePackagesFiles::findOne($id);
+            if (file_exists($model->ffp))
+                return Yii::$app->response->sendFile($model->ffp, $model->ofn);
+            else
+                throw new NotFoundHttpException('Файл не обнаружен.');
+        };
+    }
+
+    /**
+     * Выполняет предварительный показ изображения.
+     */
+    public function actionPreviewFile($id)
+    {
+        $model = CorrespondencePackagesFiles::findOne($id);
+        if ($model != null) {
+            if ($model->isImage())
+                return \yii\helpers\Html::img(Yii::getAlias('@uploads-correspondence-packages') . '/' . $model->fn, ['width' => '100%']);
+            else
+                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/correspondence-packages/download-file', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
+        }
+
+        return false;
+    }
+
+    /**
+     * Удаляет файл, привязанный к объекту.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
+    public function actionDeleteFile($id)
+    {
+        $model = CorrespondencePackagesFiles::findOne($id);
+        if ($model != null) {
+            $record_id = $model->cp_id;
+            $model->delete();
+
+            return $this->redirect(['/correspondence-packages/update', 'id' => $record_id]);
+        }
+        else
+            throw new NotFoundHttpException('Файл не обнаружен.');
     }
 }

@@ -40,7 +40,8 @@ NavBar::begin([
 $items = [];
 if (Yii::$app->user->can('root'))
     $items = [
-        ['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
+        // вернуть когда-нибудь может быть:
+        //['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
         ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i>', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
         [
             'label' => 'Справочники',
@@ -72,6 +73,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => 'Перевозчики', 'url' => ['/ferrymen']],
                 ['label' => 'Водители', 'url' => ['/ferrymen-drivers']],
                 ['label' => 'Транспорт', 'url' => ['/ferrymen-transport']],
+                ['label' => '<i class="fa fa-money" aria-hidden="true"></i> Платежные ордеры', 'url' => ['/payment-orders']],
                 //'<li class="dropdown-header">Отчеты</li>',
                 '<li class="dropdown-header">Дополнительно</li>',
                 ['label' => 'Марки автомобилей', 'url' => ['/transport-brands']],
@@ -83,6 +85,16 @@ if (Yii::$app->user->can('root'))
                 //['label' => 'Виды периодичности', 'url' => ['/periodicity-kinds']],
                 ['label' => 'Единицы измерения', 'url' => ['/units']],
                 //['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+            ],
+        ],
+        [
+            'label' => '<i class="fa fa-file-pdf-o"></i>',
+            'title' => 'Хранилище',
+            'url' => '#',
+            'items' => [
+                '<li class="dropdown-header">Файловое хранилище</li>',
+                ['label' => 'Файлы', 'url' => ['/storage']],
+                ['label' => 'Парсинг', 'url' => ['/storage/scan-directory']],
             ],
         ],
         [
@@ -122,6 +134,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оплаты транспорта', 'url' => ['/reports/no-transport-has-projects']],
                 '<li class="dropdown-header">Обработки</li>',
                 ['label' => '<i class="fa fa-cogs"></i> Оплата рейсов', 'url' => ['/process/freights-payments']],
+                ['label' => '<i class="fa fa-cogs"></i> Замена видов упаковки', 'url' => ['/transport-requests/packing-type-mass-replace']],
             ],
         ],
         [
@@ -137,8 +150,10 @@ elseif (Yii::$app->user->can('role_documents'))
     $items = [
         ['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
     ];
-elseif (Yii::$app->user->can('accountant_freights'))
+elseif (Yii::$app->user->can('accountant'))
     $items = [
+        ['label' => 'Перевозчики', 'url' => ['/ferrymen']],
+        ['label' => '<i class="fa fa-money" aria-hidden="true"></i> Платежные ордеры', 'url' => ['/payment-orders']],
         [
             'label' => 'Обработки',
             'url' => '#',
@@ -153,6 +168,7 @@ elseif (Yii::$app->user->can('sales_department_head'))
         ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
         ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
+        ['label' => '<i class="fa fa-file-pdf-o"></i> Файловое хранилище', 'url' => ['/storage']],
         [
             'label' => 'Отчеты',
             'url' => '#',
@@ -169,6 +185,23 @@ elseif (Yii::$app->user->can('sales_department_manager'))
     $items = [
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
         ['label' => 'Запрос лицензии', 'url' => ['/licenses-requests/create']],
+        ['label' => '<i class="fa fa-file-pdf-o"></i> Файловое хранилище', 'url' => ['/storage']],
+    ];
+elseif (Yii::$app->user->can('operator_head'))
+    $items = [
+        ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create']],
+        ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
+        ['label' => 'Пакеты документов', 'url' => ['/correspondence-packages']],
+        [
+            'label' => '<i class="fa fa-file-pdf-o"></i>',
+            'title' => 'Хранилище',
+            'url' => '#',
+            'items' => [
+                '<li class="dropdown-header">Файловое хранилище</li>',
+                ['label' => 'Файлы', 'url' => ['/storage']],
+                ['label' => 'Парсинг', 'url' => ['/storage/scan-directory']],
+            ],
+        ],
     ];
 elseif (Yii::$app->user->can('operator'))
     $items = [
@@ -180,6 +213,7 @@ elseif (Yii::$app->user->can('logist'))
     $items = [
         ['label' => '<i class="fa fa-briefcase"></i> Проекты', 'url' => ['/projects'], 'linkOptions' => ['title' => 'Проекты']],
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+        ['label' => '<i class="fa fa-money" aria-hidden="true"></i> Платежные ордеры', 'url' => ['/payment-orders']],
         [
             'label' => 'Справочники',
             'url' => '#',

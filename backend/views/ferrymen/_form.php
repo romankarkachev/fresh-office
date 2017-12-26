@@ -13,6 +13,8 @@ use common\models\Opfh;
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $dpDrivers common\models\Drivers[] */
 /* @var $dpTransport common\models\Transport[] */
+
+$labelAtiCode = $model->attributeLabels()['ati_code'];
 ?>
 
 <div class="ferrymen-form">
@@ -70,6 +72,13 @@ use common\models\Opfh;
             ]) ?>
 
         </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'ati_code')->widget(\yii\widgets\MaskedInput::className(), [
+                'mask' => '999999999',
+                'clientOptions' => ['placeholder' => ''],
+            ])->textInput(['placeholder' => 'Введите код АТИ'])->label(null, ['id' => 'label-ati_code']) ?>
+
+        </div>
     </div>
     <div class="row">
         <div class="col-md-12"><p class="lead">Диспетчер</p></div>
@@ -124,6 +133,8 @@ use common\models\Opfh;
 
 </div>
 <?php
+$urlCheckAtiCode = \yii\helpers\Url::to(['/ferrymen/validate-ati-code']);
+
 $opfhPhys = Opfh::OPFH_ФИЗЛИЦО;
 $opfhIp = Opfh::OPFH_ИП;
 $opfhOOO = Opfh::OPFH_ООО;
@@ -143,7 +154,29 @@ function ferrymenNameOnChange() {
     }
 } // ferrymenNameOnChange()
 
+// Обработчик изменения значения в поле "Код АТИ".
+//
+function atiCodeOnChange() {
+    ati_code = $("#ferrymen-ati_code").val();
+    if (ati_code != undefined && ati_code != "") {
+        \$label = $("#label-ati_code");
+        \$label.html("$labelAtiCode &nbsp;<i class=\"fa fa-spinner fa-pulse fa-fw text-primary\"></i>");
+        $.get("$urlCheckAtiCode?ati_code=" + ati_code, function(response) {
+            label = "$labelAtiCode";
+            if (response == true)
+                label = "$labelAtiCode &nbsp;<i class=\"fa fa-check-circle-o text-success\"></i>";
+            else {
+                label = "$labelAtiCode &nbsp;<i class=\"fa fa-times text-danger\"></i>";
+                \$label.next().next().text(response.error_description);
+            }
+
+            \$label.html(label);
+        });        
+    }
+} // atiCodeOnChange()
+
 $(document).on("change", "#ferrymen-name", ferrymenNameOnChange);
+$(document).on("change", "#ferrymen-ati_code", atiCodeOnChange);
 JS
 , \yii\web\View::POS_READY);
 ?>

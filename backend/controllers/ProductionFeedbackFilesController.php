@@ -33,7 +33,7 @@ class ProductionFeedbackFilesController extends Controller
                     [
                         'actions' => ['index', 'download-file'],
                         'allow' => true,
-                        'roles' => ['root', 'prod_feedback'],
+                        'roles' => ['root', 'prod_feedback', 'head_assist'],
                     ],
                 ],
             ],

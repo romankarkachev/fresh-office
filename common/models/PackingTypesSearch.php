@@ -42,11 +42,14 @@ class PackingTypesSearch extends PackingTypes
     public function search($params)
     {
         $query = PackingTypes::find();
-
-        // add conditions that should always apply here
-
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => [
+                'route' => 'packing-types',
+            ],
+            'sort' => [
+                'route' => 'packing-types',
+            ],
         ]);
 
         $this->load($params);

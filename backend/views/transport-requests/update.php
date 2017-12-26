@@ -34,7 +34,7 @@ $favorite = '/images/favorite24.png';
                 <?php if (Yii::$app->user->can('logist') || Yii::$app->user->can('root')): ?>
                 <li role="presentation"><a href="#privatemessages" aria-controls="privatemessages" role="tab" data-toggle="tab" data-id="<?= $model->id ?>"><i class="fa fa-user-secret" aria-hidden="true"></i> Приватные диалоги<?= $model->privateMessagesUnread == 0 ? '' : ' <strong id="privatemessages-count">' . $model->privateMessagesUnread . '</strong>' ?></a></li>
                 <?php endif; ?>
-                <li role="presentation"><a href="#files" aria-controls="files" role="tab" data-toggle="tab">Файлы</a></li>
+                <li role="presentation"><a href="#files" aria-controls="files" role="tab" data-toggle="tab">Файлы <?= $dpFiles->totalCount > 0 ? ' <span class="label label-warning">' . $dpFiles->totalCount . '</span>' : '' ?></a></li>
                 <li role="presentation"><a href="#help" aria-controls="help" role="tab" data-toggle="tab"><i class="fa fa-info-circle" aria-hidden="true"></i> Подсказка</a></li>
                 <li class="pull-right"><?= Html::a(Html::img($model->is_favorite == true ? $favorite : $favoriteGs), '#', ['id' => 'btnFavorite', 'data-id' => $model->id]) ?></li>
             </ul>

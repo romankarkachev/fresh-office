@@ -58,11 +58,18 @@ class PackingTypes extends \yii\db\ActiveRecord
     /**
      * Делает выборку видов упаковки и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
+     * @param $attachIdToName bool признак необходимости присоединения идентификатора к наименованию
      * @return array
      */
-    public static function arrayMapForSelect2()
+    public static function arrayMapForSelect2($attachIdToName=null)
     {
-        return ArrayHelper::map(self::find()->all(), 'id', 'name');
+        $result = self::find()->orderBy('name,id')->all();
+        if (isset($attachIdToName) && $attachIdToName === true)
+            return ArrayHelper::map($result, 'id', function($item) {
+                return $item['name'] . ' (ID ' . $item['id'] . ')';
+            });
+        else
+            return ArrayHelper::map($result, 'id', 'name');
     }
 
     /**

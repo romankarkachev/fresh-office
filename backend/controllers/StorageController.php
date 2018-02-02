@@ -9,9 +9,9 @@ use common\models\FileStorageFolders;
 use common\models\UploadingFilesMeanings;
 use common\models\DirectMSSQLQueries;
 use common\models\FileStorageFilesEnumerator;
+use common\models\FileStorageStats;
 use yii\bootstrap\ActiveForm;
 use yii\data\ArrayDataProvider;
-use yii\db\Query;
 use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -45,7 +45,7 @@ class StorageController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['download'],
+                        'actions' => ['download-from-outside'],
                         'allow' => true,
                         'roles' => ['?', '@'],
                     ],
@@ -59,12 +59,12 @@ class StorageController extends Controller
                     [
                         'actions' => ['index'],
                         'allow' => true,
-                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'sales_department_head'],
+                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'sales_department_head', 'dpc_head'],
                     ],
                     [
-                        'actions' => ['create', 'preview'],
+                        'actions' => ['create', 'preview', 'download'],
                         'allow' => true,
-                        'roles' => ['root', 'operator_head', 'sales_department_manager'],
+                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'dpc_head'],
                     ],
                     [
                         'actions' => ['update', 'delete'],
@@ -338,6 +338,7 @@ class StorageController extends Controller
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
         $foreignRecord = false;
+        /*
         if (!Yii::$app->user->can('root')) {
             // если пользователь не обладает полными правами, то он может просматривать только своих контрагентов
             // проверим также, установлено ли у текущего пользователя соответствие пользователю во Fresh Office
@@ -346,6 +347,7 @@ class StorageController extends Controller
                 if (count($ca) == 1 && $ca[0]['managerId'] != Yii::$app->user->identity->profile->fo_id) $foreignRecord = true;
             }
         }
+        */
 
         return $this->render('index', [
             'searchModel' => $searchModel,
@@ -393,8 +395,7 @@ class StorageController extends Controller
                     if ($file->saveAs($ffp)) {
                         $model->size = filesize($ffp);
                         $model->file = true; // помечаем, что файл предоставлен, чтобы успешно пройти валидацию
-                        if ($model->save())
-                            return $this->redirect(['/storage']);
+                        if ($model->save()) return $this->redirect(['/storage', 'FileStorageSearch' => ['ca_id' => $model->ca_id]]);
                         else
                             // удалим загруженный файл
                             if (file_exists($ffp)) unlink($ffp);
@@ -441,6 +442,30 @@ class StorageController extends Controller
     {
         $model = $this->findModel($id);
 
+        // зафиксируем этот просмотр пользователем
+        // если с момента последнего просмотра прошло определенное отведенное время
+        $doStore = true;
+        if (FileStorageStats::FREE_TIME_TO_PREVIEW_FILE > 0) {
+            $stat = FileStorageStats::find()
+                ->where('created_at > ' . (time() - FileStorageStats::FREE_TIME_TO_PREVIEW_FILE))
+                ->andWhere([
+                    'created_by' => Yii::$app->user->id,
+                    'type' => FileStorageStats::STAT_TYPE_ПРОСМОТР,
+                    'fs_id' => $id,
+                ])
+                ->all();
+            if ($stat != null) $doStore = false;
+        }
+
+        if ($doStore) {
+            $stat = new FileStorageStats([
+                'created_by' => Yii::$app->user->id,
+                'type' => FileStorageStats::STAT_TYPE_ПРОСМОТР,
+                'fs_id' => $id,
+            ]);
+            $stat->save();
+        }
+
         return $this->render('preview', [
             'model' => $model,
         ]);
@@ -486,11 +511,52 @@ class StorageController extends Controller
         $id = intval($id);
         if ($id > 0) {
             $model = FileStorage::findOne($id);
-            if (file_exists($model->ffp))
+            if (file_exists($model->ffp)) {
+                // зафиксируем это скачивание пользователем
+                // если с момента последнего скачивания прошло определенное отведенное время
+                $doStore = true;
+                if (FileStorageStats::FREE_TIME_TO_DOWNLOAD_FILE > 0) {
+                    $stat = FileStorageStats::find()->where([
+                        'and',
+                        'created_at > ' . (time() - FileStorageStats::FREE_TIME_TO_DOWNLOAD_FILE),
+                        [
+                            'type' => FileStorageStats::STAT_TYPE_СКАЧИВАНИЕ,
+                            'fs_id' => $id,
+                        ],
+                    ])->all();
+
+                    if ($stat != null) $doStore = false;
+                }
+
+                if ($doStore) {
+                    $stat = new FileStorageStats([
+                        'created_by' => Yii::$app->user->id,
+                        'type' => FileStorageStats::STAT_TYPE_СКАЧИВАНИЕ,
+                        'fs_id' => $id,
+                    ]);
+                    $stat->save();
+                }
+
                 return Yii::$app->response->sendFile($model->ffp, $model->ofn);
+            }
             else
                 throw new NotFoundHttpException('Файл не обнаружен.');
         };
+    }
+
+    /**
+     * Отдает на скачивание файл, на который позиционируется по идентификатору из параметров.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
+    public function actionDownloadFromOutside($id)
+    {
+        $model = FileStorage::findOne(['id' => $id]);
+        if (file_exists($model->ffp))
+            return Yii::$app->response->sendFile($model->ffp, $model->ofn);
+        else
+            throw new NotFoundHttpException('Файл не обнаружен.');
     }
 
     /**

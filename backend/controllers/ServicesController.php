@@ -144,7 +144,7 @@ class ServicesController extends Controller
     }
 
     /**
-     * Кодовое название Zapier.
+     * Кодовое название Генриетта (устар. Zapier).
      * Модуль выполняет выборку вновь созданных проектов за период с определенной даты и по заданным типам проектов,
      * и выполняет рассылку тех, которые не были разосланы ранее.
      */
@@ -238,7 +238,6 @@ class ServicesController extends Controller
 
         // выборка проектов по условиям, которые указаны в описании к функции
         $projects = DirectMSSQLQueries::fetchProjectsForMailingPDF($projects_exclude);
-        //var_dump($projects);return;
 
         if (count($projects) > 0) {
             $for_properties = $this->filterProjectsByTypes($projects, [ProjectsTypes::PROJECT_TYPE_ВЫВОЗ, ProjectsTypes::PROJECT_TYPE_САМОПРИВОЗ]);
@@ -281,7 +280,7 @@ class ServicesController extends Controller
                                 }
 
                                 $letter->setTo($responsible_email)
-                                    ->setSubject('Подборка проектов с производственной площадки Ступино (' . $projects_sent[0]['type_name'] . ')');
+                                    ->setSubject('Подборка проектов с производственной площадки (' . $projects_sent[0]['type_name'] . ')');
 
                                 foreach ($files_to_delete as $file) $letter->attach($file);
 
@@ -347,7 +346,7 @@ class ServicesController extends Controller
                     }
 
                     $letter->setTo($responsible_email)
-                        ->setSubject('Подборка проектов с производственной площадки Ступино (' . $projects_sent[0]['type_name'] . ')');
+                        ->setSubject('Подборка проектов с производственной площадки (' . $projects_sent[0]['type_name'] . ')');
 
                     foreach ($files_to_delete as $file) $letter->attach($file);
 
@@ -781,46 +780,5 @@ class ServicesController extends Controller
         }
 
         return false;
-    }
-
-    /**
-     * УДАЛИТЬ! ФУНКЦИЯ ОДНОРАЗОВАЯ!
-     * Выполняет выборку пакетов корреспонденции с пустыми значениями в поле ID контрагента и заполняет их.
-     */
-    public function actionFillCas()
-    {
-        $packages = CorrespondencePackages::find()->where(['fo_id_company' => null])->all();
-        foreach ($packages as $package) {
-            /* @var $package CorrespondencePackages */
-
-            print '<p>Проект ' . $package->fo_project_id . '.</p>';
-
-            try {
-                $project = foProjects::findOne($package->fo_project_id);
-            }
-            catch (\Exception $exception) {
-                print '<p>Ошибка: ' . $exception . '</p>';
-                continue;
-            }
-
-            if ($project != null) {
-                $company_id = $project->ID_COMPANY;
-                $state = ' ОБНОВИТЬ НЕ УДАЛОС, СУДАРЬ.';
-                $package->fo_id_company = $company_id;
-                if ($package->save(false)) $state = ' успешно обновлен.';
-                print '<p>Контрагент: ' . $company_id . $state . '</p>';
-            }
-        }
-    }
-
-    public function actionTemp()
-    {
-        $tr = new TransportRequests();
-        /*
-        $tr->created_at = strtotime('2017-09-14 15:32:16');
-        $tr->computed_finished_at = $tr->computeFinishedAt();
-        */
-        $tr->created_at = 1506270285;
-        $tr->computed_finished_at = $tr->computeFinishedAt();
     }
 }

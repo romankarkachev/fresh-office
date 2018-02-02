@@ -127,6 +127,21 @@ class FileStorage extends \yii\db\ActiveRecord
     }
 
     /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        // сделаем запись в истории о загруженном файле
+        $stat = new FileStorageStats([
+            'created_by' => Yii::$app->user->id,
+            'type' => FileStorageStats::STAT_TYPE_ЗАГРУЗКА_НА_СЕРВЕР,
+            'fs_id' => $this->id,
+        ]);
+        $stat->save();
+    }
+
+    /**
      * Перед удалением информации о прикрепленном к сделке файле, удалим его физически с диска.
      * @return bool
      */

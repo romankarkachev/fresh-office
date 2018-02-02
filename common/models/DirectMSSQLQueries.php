@@ -20,6 +20,22 @@ class DirectMSSQLQueries extends Model
     const PROJECTS_TYPES_LOGIST_LIMIT = '3,4,5,6,7,8,10,14';
 
     /**
+     * Набор статусов проектов для отбора логистом
+     */
+    const PROJECT_STATES_FOR_LOGIST_FILTER = [
+        ProjectsStates::STATE_ОПЛАЧЕНО,
+        ProjectsStates::STATE_СОГЛАСОВАНИЕ_ВЫВОЗА,
+        ProjectsStates::STATE_ВЫВОЗ_ЗАВЕРШЕН,
+        ProjectsStates::STATE_ЗАВЕРШЕНО,
+        ProjectsStates::STATE_САМОПРИВОЗ_ОДОБРЕН,
+        ProjectsStates::STATE_ТРАНСПОРТ_ЗАКАЗАН,
+        ProjectsStates::STATE_ЕДЕТ_К_ЗАКАЗЧИКУ,
+        ProjectsStates::STATE_У_ЗАКАЗЧИКА,
+        ProjectsStates::STATE_ЕДЕТ_НА_СКЛАД,
+        ProjectsStates::STATE_НА_СКЛАДЕ,
+    ];
+
+    /**
      * Типы проектов для ответственных по типам проектов.
      * фото/видео, выездные работы, осмотр объекта
      */
@@ -38,7 +54,7 @@ class DirectMSSQLQueries extends Model
      * оплачено, у заказчика, на складе, едет на склад, едет к заказчику, вывоз завершен, вывоз согласован,
      * самопривоз одобрен, согласование вывоза, транспорт заказан
      */
-    const PROJECTS_STATES_LOGIST_LIMIT = '5,6,13,28,29,30,31,32,33,34';
+    const PROJECTS_STATES_LOGIST_LIMIT = '5,6,13,28,30,31,32,33,34';
 
     /**
      * Названия таблиц в MS SQL
@@ -76,7 +92,7 @@ ORDER BY NAME_PROJECT';
     public static function fetchProjectsStates($logistLimit = null)
     {
         $conditionIds = '';
-        if (isset($logistLimit)) $conditionIds = chr(13) . 'WHERE ID_PRIZNAK_PROJECT IN (' . self::PROJECTS_STATES_LOGIST_LIMIT . ')';
+        if (isset($logistLimit)) $conditionIds = chr(13) . 'WHERE ID_PRIZNAK_PROJECT IN (' . implode(',', self::PROJECT_STATES_FOR_LOGIST_FILTER) . ')';
 
         $query_text = '
 SELECT ID_PRIZNAK_PROJECT AS id, PRIZNAK_PROJECT AS name
@@ -156,8 +172,10 @@ WHERE COMPANY.ID_COMPANY=' . intval($id);
         $query_text = '
 SELECT
     1 AS custom,
-    COMPANY.ID_COMPANY AS id, COMPANY_NAME AS text
+    COMPANY.ID_COMPANY AS id, COMPANY_NAME AS text,
+    MANAGERS.ID_MANAGER AS managerId, MANAGERS.MANAGER_NAME AS managerName
 FROM CBaseCRM_Fresh_7x.dbo.COMPANY
+LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
 WHERE
     TRASH = 0
     AND COMPANY.COMPANY_NAME LIKE \'%' . $name . '%\'
@@ -311,7 +329,7 @@ WHERE' . $conditionsExcludeIds . '
     LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT = ' . ProjectsStates::STATE_ТРАНСПОРТ_ЗАКАЗАН . '
     AND LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . implode(',', ResponsibleByProjectTypes::PROJECT_TYPES_PDF) . ')
     AND ADD_vivozdate BETWEEN ' . $today . ' AND ' . $zwo_days_plus . '
-    AND ADD_proizodstvo = \'Ступино\'
+    AND (ADD_proizodstvo = \'Ступино\' OR ADD_proizodstvo = \'Воскресенск\' OR ADD_proizodstvo = \'Рошаль\')
 ORDER BY LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT';
 
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();

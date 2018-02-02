@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\JsExpression;
+use yii\widgets\MaskedInput;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use common\models\User;
@@ -45,6 +46,14 @@ use common\models\User;
         'templateResult' => new JsExpression('function(result) { return result.text; }'),
         'templateSelection' => new JsExpression('function (result) { return result.text; }'),
     ],
+]) ?>
+
+<?= $form->field($profile, 'limit_cp_me')->widget(MaskedInput::className(), [
+    'clientOptions' => ['alias' =>  'numeric'],
+])->textInput([
+    'maxlength' => true,
+    'placeholder' => '0',
+    'title' => 'Менеджер не сможет выбрать способ доставки Major Express, если с 1 числа текущего месяца будет достигнут этот предел',
 ]) ?>
 
 <div class="form-group field-profile-role">

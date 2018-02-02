@@ -126,6 +126,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ обращений', 'url' => ['/reports/analytics']],
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ запросов на транспорт', 'url' => ['/reports/tr-analytics']],
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ корреспонденции', 'url' => ['/reports/correspondence-analytics']],
+                ['label' => '<i class="fa fa-bar-chart text-primary"></i> Статистика по хранилищу', 'url' => ['/reports/file-storage-stats']],
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по оборотам клиентов', 'url' => ['/reports/turnover']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по пустым клиентам', 'url' => ['/reports/emptycustomers']],
@@ -185,13 +186,14 @@ elseif (Yii::$app->user->can('sales_department_manager'))
     $items = [
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
         ['label' => 'Запрос лицензии', 'url' => ['/licenses-requests/create']],
+        ['label' => '<i class="fa fa-envelope"></i> Пакеты корреспонденции', 'url' => ['/correspondence-packages']],
         ['label' => '<i class="fa fa-file-pdf-o"></i> Файловое хранилище', 'url' => ['/storage']],
     ];
 elseif (Yii::$app->user->can('operator_head'))
     $items = [
         ['label' => '<i class="fa fa-fax fa-lg"></i> Добавить обращение', 'url' => ['/appeals/create']],
         ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
-        ['label' => 'Пакеты документов', 'url' => ['/correspondence-packages']],
+        ['label' => '<i class="fa fa-envelope"></i> Пакеты документов', 'url' => ['/correspondence-packages']],
         [
             'label' => '<i class="fa fa-file-pdf-o"></i>',
             'title' => 'Хранилище',
@@ -229,6 +231,7 @@ elseif (Yii::$app->user->can('logist'))
 elseif (Yii::$app->user->can('dpc_head'))
     // Руководитель ЦОД
     $items = [
+        ['label' => '<i class="fa fa-file-pdf-o"></i> Файловое хранилище', 'url' => ['/storage']],
         [
             'label' => 'Отчеты',
             'url' => '#',

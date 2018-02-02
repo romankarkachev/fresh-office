@@ -22,6 +22,8 @@ $this->params['breadcrumbs'][] = 'Проекты';
 
         <?= Html::a('<i class="fa fa-truck"></i> Назначить перевозчика', '#', ['class' => 'btn btn-default pull-right', 'id' => 'btn-assign-ferryman']) ?>
 
+        <?= Html::a('<i class="fa fa-money" aria-hidden="true"></i> Подать в оплату', '#', ['class' => 'btn btn-default pull-right', 'id' => 'btn-create-order']) ?>
+
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
@@ -100,6 +102,7 @@ $this->params['breadcrumbs'][] = 'Проекты';
     </div>
 </div>
 <?php
+$urlCreateOrderBySelection = Url::to(['/projects/create-order-by-selection']);
 $url_form = Url::to(['/projects/assign-ferryman-form']);
 $url_fields = Url::to(['/projects/compose-ferryman-fields']);
 $url_process = Url::to(['/projects/assign-ferryman']);
@@ -114,6 +117,16 @@ JS
 , \yii\web\View::POS_BEGIN);
 
 $this->registerJs(<<<JS
+// Обработчик щелчка по кнопке "Подать в оплату".
+//
+function createOrderOnClick() {
+    var ids = $("#gw-projects").yiiGridView("getSelectedRows");
+    if (ids == "") return false;
+
+    $.get("$urlCreateOrderBySelection?ids=" + ids);
+    return false;
+} // createOrderOnClick()
+
 // Функция-обработчик щелчка по кнопке Назначить перевозчика.
 // Отображает форму назначения.
 //
@@ -138,6 +151,7 @@ function assignFerrymanOnClick() {
     return false;
 } // assignFerrymanOnClick()
 
+$(document).on("click", "#btn-create-order", createOrderOnClick);
 $(document).on("click", "#btn-assign-ferryman", assignFerrymanFormOnClick);
 $(document).on("click", "#btn-process", assignFerrymanOnClick);
 JS

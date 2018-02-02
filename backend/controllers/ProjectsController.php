@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\PaymentOrders;
 use Yii;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjects;
@@ -34,7 +35,10 @@ class ProjectsController extends Controller
                         'roles' => ['@'],
                     ],
                     [
-                        'actions' => ['index', 'update', 'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman'],
+                        'actions' => [
+                            'index', 'update', 'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman',
+                            'create-order-by-selection',
+                        ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'sales_department_manager', 'head_assist'],
                     ],
@@ -149,6 +153,21 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
+    }
+
+    /**
+     * Формирует и отдает форму назначения перевозичка.
+     * @param $ids string идентификаторы проектов
+     * @return mixed
+     */
+    public function actionCreateOrderBySelection($ids)
+    {
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->session->set('ids_for_payment_order_' . Yii::$app->user->id, explode(',', $ids));
+            return $this->redirect('/payment-orders/create');
+        }
+
+        return '';
     }
 
     /**

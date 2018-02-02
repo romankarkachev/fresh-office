@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = $this->title;
 <?= $this->render('/_alert', ['module' => Yii::$app->getModule('user')]) ?>
 
 <div class="page-header text-center">
-    <?= Html::img('/images/logo-login.png', ['height' => 128]) ?>
+    <?= Html::img('/images/logo-login2.png', ['height' => 128]) ?>
 
 </div>
 <div class="row">

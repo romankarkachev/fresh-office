@@ -114,6 +114,7 @@ switch ($model->pd_type) {
 $url = Url::to(['/payment-orders/compose-pd-field']);
 
 $this->registerJs(<<<JS
+
 // Обработчик изменения перевозчика или способа расчетов с перевозчиком.
 //
 function composeFerrymanPaymentDestination() {

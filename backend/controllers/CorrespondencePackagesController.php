@@ -2,16 +2,21 @@
 
 namespace backend\controllers;
 
+use common\models\CorrespondencePackagesHistorySearch;
 use Yii;
 use common\models\CorrespondencePackages;
 use common\models\CorrespondencePackagesSearch;
 use common\models\CorrespondencePackagesFiles;
 use common\models\CorrespondencePackagesFilesSearch;
+use common\models\CorrespondencePackagesStates;
 use common\models\CounteragentsPostAddresses;
 use common\models\PostDeliveryKinds;
 use common\models\ProjectsStates;
 use common\models\ComposePackageForm;
 use common\models\PadKinds;
+use common\models\DirectMSSQLQueries;
+use common\models\Profile;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -46,11 +51,11 @@ class CorrespondencePackagesController extends Controller
                     [
                         'actions' => [
                             'index', 'create', 'update',
-                            'compose-package-form', 'compose-package', 'create-address-form',
+                            'compose-package-form', 'compose-package', 'create-address-form', 'counteragent-casting-by-name',
                             'upload-files', 'preview-file', 'delete-file',
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'operator_head'],
+                        'roles' => ['root', 'operator_head', 'sales_department_manager'],
                     ],
                 ],
             ],
@@ -93,9 +98,12 @@ class CorrespondencePackagesController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             $model->is_manual = true; // всегда, созданные роботом отмечаются противоположным признаком
+            $model->state_id = ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ;
+            $model->cps_id = CorrespondencePackagesStates::STATE_ЧЕРНОВИК;
             $model->pad = $model->convertPadTableToArray();
+            $model->scenario = 'manual_creating';
 
-            if ($model->save()) return $this->redirect(['/correspondence-packages']);
+            if ($model->save()) return $this->redirect(['/correspondence-packages/update', 'id' => $model->id]);
         }
 
         return $this->render('create', [
@@ -112,25 +120,71 @@ class CorrespondencePackagesController extends Controller
     public function actionUpdate($id)
     {
         $model = $this->findModel($id);
+        $cps_id = $model->cps_id;
 
         if ($model->load(Yii::$app->request->post())) {
             $model->pad = $model->convertPadTableToArray();
 
-            if ($model->save()) return $this->redirect(['/correspondence-packages']);
+            $returnHere = false; // признак необходимости вернуться в этот пакет
+
+            // если нажата кнопка "Отправить на согласование"
+            if (Yii::$app->request->post('order_ready') !== null) $model->cps_id = CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ;
+
+            // если нажата кнопка "Согласовать"
+            elseif (Yii::$app->request->post('order_approve') !== null) {
+                $model->scenario = 'manager_approving';
+                $model->cps_id = CorrespondencePackagesStates::STATE_УТВЕРЖДЕН;
+            }
+
+            // если нажата кнопка "Отказать"
+            elseif (Yii::$app->request->post('order_reject') !== null) $model->cps_id = CorrespondencePackagesStates::STATE_ОТКАЗ;
+
+            // если нажата кнопка "Отозвать согласование"
+            elseif (Yii::$app->request->post('order_cancel') !== null) $model->cps_id = CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ;
+
+            // если нажата кнопка "Подать повторно"
+            elseif (Yii::$app->request->post('order_try_again') !== null) {
+                $model->cps_id = CorrespondencePackagesStates::STATE_ЧЕРНОВИК;
+                $returnHere = true;
+            }
+
+            if ($model->save())
+                if ($returnHere)
+                    return $this->redirect(['/correspondence-packages/update', 'id' => $id]);
+                else
+                    return $this->redirect(['/correspondence-packages']);
+
+            $model->cps_id = $cps_id; // возвращаем статус
         }
 
         // файлы к объекту
-        $searchModel = new CorrespondencePackagesFilesSearch();
-        $dpFiles = $searchModel->search([$searchModel->formName() => ['cp_id' => $model->id]]);
-        $dpFiles->setSort([
-            'defaultOrder' => ['uploaded_at' => SORT_DESC],
-        ]);
-        $dpFiles->pagination = false;
-
-        return $this->render('update', [
+        // если только это ручное отправление
+        $vars = [
             'model' => $model,
-            'dpFiles' => $dpFiles,
-        ]);
+        ];
+
+        if ($model->is_manual) {
+            // прикрепленные файлы
+            $searchModel = new CorrespondencePackagesFilesSearch();
+            $dpFiles = $searchModel->search([$searchModel->formName() => ['cp_id' => $model->id]]);
+            $dpFiles->setSort([
+                'defaultOrder' => ['uploaded_at' => SORT_DESC],
+            ]);
+            $dpFiles->pagination = false;
+            $vars['dpFiles'] = $dpFiles;
+
+            // история изменения статусов
+            $searchModel = new CorrespondencePackagesHistorySearch();
+            $dpHistory = $searchModel->search([$searchModel->formName() => ['cp_id' => $model->id]]);
+            $dpHistory->setSort([
+                'defaultOrder' => ['created_at' => SORT_DESC],
+                'attributes' => ['created_at'],
+            ]);
+            $dpHistory->pagination = false;
+            $vars['dpHistory'] = $dpHistory;
+        }
+
+        return $this->render('update', $vars);
     }
 
     /**
@@ -216,28 +270,28 @@ class CorrespondencePackagesController extends Controller
      * @param $ca_id integer идентификатор контрагента
      * @return mixed
      */
-    public function actionCreateAddressForm($id, $ca_id)
+    public function actionCreateAddressForm()
     {
         $model = new CounteragentsPostAddresses();
 
-        if ($model->load(Yii::$app->request->post())) {
-            $ca_id = intval($ca_id);
-            $cp = $this->findModel(intval($id));
-            $cp->pad = $cp->convertPadTableToArray();
+        if (Yii::$app->request->isAjax)
+            if ($model->load(Yii::$app->request->post())) {
+                Yii::$app->response->format = Response::FORMAT_JSON;
 
-            if ($ca_id > 0 && $cp != null)
-                //if ($model->save()) print '<p>Все нормально.</p>';
-                return $this->render('update', [
-                    'model' => $cp,
+                if ($model->save()) return [
+                    'id' => $model->id,
+                    'address' => $model->address_m
+                ];
+            }
+            else {
+                $model->counteragent_id = Yii::$app->request->get('ca_id');
+
+                return $this->renderAjax('/counteragents-post-addresses/_form', [
+                    'model' => $model,
                 ]);
-        }
+            }
 
-        if (Yii::$app->request->isAjax && $ca_id > 0) {
-            $model->counteragent_id = $ca_id;
-            return $this->renderAjax('/counteragents-post-addresses/_form', [
-                'model' => $model,
-            ]);
-        }
+            return false;
     }
 
     /**
@@ -328,5 +382,32 @@ class CorrespondencePackagesController extends Controller
         }
         else
             throw new NotFoundHttpException('Файл не обнаружен.');
+    }
+
+    /**
+     *
+     */
+    public function actionCounteragentCastingByName($q)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $results = DirectMSSQLQueries::fetchCounteragents($q);
+        if (count($results) > 0) {
+            $profiles = ArrayHelper::map(Profile::find()->where(['is not', 'fo_id', null])->asArray()->all(), 'fo_id', 'user_id');
+
+            foreach ($results as $index => $ca) {
+                if (isset($profiles[$ca['managerId']]))
+                    $results[$index]['managerId'] = $profiles[$ca['managerId']];
+            }
+            /*
+            if (isset($results[0]['managerId'])) {
+                $profiles
+                $manager = Profile::findOne(['fo_id' => $results[0]['managerId']]);
+                //if ($manager != null) $results[0]['managerId'] = $manager->user_id;
+            }
+            */
+        }
+
+        return ['results' => $results];
     }
 }

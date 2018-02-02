@@ -12,6 +12,7 @@ use dektrium\user\models\Profile as BaseProfile;
  * @property integer $user_id
  * @property string $name
  * @property string $fo_id идентификатор в системе Fresh Office
+ * @property integer $limit_cp_me лимит отправок через Major Express
  *
  * @property User $user
  */
@@ -24,7 +25,7 @@ class Profile extends BaseProfile
     public function rules()
     {
         return ArrayHelper::merge(parent::rules(), [
-            [['fo_id'], 'integer'],
+            [['fo_id', 'limit_cp_me'], 'integer'],
         ]);
     }
 
@@ -35,6 +36,7 @@ class Profile extends BaseProfile
     {
         return ArrayHelper::merge(parent::attributeLabels(), [
             'fo_id' => 'Пользователь Fresh Office',
+            'limit_cp_me' => 'Лимит отправок Major Express',
         ]);
     }
 }

@@ -16,6 +16,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $updated_by
  * @property integer $fo_id
  * @property string $name
+ * @property string $name_crm
  * @property integer $opfh_id
  * @property integer $tax_kind
  * @property integer $ft_id
@@ -30,6 +31,7 @@ use yii\helpers\ArrayHelper;
  * @property string $contact_person_dir
  * @property string $post_dir
  * @property string $ati_code
+ * @property integer $notify_when_payment_orders_created
  *
  * @property User $createdBy
  * @property User $updatedBy
@@ -39,6 +41,9 @@ use yii\helpers\ArrayHelper;
  * @property Drivers[] $drivers
  * @property Transport[] $transport
  * @property FerrymenFiles[] $ferrymenFiles
+ * @property FerrymenBankCards[] $ferrymenBankCards
+ * @property FerrymenBankDetails[] $ferrymenBankDetails
+ * @property PaymentOrders[] $paymentOrders
  */
 class Ferrymen extends \yii\db\ActiveRecord
 {
@@ -94,8 +99,8 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id'], 'integer'],
-            [['name', 'email', 'email_dir'], 'string', 'max' => 255],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created'], 'integer'],
+            [['name', 'name_crm', 'email', 'email_dir'], 'string', 'max' => 255],
             [['phone', 'contact_person', 'phone_dir', 'contact_person_dir'], 'string', 'max' => 50],
             [['post', 'post_dir'], 'string', 'max' => 100],
             [['ati_code'], 'string', 'max' => 9],
@@ -120,6 +125,7 @@ class Ferrymen extends \yii\db\ActiveRecord
             'updated_by' => 'Автор изменений',
             'fo_id' => 'Идентификатор в Fresh Office',
             'name' => 'Наименование',
+            'name_crm' => 'Наименование в CRM',
             'opfh_id' => 'ОПФХ',
             'tax_kind' => 'Плательщик НДС', // 0 - нет, 1 - да
             'ft_id' => 'Тип',
@@ -134,6 +140,7 @@ class Ferrymen extends \yii\db\ActiveRecord
             'contact_person_dir' => 'Имя',
             'post_dir' => 'Должность',
             'ati_code' => 'Код АТИ',
+            'notify_when_payment_orders_created' => 'Необходимость отправлять уведомление перевозчику при импорте платежного ордера на него',
             // для вычисляемых полей
             'ftName' => 'Тип',
             'pcName' => 'Условия оплаты',
@@ -448,5 +455,29 @@ class Ferrymen extends \yii\db\ActiveRecord
     public function getFerrymenFiles()
     {
         return $this->hasMany(FerrymenFiles::className(), ['ferryman_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFerrymenBankCards()
+    {
+        return $this->hasMany(FerrymenBankCards::className(), ['ferryman_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFerrymenBankDetails()
+    {
+        return $this->hasMany(FerrymenBankDetails::className(), ['ferryman_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getPaymentOrders()
+    {
+        return $this->hasMany(PaymentOrders::className(), ['ferryman_id' => 'id']);
     }
 }

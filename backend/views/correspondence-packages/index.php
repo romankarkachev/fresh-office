@@ -19,8 +19,10 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
+        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')): ?>
         <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', '#', ['class' => 'btn btn-default pull-right', 'id' => 'btnComposePackage', 'title' => 'Выделите несколько пакетов документов, чтобы на них на всех назначить одинаковые параметры']) ?>
 
+        <?php endif; ?>
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
@@ -31,13 +33,29 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
             [
                 'class' => 'yii\grid\CheckboxColumn',
                 'options' => ['width' => '30'],
+                'visible' => Yii::$app->user->can('root') || Yii::$app->user->can('operator_head'),
             ],
-            'fo_project_id',
+            [
+                'attribute' => 'fo_project_id',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $addon = '';
+                    if ($model->is_manual) $addon = ' <i class="fa fa-hand-paper-o text-info" aria-hidden="true"></i>';
+
+                    return $model->{$column->attribute} . $addon;
+                },
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
             [
                 'label' => 'Ожидание отправки',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
 
                     $border = time();
                     // было раньше так:
@@ -52,6 +70,7 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                 'label' => 'Отправлено',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
 
                     return Yii::$app->formatter->asDate($model->sent_at, 'php:d.m.Y');
                 },
@@ -62,19 +81,38 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                 'label' => 'Доставлено',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
 
                     return Yii::$app->formatter->asDate($model->delivered_at, 'php:d.m.Y');
                 },
                 'visible' => $searchModel->searchGroupProjectStates == CorrespondencePackagesSearch::CLAUSE_STATE_DELIVERED || $searchModel->searchGroupProjectStates == CorrespondencePackagesSearch::CLAUSE_STATE_FINISHED,
             ],
             'customer_name',
-            'stateName',
+            [
+                'attribute' => 'cpsName',
+                'visible' => Yii::$app->user->can('operator_head') || Yii::$app->user->can('sales_department_manager'),
+            ],
+            [
+                'attribute' => 'stateName',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $cpsName = '';
+                    if ($model->is_manual && Yii::$app->user->can('root')) $cpsName = ' <small class="text-muted"><em>' . $model->cpsName . '</em></small>';
+
+                    return $model->{$column->attribute} . $cpsName;
+                },
+            ],
             'typeName',
             [
                 'attribute' => 'pad',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
+
                     $result = '';
 
                     $pad = json_decode($model->{$column->attribute}, true);
@@ -101,6 +139,9 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                     'delete' => function ($url, $model) {
                         return Html::a('<i class="fa fa-trash-o"></i>', $url, ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
                     }
+                ],
+                'visibleButtons' => [
+                    'delete' => Yii::$app->user->can('root') || Yii::$app->user->can('operator_head'),
                 ],
                 'options' => ['width' => '80'],
                 'headerOptions' => ['class' => 'text-center'],

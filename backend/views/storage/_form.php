@@ -27,7 +27,7 @@ $urlFindFolderByName = Url::to(['/storage/find-folder-by-name']);
                 'language' => 'ru',
                 'options' => ['placeholder' => 'Введите наименование'],
                 'pluginOptions' => [
-                    'minimumInputLength' => 1,
+                    'minimumInputLength' => 3,
                     'language' => 'ru',
                     'ajax' => [
                         'url' => Url::to(['projects/direct-sql-counteragents-list']),

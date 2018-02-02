@@ -6,14 +6,13 @@ use yii\bootstrap\ActiveForm;
 use yii\web\JsExpression;
 use kartik\select2\Select2;
 use common\models\ProjectsStates;
-use common\models\PostDeliveryKinds;
 use common\models\User;
+use common\models\TransportRequests;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\CorrespondencePackages */
 /* @var $form yii\bootstrap\ActiveForm */
 
-$inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span class=\"input-group-btn\"><button class=\"btn btn-default\" type=\"button\" id=\"btnTrackNumber\"><i class=\"fa fa-search\" aria-hidden=\"true\"></i> Отследить</button></span></div>\n{error}";
 $formNameId = strtolower($model->formName());
 ?>
 
@@ -35,7 +34,7 @@ $formNameId = strtolower($model->formName());
             <div class="row">
                 <div class="col-md-6">
                     <?= $form->field($model, 'fo_id_company')->widget(Select2::className(), [
-                        'initValueText' => $model->customer_name,
+                        'initValueText' => TransportRequests::getCustomerName($model->fo_id_company),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'language' => 'ru',
                         'options' => ['placeholder' => 'Введите наименование'],
@@ -43,7 +42,7 @@ $formNameId = strtolower($model->formName());
                             'minimumInputLength' => 1,
                             'language' => 'ru',
                             'ajax' => [
-                                'url' => Url::to(['projects/direct-sql-counteragents-list']),
+                                'url' => Url::to(['correspondence-packages/counteragent-casting-by-name']),
                                 'delay' => 500,
                                 'dataType' => 'json',
                                 'data' => new JsExpression('function(params) { return {q:params.term}; }')
@@ -52,7 +51,8 @@ $formNameId = strtolower($model->formName());
                             'templateResult' => new JsExpression('function(result) { return result.text; }'),
                             'templateSelection' => new JsExpression('function (result) {
 if (!result.custom) return result.text;
-$("#transportrequests-customer_name").val(result.text);
+$("#' . $formNameId . '-customer_name").val(result.text);
+$("#' . $formNameId . '-manager_id").val(result.managerId).trigger("change");
 return result.text;
 }'),
                         ],
@@ -84,6 +84,8 @@ return result.text;
         <?php endif; ?>
 
     </div>
+    <?= $form->field($model, 'customer_name')->hiddenInput()->label(false) ?>
+
     <?php ActiveForm::end(); ?>
 
 </div>
@@ -103,7 +105,6 @@ return result.text;
     </div>
 </div>
 <?php
-$url = \yii\helpers\Url::to(['/tracking/pochta-ru']);
 $name = $model->formName() . '[tpPad]';
 $stateSent = ProjectsStates::STATE_ОТПРАВЛЕНО;
 
@@ -141,30 +142,8 @@ function checkRegularDocumentsOnClick() {
     return false;
 } // checkRegularDocumentsOnClick()
 
-// Обработчик щелчка по кнопке "Отследить".
-//
-function btnTrackNumberOnClick() {
-    tracknum = $("#$formNameId-track_num").val();
-    if (tracknum != "" && tracknum != undefined) {
-        $("#modal_title").text("Трекинг");
-        $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
-        $("#mw_summary").modal();
-        $("#modal_body").load("$url?track_num=" + tracknum);
-    }
-
-    return false;
-} // btnTrackNumberOnClick()
-
-// Обработчик изменения значения в поле "Трек-номер".
-//
-function trackNumberOnChange() {
-    $("#$formNameId-state_id").val("$stateSent").trigger("change");
-}
-
 $(document).on("click", "#checkAllDocuments", checkAllDocumentsOnClick);
 $(document).on("click", "#checkRegularDocuments", checkRegularDocumentsOnClick);
-$(document).on("click", "#btnTrackNumber", btnTrackNumberOnClick);
-$(document).on("change", "#$formNameId-track_num", trackNumberOnChange);
 JS
 , \yii\web\View::POS_READY);
 ?>

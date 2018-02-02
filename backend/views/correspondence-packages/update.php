@@ -7,6 +7,7 @@ use kartik\file\FileInput;
 /* @var $this yii\web\View */
 /* @var $model common\models\CorrespondencePackages */
 /* @var $dpFiles \yii\data\ActiveDataProvider */
+/* @var $dpHistory \yii\data\ActiveDataProvider */
 
 $modelRep = 'Пакет № ' . $model->id . ' (создан ' . Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y в H:i') . ')';
 
@@ -17,9 +18,12 @@ $this->params['breadcrumbs'][] = $modelRep;
 <div class="correspondence-packages-update">
     <?= $this->render('_form', ['model' => $model]) ?>
 
-    <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
+    <?php if ($model->is_manual): ?>
+        <?= $this->render('_history', ['dataProvider' => $dpHistory]); ?>
 
-    <?= FileInput::widget([
+        <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
+
+        <?= FileInput::widget([
         'id' => 'new_files',
         'name' => 'files[]',
         'options' => ['multiple' => true],
@@ -33,6 +37,7 @@ $this->params['breadcrumbs'][] = $modelRep;
         ]
     ]) ?>
 
+    <?php endif; ?>
 </div>
 <?php
 $this->registerJs(<<<JS

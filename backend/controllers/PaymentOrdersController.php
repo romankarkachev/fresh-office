@@ -5,18 +5,21 @@ namespace backend\controllers;
 use Yii;
 use common\models\PaymentOrders;
 use common\models\PaymentOrdersSearch;
+use backend\models\PaymentOrdersImport;
 use common\models\Ferrymen;
 use common\models\FerrymenBankCards;
 use common\models\FerrymenBankDetails;
 use common\models\PaymentOrdersFiles;
 use common\models\PaymentOrdersFilesSearch;
 use common\models\PaymentOrdersStates;
-use common\models\DirectMSSQLQueries;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
+use yii\web\UploadedFile;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
+use moonland\phpexcel\Excel;
 
 /**
  * PaymentOrdersController implements the CRUD actions for PaymentOrders model.
@@ -38,7 +41,10 @@ class PaymentOrdersController extends Controller
                         'roles' => ['?', '@'],
                     ],
                     [
-                        'actions' => ['index', 'compose-pd-field', 'change-state-on-the-fly', 'upload-files', 'preview-file', 'delete-file'],
+                        'actions' => [
+                            'index', 'compose-pd-field', 'change-state-on-the-fly', 'upload-files', 'preview-file',
+                            'delete-file'
+                        ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'accountant'],
                     ],
@@ -48,7 +54,7 @@ class PaymentOrdersController extends Controller
                         'roles' => ['root', 'logist', 'accountant'],
                     ],
                     [
-                        'actions' => ['delete'],
+                        'actions' => ['import', 'delete'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -89,11 +95,18 @@ class PaymentOrdersController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             // создается всегда в статусе черновика
+            $model->creation_type = PaymentOrders::PAYMENT_ORDER_CREATION_TYPE_ВРУЧНУЮ;
             $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК;
 
             if ($model->save()) return $this->redirect(['/payment-orders/update', 'id' => $model->id]);
         } else {
-
+            $key = 'ids_for_payment_order_' . Yii::$app->user->id;
+            $ids = Yii::$app->session->get($key);
+            if ($ids != null) {
+                $model->projects = implode(',', $ids);
+                $model->calculateProjectsTotalAmount();
+                Yii::$app->session->remove($key);
+            }
         }
 
         return $this->render('create', [
@@ -125,13 +138,11 @@ class PaymentOrdersController extends Controller
                 // если нажата кнопка "Отказать"
                 elseif (Yii::$app->request->post('order_reject') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ;
 
+                // если нажата кнопка "Подать повторно"
+                elseif (Yii::$app->request->post('order_repeat') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК;
+
                 // если нажата кнопка "Оплачено"
-                elseif (Yii::$app->request->post('order_paid') !== null) {
-                    // ставим в CRM дату оплаты по всем введенным проектам
-                    $projects = explode(',', $model->projects);
-                    foreach ($projects as $project) DirectMSSQLQueries::updateProjectsAddOplata($project, ($model->payment_date != null ? $model->payment_date : date('Y-m-d')));
-                    $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН;
-                }
+                elseif (Yii::$app->request->post('order_paid') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН;
 
                 if ($model->save()) return $this->redirect(['/payment-orders']); else $model->state_id = $state; // возвращаем статус
             }
@@ -327,5 +338,149 @@ class PaymentOrdersController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Отображает страницу импорта платежных ордеров из файла Excel и выполняет его.
+     * @return mixed
+     */
+    public function actionImport()
+    {
+        $model = new PaymentOrdersImport();
+
+        if (Yii::$app->request->isPost) {
+            $model->importFile = UploadedFile::getInstance($model, 'importFile');
+            $filename = Yii::getAlias('@uploads').'/'.Yii::$app->security->generateRandomString().'.'.$model->importFile->extension;
+            if ($model->upload($filename)) {
+                $model->load(Yii::$app->request->post());
+                // если файл удалось успешно загрузить на сервер
+                // выбираем все данные из файла в массив
+                $data = Excel::import($filename, [
+                    'setFirstRecordAsKeys' => false,
+                ]);
+                if (count($data) > 0) {
+                    // если удалось прочитать, сразу удаляем файл
+                    unlink($filename);
+
+                    // берем массив в отдельную переменную, чтобы обработать его и получить в результате
+                    // только идентификаторы проектов, которые присутствуют в файле
+                    $project_ids = $data;
+                    // если первая строка - заголовок таблицы, удалим ее
+                    if (!is_numeric($project_ids[1]['C'])) unset($project_ids[1]);
+                    // берем только колонку id, раскладываем массив в строку, из строки убираем в конце запятую
+                    //$project_ids = trim(implode(',', ArrayHelper::getColumn($project_ids, 'C')), ',');
+                    //$projects = DirectMSSQLQueries::fetchProjectsForDatePayment($project_ids);
+
+                    // перебираем массив и создаем новые элементы
+                    $success_records_count = 0; // массив успешно созданных записей
+                    $errors_import = []; // массив для ошибок при импорте
+                    $row_number = 1; // 0-я строка - это заголовок
+
+                    $prevFeryman = '';
+                    $poCost = 0;
+                    $poCas = [];
+                    $poProjects = [];
+                    foreach ($data as $row) {
+                        // проверяем обязательные поля, если первое поле не заполнено, останавливаем процесс
+                        if (trim($row['C']) == '') break;
+
+                        // это может быть еще заголовок таблицы, пропускаем его
+                        if (!is_numeric(trim($row['C']))) continue;
+
+                        // перевозчик в текущей строке
+                        $ferryman = trim($row['M']);
+
+                        if ($ferryman != $prevFeryman && $prevFeryman != '') {
+                            $ferrymanModel = Ferrymen::findOne(['name_crm' => $prevFeryman]);
+                            if ($ferrymanModel != null) {
+                                $paymentOrder = new PaymentOrders([
+                                    'creation_type' => PaymentOrders::PAYMENT_ORDER_CREATION_TYPE_ИМПОРТ_ИЗ_EXCEL,
+                                    'state_id' => PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК,
+                                    'ferryman_id' => $ferrymanModel->id,
+                                    'projects' => implode(',', $poProjects),
+                                    'cas' => implode(', ', $poCas),
+                                    'amount' => $poCost,
+                                    'comment' => 'Импорт из Excel',
+                                ]);
+                                if (!$paymentOrder->save()) {
+                                    $details = '';
+                                    foreach ($paymentOrder->errors as $error)
+                                        foreach ($error as $detail)
+                                            $details .= '<p>' . $detail . '</p>';
+                                    $errors_import[] = 'Не удалось создать платежный ордер на перевозчика ' . $prevFeryman . '. Ошибки: ' . $details;
+                                }
+                            }
+                            else {
+                                $errors_import[] = 'Перевозчик ' . $prevFeryman . ' не был обнаружен. Платежный ордер не создан.';
+                            }
+
+                            $poCost = 0;
+                            $poCas = [];
+                            $poProjects = [];
+                        }
+
+                        // накапливаем проекты
+                        $poProjects[] = trim($row['C']);
+
+                        // накапливаем контрагентов (клиентов)
+                        $ca = trim($row['G']);
+                        if (!in_array($ca, $poCas)) $poCas[] = $ca;
+
+                        // приведем в человеческий вид сумму
+                        $amount = trim(trim($row['I']));
+                        $amount = preg_replace("/[^0-9\.]/", '', $amount);
+                        $amount = floatval($amount);
+                        $poCost += $amount;
+
+                        $prevFeryman = $ferryman;
+                        $row_number++;
+                    }; // foreach
+
+                    // после завершения цикла еще раз процедуру сохранения ордера для последнего перевозчика
+                    $ferrymanModel = Ferrymen::findOne(['name_crm' => $prevFeryman]);
+                    if ($ferrymanModel != null) {
+                        $paymentOrder = new PaymentOrders([
+                            'creation_type' => PaymentOrders::PAYMENT_ORDER_CREATION_TYPE_ИМПОРТ_ИЗ_EXCEL,
+                            'state_id' => PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК,
+                            'ferryman_id' => $ferrymanModel->id,
+                            'projects' => implode(',', $poProjects),
+                            'cas' => implode(', ', $poCas),
+                            'amount' => $poCost,
+                            'comment' => 'Импорт из Excel',
+                        ]);
+                        if (!$paymentOrder->save()) {
+                            $details = '';
+                            foreach ($paymentOrder->errors as $error)
+                                foreach ($error as $detail)
+                                    $details .= '<p>' . $detail . '</p>';
+                            $errors_import[] = 'Не удалось создать платежный ордер на перевозчика ' . $prevFeryman . '. Ошибки: ' . $details;
+                        }
+                    }
+                    else {
+                        $errors_import[] = 'Перевозчик ' . $prevFeryman . ' не был обнаружен. Платежный ордер не создан.';
+                    }
+
+                    // зафиксируем ошибки, чтобы показать
+                    if (count($errors_import) > 0) {
+                        $errors = '';
+                        foreach ($errors_import as $error)
+                            $errors .= '<p>'.$error.'</p>';
+                        Yii::$app->getSession()->setFlash('error', $errors);
+                    } else {
+                        $addition = '';
+                        if ($success_records_count > 0)
+                            $addition = ' Обновлено записей: ' . $success_records_count . '.';
+                        Yii::$app->getSession()->setFlash('success', 'Импорт завершен.' . $addition);
+                    }
+
+                }; // count > 0
+
+                //return $this->redirect(['freights-payments']);
+            }
+        };
+
+        return $this->render('import', [
+            'model' => $model,
+        ]);
     }
 }

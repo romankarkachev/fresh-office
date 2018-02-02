@@ -9,7 +9,6 @@ use yii\filters\AccessControl;
 use moonland\phpexcel\Excel;
 use common\models\DirectMSSQLQueries;
 use common\models\TransportRequests;
-use common\models\CorrespondencePackages;
 use common\models\ReportTurnover;
 use common\models\ReportNofinances;
 use common\models\ReportAnalytics;
@@ -18,6 +17,7 @@ use common\models\ReportNoTransportHasProjects;
 use common\models\ReportEmptycustomers;
 use common\models\ReportTRAnalytics;
 use common\models\ReportCorrespondenceAnalytics;
+use common\models\ReportFileStorageStats;
 
 /**
  * Reports controller
@@ -49,7 +49,10 @@ class ReportsController extends Controller
                         'roles' => ['root', 'dpc_head', 'sales_department_head'],
                     ],
                     [
-                        'actions' => ['emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics', 'tr-analytics', 'correspondence-analytics'],
+                        'actions' => [
+                            'emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics', 'tr-analytics',
+                            'correspondence-analytics', 'file-storage-stats',
+                        ],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -458,6 +461,30 @@ class ReportsController extends Controller
             'dpTable1' => $dpTable1,
             'dpTable2' => $dpTable2,
             'dpTable3' => $dpTable3,
+        ]);
+    }
+
+    /**
+     * Отображает отчет со статистикой по обращениям к файловому хранилищу.
+     * @return mixed
+     */
+    public function actionFileStorageStats()
+    {
+        $searchModel = new ReportFileStorageStats();
+
+        // Таблица 1. Статистика в разрезе ответственных.
+        $dpTable1 = $searchModel->makeDataProviderForTable1(Yii::$app->request->queryParams);
+
+        // Таблица 2. Статистика в разрезе контрагентов.
+        $dpTable2 = $searchModel->makeDataProviderForTable2(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('fsstats', [
+            'searchModel' => $searchModel,
+            'searchApplied' => $searchApplied,
+            'dpTable1' => $dpTable1,
+            'dpTable2' => $dpTable2,
         ]);
     }
 }

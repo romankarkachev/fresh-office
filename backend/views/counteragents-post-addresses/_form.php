@@ -2,7 +2,6 @@
 
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
-use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\CounteragentsPostAddresses */
@@ -10,11 +9,8 @@ use yii\widgets\Pjax;
 ?>
 
 <div class="counteragents-post-addresses-form">
-    <?php Pjax::begin(['id' => 'pjax-form']); ?>
-
     <?php $form = ActiveForm::begin([
         'id' => 'frmNewPostAddress',
-        'options' => ['data-pjax' => true],
     ]); ?>
 
     <?= $form->field($model, 'counteragent_id')->hiddenInput()->label(false) ?>
@@ -31,16 +27,23 @@ use yii\widgets\Pjax;
 
         </div>
     </div>
+    <?= $form->field($model, 'comment')->textarea(['rows' => 2, 'placeholder' => 'Введите произвольный комментарий']) ?>
+
     <div class="form-group">
-        <?php if ($model->isNewRecord): ?>
-        <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
-        <?php else: ?>
-        <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
-        <?php endif; ?>
+        <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success', 'id' => 'btnSubmit']) ?>
 
     </div>
     <?php ActiveForm::end(); ?>
 
-    <?php Pjax::end(); ?>
-
 </div>
+<?php
+$this->registerJs(<<<JS
+$("#frmNewPostAddress").on("submit", function (e) {
+    e.preventDefault();
+
+    return false;
+});
+
+JS
+, \yii\web\View::POS_READY);
+?>

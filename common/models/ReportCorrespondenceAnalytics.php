@@ -243,7 +243,6 @@ class ReportCorrespondenceAnalytics extends Model
      * Создает массив пакетов корреспонденции с такими полями:
      * correspondence_packages.id | pd_id | post_delivery_kinds.name
      * @param $params array массив параметров выборки (условия отбора)
-     * @param $mode integer режим: выборка пакетов за указанный пользователем период или вообще всех
      * @return array
      */
     public function search($params)

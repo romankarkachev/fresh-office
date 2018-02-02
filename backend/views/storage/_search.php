@@ -17,6 +17,7 @@ use common\models\UploadingFilesMeanings;
     <?php $form = ActiveForm::begin([
         'action' => ['/storage'],
         'method' => 'get',
+        'options' => ['id' => 'frmSearch'],
     ]); ?>
 
     <div class="panel panel-info">
@@ -30,7 +31,7 @@ use common\models\UploadingFilesMeanings;
                         'language' => 'ru',
                         'options' => ['placeholder' => 'Введите наименование'],
                         'pluginOptions' => [
-                            'minimumInputLength' => 1,
+                            'minimumInputLength' => 3,
                             'language' => 'ru',
                             'ajax' => [
                                 'url' => Url::to(['projects/direct-sql-counteragents-list']),
@@ -45,6 +46,9 @@ use common\models\UploadingFilesMeanings;
     $("#' . $formName . '-ca_name" ).val(result.text);
     return result.text;
 }'),
+                        ],
+                        'pluginEvents' => [
+                            'select2:select' => new JsExpression('function() { $("#frmSearch").submit() }'),
                         ],
                     ]) ?>
 

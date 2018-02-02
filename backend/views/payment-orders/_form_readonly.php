@@ -80,11 +80,17 @@ if ($model->pd_type != null && $model->pd_id != null) {
         <?= Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отказать', ['class' => 'btn btn-danger btn-lg', 'name' => 'order_reject', 'title' => 'Отказать в согласовании (обязательно нужно будет указать причину согласования)']) ?>
         <?php endif; ?>
         <?php if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН): ?>
+        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('accountant')): ?>
+        <?= Html::submitButton('Оплачено', ['class' => 'btn btn-success btn-lg', 'name' => 'order_paid', 'title' => 'Установить признак "Оплачено"']) ?>
+
+        <?php endif; ?>
         <?php if (Yii::$app->user->can('root')): ?>
         <?= Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отозвать', ['class' => 'btn btn-danger btn-lg', 'name' => 'order_reject', 'title' => 'Отменить согласование']) ?>
-        <?php elseif (Yii::$app->user->can('accountant')): ?>
-        <?= Html::submitButton('Оплачено', ['class' => 'btn btn-success btn-lg', 'name' => 'order_paid', 'title' => 'Установить признак "Оплачено"']) ?>
         <?php endif; ?>
+        <?php endif; ?>
+
+        <?php if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ && (Yii::$app->user->can('root') || Yii::$app->user->can('logist'))): ?>
+        <?= Html::submitButton('<i class="fa fa-refresh" aria-hidden="true"></i> Подать повторно', ['class' => 'btn btn-default btn-lg', 'name' => 'order_repeat', 'title' => 'Подать отклоненный ордер на согласование повторно']) ?>
         <?php endif; ?>
 
     </div>

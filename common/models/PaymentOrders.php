@@ -12,13 +12,17 @@ use yii\helpers\ArrayHelper;
  * @property integer $id
  * @property integer $created_at
  * @property integer $created_by
+ * @property integer $creation_type
  * @property integer $state_id
  * @property integer $ferryman_id
  * @property string $projects
+ * @property string $cas
  * @property string $amount
  * @property integer $pd_type
  * @property integer $pd_id
  * @property string $payment_date
+ * @property integer $emf_sent_at
+ * @property integer $approved_at
  * @property string $comment
  *
  * @property string $modelRep
@@ -42,6 +46,12 @@ class PaymentOrders extends \yii\db\ActiveRecord
     const PAYMENT_DESTINATION_CARD = 2;
 
     /**
+     * Разновидности способов создания ордеров.
+     */
+    const PAYMENT_ORDER_CREATION_TYPE_ВРУЧНУЮ = 1;
+    const PAYMENT_ORDER_CREATION_TYPE_ИМПОРТ_ИЗ_EXCEL = 2;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -56,8 +66,8 @@ class PaymentOrders extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'projects'], 'required'],
-            [['created_at', 'created_by', 'state_id', 'ferryman_id', 'pd_type', 'pd_id'], 'integer'],
-            [['projects', 'comment'], 'string'],
+            [['created_at', 'created_by', 'creation_type', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'emf_sent_at', 'approved_at'], 'integer'],
+            [['projects', 'cas', 'comment'], 'string'],
             [['amount'], 'number'],
             [['payment_date'], 'safe'],
             [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
@@ -78,13 +88,17 @@ class PaymentOrders extends \yii\db\ActiveRecord
             'id' => 'ID',
             'created_at' => 'Дата и время создания',
             'created_by' => 'Автор создания',
+            'creation_type' => 'Способ создания', // 1 - создано вручную, 2 - импорт из файла Excel
             'state_id' => 'Статус',
             'ferryman_id' => 'Перевозчик',
             'projects' => 'Проекты',
+            'cas' => 'Контрагенты из проектов',
             'amount' => 'Сумма',
             'pd_type' => 'Способ расчетов', // 1 - банковский счет, 2 - перевод на карту
             'pd_id' => 'Ссылка на банковский счет (номер карты)',
             'payment_date' => 'Дата оплаты',
+            'emf_sent_at' => 'Дата и время отправки письма перевозчику',
+            'approved_at' => 'Дата и время согласования ордера',
             'comment' => 'Комментарий',
             // вычисляемые поля
             'createdByProfileName' => 'Автор создания',
@@ -148,7 +162,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
                 unset($query);
 
                 // наименование выбранного перевозчика должно совпадать с наименованием перевозчика в проекте
-                if ($object['ferryman'] != $this->ferryman->name)
+                if ($object['ferryman'] != $this->ferryman->name_crm)
                     $subErrors .= ($subErrors != '' ? ', ' : '') . 'не соответствует перевозчик';
 
                 // поле ТТН в проекте не должно быть пустым
@@ -179,6 +193,11 @@ class PaymentOrders extends \yii\db\ActiveRecord
     {
         if ($this->state_id == PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ && ($this->comment == null || trim($this->comment == '')))
             $this->addError('comment', 'При отказе ввод причины обязателен.');
+
+        // для сохраненных платежных ордеров с видом оплаты на банковский счет невозможно перевести их в статус Оплачено при отсутствии файлов
+        if (!$this->isNewRecord && $this->state_id == PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ &&
+            $this->getPaymentOrdersFiles()->count() == 0 && $this->pd_type == self::PAYMENT_DESTINATION_ACCOUNT)
+            $this->addError('comment', 'Невозможно отправить на согласование ордер без файлов.');
     }
 
     /**
@@ -210,6 +229,70 @@ class PaymentOrders extends \yii\db\ActiveRecord
     }
 
     /**
+     * Выполняет подсчет общей суммы по проектам.
+     */
+    public function calculateProjectsTotalAmount()
+    {
+        $projects = explode(',', $this->projects);
+        if (count($projects) > 0) {
+            $totalAmount = 0;
+            foreach ($projects as $project) {
+                $project_id = trim($project);
+                if (is_numeric($project_id) === false) {
+                    // вообще ничего не считаем, если есть хоть одна ошибка
+                    $this->amount = 0;
+                    return;
+                }
+
+                $project_id = intval($project_id);
+
+                // проект должен существовать
+                $object = DirectMSSQLQueries::fetchProjectsData($project_id);
+                if (count($object) > 0) $totalAmount += $object['cost'];
+            }
+
+            $this->amount = $totalAmount;
+        }
+    }
+
+    /**
+     * Собирает наименования контрагентов по идентификаторам проектов.
+     */
+    public function collectCas()
+    {
+        $projects = explode(',', $this->projects);
+        if (count($projects) > 0) {
+            $poCas = [];
+            foreach ($projects as $project) {
+                $project_id = trim($project);
+                if (is_numeric($project_id) === false) {
+                    // вообще ничего не считаем, если есть хоть одна ошибка
+                    $this->amount = 0;
+                    return;
+                }
+
+                $project_id = intval($project_id);
+
+                // проект должен существовать
+                $object = DirectMSSQLQueries::fetchProjectsData($project_id);
+                if (count($object) > 0 && (!in_array($object['ca_name'], $poCas))) $poCas[] = $object['ca_name'];
+            }
+
+            $this->cas = implode(', ', $poCas);
+        }
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeValidate() {
+        if ($this->state_id == PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК && $this->creation_type == PaymentOrders::PAYMENT_ORDER_CREATION_TYPE_ВРУЧНУЮ)
+            $this->collectCas();
+
+        return parent::beforeValidate();
+    }
+
+    /**
      * @inheritdoc
      */
     public function beforeDelete()
@@ -226,6 +309,72 @@ class PaymentOrders extends \yii\db\ActiveRecord
         }
 
         return false;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeSave($insert)
+    {
+        if (parent::beforeSave($insert)) {
+
+            if ($this->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН && $this->payment_date == null)
+                $this->payment_date = date('Y-m-d');
+
+            // отмечаем дату и время согласования для будущих подсчетов
+            if ($this->state_id == PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ) $this->approved_at = time();
+
+            if ($insert) {
+                // выполним отправку письма перевозчику
+                // только при создании ордера и только если производится импорт
+                if ($this->creation_type == PaymentOrders::PAYMENT_ORDER_CREATION_TYPE_ИМПОРТ_ИЗ_EXCEL &&
+                    // сумма по ордеру должна быть положительной
+                    $this->amount > 0 &&
+                    // у перевозчика должен стоять признак, разрешающий отправлять ему письма
+                    $this->ferryman->notify_when_payment_orders_created
+                ) {
+                    $letter = Yii::$app->mailer->compose([
+                        'html' => 'newPaymentOrderHasBeenCreated-ForFerryman-html',
+                    ], [
+                        'amount' => $this->amount,
+                    ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameVictor']])
+                    ->setSubject('Предоставьте счет на оплату');
+
+                    if (($this->ferryman->email != null && ($this->ferryman->email) != '') ||
+                        ($this->ferryman->email_dir != null && trim($this->ferryman->email_dir) != ''))
+                        // если задан хотя бы один Email
+                        if ($this->ferryman->email == $this->ferryman->email_dir) {
+                            // если они совпадают, то на первый отправляем
+                            if ($this->ferryman->email != null && ($this->ferryman->email) != '') $letter->setTo($this->ferryman->email);
+                            else $letter->setTo($this->ferryman->email_dir);
+                        }
+                        else {
+                            // если они отличаются, то на оба
+                            if ($this->ferryman->email != null && ($this->ferryman->email) != '') $letter->setTo($this->ferryman->email);
+                            if ($this->ferryman->email_dir != null && ($this->ferryman->email_dir) != '') $letter->setCc($this->ferryman->email_dir);
+                        }
+
+                    if ($letter->send()) $this->emf_sent_at = time();
+                }
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function afterSave($insert, $changedAttributes){
+        parent::afterSave($insert, $changedAttributes);
+
+        if (isset($changedAttributes['state_id']) && $this->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН) {
+            // если ордер переведен в статус "Оплачено"
+            // ставим в CRM дату оплаты по всем введенным проектам
+            $projects = explode(',', $this->projects);
+            foreach ($projects as $project) DirectMSSQLQueries::updateProjectsAddOplata($project, $this->payment_date);
+        }
     }
 
     /**

@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\grid\GridView;
+use backend\components\TotalsColumn;
 use common\models\PaymentOrdersStates;
 
 /* @var $this yii\web\View */
@@ -18,11 +19,15 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
+        <?= Html::a('<i class="fa fa-file-excel-o"></i> Импорт ордеров', ['import'], ['class' => 'btn btn-default pull-right']) ?>
+
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
+        'showFooter' => true,
+        'footerRowOptions' => ['class' => 'text-right'],
         'columns' => [
             [
                 'attribute' => 'created_at',
@@ -46,12 +51,39 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
                         return $model->{$column->attribute};
                 },
             ],
-            'ferrymanName',
-            'projects',
-            // 'pd_type',
-            // 'pd_id',
-            'amount:currency',
-            'payment_date:date',
+            [
+                'attribute' => 'ferrymanName',
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\PaymentOrders */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return Html::a($model->ferrymanName, ['/ferrymen/update', 'id' => $model->ferryman_id], ['title' => 'Открыть в новом окне', 'target' => '_blank']);
+                },
+            ],
+            [
+                'attribute' => 'projects',
+                'footer' => '<strong>Итого:</strong>',
+                'footerOptions' => ['class' => 'text-right'],
+            ],
+            [
+                'attribute' => 'cas',
+                'label' => 'Контрагенты',
+            ],
+            [
+                'class' => TotalsColumn::className(),
+                'attribute' => 'amount',
+                'format' => 'currency',
+                'options' => ['width' => '100'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-right'],
+            ],
+            [
+                'attribute' => 'payment_date',
+                'format' => 'date',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
             [
                 'label' => 'Быстрая реакция',
                 'format' => 'raw',

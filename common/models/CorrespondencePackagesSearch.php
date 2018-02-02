@@ -120,6 +120,17 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     public function search($params)
     {
         $query = CorrespondencePackages::find();
+        if (Yii::$app->user->can('sales_department_manager')) {
+            $query->where([
+                'manager_id' => Yii::$app->user->id,
+                'is_manual' => true,
+                'cps_id' => [
+                    CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ,
+                    CorrespondencePackagesStates::STATE_УТВЕРЖДЕН,
+                    CorrespondencePackagesStates::STATE_ОТКАЗ,
+                ]
+            ]);
+        }
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
@@ -145,6 +156,10 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                     'track_num',
                     'other',
                     'comment',
+                    'cpsName' => [
+                        'asc' => ['correspondence_packages_states.name' => SORT_ASC],
+                        'desc' => ['correspondence_packages_states.name' => SORT_DESC],
+                    ],
                     'stateName' => [
                         'asc' => ['projects_states.name' => SORT_ASC],
                         'desc' => ['projects_states.name' => SORT_DESC],
@@ -162,7 +177,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
         ]);
 
         $this->load($params);
-        $query->joinWith(['state', 'type', 'pd']);
+        $query->joinWith(['cps', 'state', 'type', 'pd']);
 
         // по-умолчанию все видят пакеты документов только в статусах "Формирование документов на отправку" и "Ожидает отправки"
         if ($this->searchGroupProjectStates == null) {

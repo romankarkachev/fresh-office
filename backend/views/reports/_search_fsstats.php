@@ -1,61 +1,26 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
-use yii\widgets\MaskedInput;
-use yii\web\JsExpression;
-use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
-use common\models\TransportRequests;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\ProductionFeedbackFilesSearch */
+/* @var $model common\models\ReportFileStorageStats */
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $searchApplied bool */
 ?>
 
-<div class="production-feedback-files-search">
+<div class="fsstats-search">
     <?php $form = ActiveForm::begin([
-        'action' => ['/production-feedback-files'],
+        'action' => ['/reports/file-storage-stats'],
         'method' => 'get',
-        'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
+        'options' => ['id' => 'frm-search'],
     ]); ?>
 
     <div class="panel panel-info">
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
             <div class="row">
-                <div class="col-md-2">
-                    <?= $form->field($model, 'project_id')->widget(MaskedInput::className(), [
-                        'mask' => '99999',
-                        'clientOptions' => ['placeholder' => ''],
-                    ])->textInput(['maxlength' => true, 'placeholder' => 'ID проекта']) ?>
-
-                </div>
-                <div class="col-md-3">
-                    <?= $form->field($model, 'ca_id')->widget(Select2::className(), [
-                        'initValueText' => TransportRequests::getCustomerName($model->ca_id),
-                        'theme' => Select2::THEME_BOOTSTRAP,
-                        'language' => 'ru',
-                        'options' => ['placeholder' => 'Введите наименование'],
-                        'pluginOptions' => [
-                            'allowClear' => true,
-                            'minimumInputLength' => 3,
-                            'language' => 'ru',
-                            'ajax' => [
-                                'url' => Url::to(['projects/direct-sql-counteragents-list']),
-                                'delay' => 500,
-                                'dataType' => 'json',
-                                'data' => new JsExpression('function(params) { return {q:params.term}; }')
-                            ],
-                            'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
-                            'templateResult' => new JsExpression('function(result) { return result.text; }'),
-                            'templateSelection' => new JsExpression('function (result) { return result.text; }'),
-                        ],
-                    ]) ?>
-
-                </div>
                 <div class="col-md-2">
                     <?= $form->field($model, 'searchPeriodStart')->widget(DateControl::className(), [
                         'value' => $model->searchPeriodStart,
@@ -106,15 +71,9 @@ anyDateOnChange();
                     ]) ?>
 
                 </div>
-                <div class="col-md-3">
-                    <?= $form->field($model, 'ofn')->textInput(['placeholder' => 'Поиск по имени файла'])->label('Имя файла') ?>
-
-                </div>
             </div>
             <div class="form-group">
-                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info', 'id' => 'btnSearch']) ?>
-
-                <?= Html::a('Отключить отбор', ['/production-feedback-files'], ['class' => 'btn btn-default']) ?>
+                <?= Html::submitButton('<i class="fa fa-repeat"></i> Сформировать', ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'id' => 'btnSearch']) ?>
 
             </div>
         </div>
@@ -127,14 +86,13 @@ $this->registerJs(<<<JS
 // Функция-обработчик изменения даты в любом из соответствующих полей.
 //
 function anyDateOnChange() {
-    //\$button = $("button[type='submit']");
     \$button = $("#btnSearch");
     \$button.attr("disabled", "disabled");
-    text = \$button.text();
+    text = \$button.html();
     \$button.text("Подождите...");
     setTimeout(function () {
         \$button.removeAttr("disabled");
-        \$button.text(text);
+        \$button.html(text);
     }, 1500);
 }
 JS

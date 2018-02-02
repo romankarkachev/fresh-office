@@ -2,9 +2,11 @@
 
 namespace backend\controllers;
 
-use common\models\PostDeliveryKinds;
 use Yii;
 use yii\web\Controller;
+use yii\web\Response;
+use yii\httpclient\Client;
+use common\models\PostDeliveryKinds;
 
 /**
  * Контроллер для ослеживания отправлений Почты России и компании Major Express.
@@ -12,11 +14,33 @@ use yii\web\Controller;
 class TrackingController extends Controller
 {
     /**
-     * Реквизиты доступа к API Почты России.
+     * Реквизиты доступа к API Почты России
      */
     const POCHTA_RU_LOGIN = 'TcANqqrYvLNUHm';
     const POCHTA_RU_PASS = '3mlhLBQbogkv';
     const POCHTA_RU_API_URL = 'https://tracking.russianpost.ru/rtm34?wsdl';
+
+    /**
+     * Реквизиты доступа к API отправлений Почты России
+     */
+    const POCHTA_RU_SEND_API_TOKEN = 'R9pmi350HAm6SDNYJjJnZk47B_2PpRtG';
+    const POCHTA_RU_SEND_API_AUTHKEY = 'ODgwMDU1NTIxODdAc3Q3Ny5ydTpxd2VydHkxMjM=';
+    const POCHTA_RU_SEND_API_URL = 'https://otpravka-api.pochta.ru/1.0/clean/address';
+
+    /**
+     * Ответ сервера Почты России должен содержать по одному из каждого массива вариантов
+     */
+    const POCHTA_RU_SEND_API_RESPONSE_QUALITY_CODES = [
+        'GOOD',
+        'POSTAL_BOX',
+        'ON_DEMAND',
+        'UNDEF_05'
+    ];
+    const POCHTA_RU_SEND_API_RESPONSE_VALIDATION_CODES = [
+        'VALIDATED',
+        'OVERRIDDEN',
+        'CONFIRMED_MANUALLY'
+    ];
 
     /**
      * Реквизиты доступа к API Major express
@@ -147,6 +171,71 @@ class TrackingController extends Controller
                 return $result;
             else
                 return 'Невозможно загрузить результаты.';
+        }
+
+        return false;
+    }
+
+    /**
+     * Выполняет нормализацию адреса, переданного в параметрах через Почту России. Возвращает в частности индекс отделения.
+     * @param $address string адрес, который необходимо нормализовать
+     * @return array|bool
+     */
+    public function actionNormalizeAddress($address)
+    {
+        $addresses = json_encode([
+            [
+                'id' => '1',
+                'original-address' => $address,
+            ]
+        ]);
+
+        $client = new Client();
+        $response = $client->createRequest()
+            ->setMethod('post')
+            ->setUrl(self::POCHTA_RU_SEND_API_URL)
+            ->setContent($addresses)
+            ->setHeaders([
+                'Authorization' => 'AccessToken '. self::POCHTA_RU_SEND_API_TOKEN,
+                'X-User-Authorization' => 'Basic ' . self::POCHTA_RU_SEND_API_AUTHKEY,
+                'Content-Type' => 'application/json;charset=UTF-8',
+            ])
+            ->send();
+
+        if ($response->isOk) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+
+            // извлекаем результат, берем первый элемент массива
+            $data = $response->getData();
+            if (count($data) > 0) {
+                $data = $data[0];
+
+                // проверим успех выполнения нормализации
+                if (isset($data['quality-code']))
+                    if (!in_array($data['quality-code'], self::POCHTA_RU_SEND_API_RESPONSE_QUALITY_CODES))
+                        return false;
+
+                // вторая проверка успешного выполнения
+                if (isset($data['validation-code']))
+                    if (!in_array($data['validation-code'], self::POCHTA_RU_SEND_API_RESPONSE_VALIDATION_CODES))
+                        return false;
+
+                $result = '';
+                if (isset($data['region'])) $result = $data['region'] . ', ';
+                if (isset($data['place']) && $result != '' && $data['region'] != $data['place']) $result = trim($result) . ' ' . $data['place'] . ', ';
+                if (isset($data['street'])) $result = trim($result) . ' ' . $data['street'] . ', ';
+                if (isset($data['house'])) $result = trim($result) . ' д.' . $data['house'] . ', ';
+                if (isset($data['building'])) $result = trim($result) . ' стр.' . $data['building'];
+                $result = trim($result, ', ');
+
+                if ($result == '') $result = $data['original-address'];
+
+                return [
+                    'index' => $data['index'],
+                    //'address' => $data['original-address'],
+                    'address' => $result,
+                ];
+            }
         }
 
         return false;

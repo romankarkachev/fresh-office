@@ -21,10 +21,23 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
     <?php $form = ActiveForm::begin(); ?>
 
     <div class="row">
-        <div class="col-md-4">
+        <div class="col-md-3">
             <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
 
         </div>
+        <div class="col-md-3">
+            <?= $form->field($model, 'name_crm')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование из CRM']) ?>
+
+        </div>
+        <div class="col-md-6">
+            <?= $form->field($model, 'notify_when_payment_orders_created')->checkbox()->label('Отправлять уведомление при импорте ордеров', [
+                'title' => 'Необходимость отправлять уведомление перевозчику при импорте платежного ордера на него',
+                'style' => 'padding-left: 0px;'
+            ]) ?>
+
+        </div>
+    </div>
+    <div class="row">
         <div class="col-md-2">
             <?= $form->field($model, 'state_id')->widget(Select2::className(), [
                 'data' => Ferrymen::arrayMapOfStatesForSelect2(),
@@ -52,8 +65,6 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
             ]) ?>
 
         </div>
-    </div>
-    <div class="row">
         <div class="col-md-2">
             <?= $form->field($model, 'opfh_id')->widget(Select2::className(), [
                 'data' => Opfh::arrayMapForSelect2(),
@@ -140,6 +151,10 @@ $opfhIp = Opfh::OPFH_ИП;
 $opfhOOO = Opfh::OPFH_ООО;
 
 $this->registerJs(<<<JS
+$("input").iCheck({
+    checkboxClass: "icheckbox_square-green"
+});
+
 // Обработчик изменения значения в поле "Наименование".
 //
 function ferrymenNameOnChange() {

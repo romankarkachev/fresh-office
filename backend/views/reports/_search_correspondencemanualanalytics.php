@@ -2,7 +2,9 @@
 
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
+use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
+use common\models\User;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\ReportCorrespondenceAnalytics */
@@ -12,7 +14,7 @@ use kartik\datecontrol\DateControl;
 
 <div class="correspondenceanalytics-search">
     <?php $form = ActiveForm::begin([
-        'action' => ['/reports/correspondence-analytics'],
+        'action' => ['/reports/correspondence-manual-analytics'],
         'method' => 'get',
         'options' => ['id' => 'frm-search'],
     ]); ?>
@@ -71,9 +73,20 @@ anyDateOnChange();
                     ]) ?>
 
                 </div>
+                <div class="col-md-3">
+                    <?= $form->field($model, 'searchManager')->widget(Select2::className(), [
+                        'data' => User::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                    ]) ?>
+
+                </div>
             </div>
             <div class="form-group">
                 <?= Html::submitButton('<i class="fa fa-repeat"></i> Сформировать', ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'id' => 'btnSearch']) ?>
+
+                <?= Html::a('Отключить отбор', ['/reports/correspondence-manual-analytics'], ['class' => 'btn btn-default']) ?>
 
             </div>
         </div>

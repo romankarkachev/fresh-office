@@ -2,7 +2,9 @@
 
 namespace backend\controllers;
 
+use common\models\CorrespondencePackages;
 use Yii;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
@@ -51,7 +53,7 @@ class ReportsController extends Controller
                     [
                         'actions' => [
                             'emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics', 'tr-analytics',
-                            'correspondence-analytics', 'file-storage-stats',
+                            'correspondence-analytics', 'correspondence-manual-analytics', 'file-storage-stats',
                         ],
                         'allow' => true,
                         'roles' => ['root'],
@@ -461,6 +463,47 @@ class ReportsController extends Controller
             'dpTable1' => $dpTable1,
             'dpTable2' => $dpTable2,
             'dpTable3' => $dpTable3,
+        ]);
+    }
+
+    /**
+     * Отображает отчет с анализом корреспонденции, созданным вручную.
+     * @return mixed
+     */
+    public function actionCorrespondenceManualAnalytics()
+    {
+        $avgFinish = intval(CorrespondencePackages::find()->where('ready_at IS NOT NULL')->average('ready_at - created_at'));
+
+        $searchModel = new ReportCorrespondenceAnalytics();
+        $cArray = $searchModel->search(ArrayHelper::merge(Yii::$app->request->queryParams, [
+            $searchModel->formName() => [
+                'searchManual' => true,
+            ]
+        ]));
+
+        // Таблица 1. Количество отправлений в разрезе способов доставки.
+        $dpTable1 = $searchModel->makeDataProviderForTable21($cArray);
+
+        // Таблица 2. Количество отправлений в разрезе контрагентов.
+        $dpTable2 = $searchModel->makeDataProviderForTable22($cArray);
+
+        // Таблица 3. Количество отправлений в разрезе статусов.
+        $dpTable3 = $searchModel->makeDataProviderForTable23($cArray);
+
+        // Таблица 4. Среднее время на согласование по менеджерам.
+        $dpTable4 = $searchModel->makeDataProviderForTable24();
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('correspondencemanualanalytics', [
+            'searchModel' => $searchModel,
+            'searchApplied' => $searchApplied,
+            'avgFinish' => $avgFinish,
+            'totalCount' => count($cArray),
+            'dpTable1' => $dpTable1,
+            'dpTable2' => $dpTable2,
+            'dpTable3' => $dpTable3,
+            'dpTable4' => $dpTable4,
         ]);
     }
 

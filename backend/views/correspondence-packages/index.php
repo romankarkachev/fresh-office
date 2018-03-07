@@ -4,6 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\grid\GridView;
 use common\models\CorrespondencePackagesSearch;
+use common\models\CorrespondencePackagesStates;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\CorrespondencePackagesSearch */
@@ -12,6 +13,8 @@ use common\models\CorrespondencePackagesSearch;
 
 $this->title = 'Корреспонденция | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
+
+$urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selection']);
 ?>
 <div class="correspondence-packages-list">
     <?= $this->render('_search', ['model' => $searchModel]); ?>
@@ -20,7 +23,11 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
         <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')): ?>
-        <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', '#', ['class' => 'btn btn-default pull-right', 'id' => 'btnComposePackage', 'title' => 'Выделите несколько пакетов документов, чтобы на них на всех назначить одинаковые параметры']) ?>
+        <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', $urlComposePackage, [
+            'class' => 'btn btn-default pull-right',
+            'id' => 'btnComposePackage',
+            'title' => 'Выделите несколько пакетов документов, чтобы на них на всех назначить одинаковые параметры',
+        ]) ?>
 
         <?php endif; ?>
     </p>
@@ -29,6 +36,22 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
         'id' => 'gw-packages',
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
+        'rowOptions' => function ($model, $key, $index, $grid) {
+            /* @var $model \common\models\CorrespondencePackages */
+            /* @var $column \yii\grid\DataColumn */
+
+            switch ($model->cps_id) {
+                case CorrespondencePackagesStates::STATE_ЧЕРНОВИК:
+                    return ['class' => 'warning'];
+                    break;
+                case CorrespondencePackagesStates::STATE_ОТКАЗ:
+                    return ['class' => 'danger'];
+                    break;
+                case CorrespondencePackagesStates::STATE_УТВЕРЖДЕН:
+                    return ['class' => 'success'];
+                    break;
+            }
+        },
         'columns' => [
             [
                 'class' => 'yii\grid\CheckboxColumn',
@@ -87,7 +110,18 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                 },
                 'visible' => $searchModel->searchGroupProjectStates == CorrespondencePackagesSearch::CLAUSE_STATE_DELIVERED || $searchModel->searchGroupProjectStates == CorrespondencePackagesSearch::CLAUSE_STATE_FINISHED,
             ],
-            'customer_name',
+            [
+                'attribute' => 'customer_name',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $contactPerson = '';
+                    if ($model->contact_person != null && $model->contact_person != '') $contactPerson = ' [' . $model->contact_person . ']';
+
+                    return $model->{$column->attribute} . $contactPerson;
+                },
+            ],
             [
                 'attribute' => 'cpsName',
                 'visible' => Yii::$app->user->can('operator_head') || Yii::$app->user->can('sales_department_manager'),
@@ -131,8 +165,14 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{update} {delete}',
+                'template' => '{update} {pochtaRuPrint} {delete}',
                 'buttons' => [
+                    'pochtaRuPrint' => function ($url, $model) {
+                        if ($model->pd_id == \common\models\PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ && $model->pochta_ru_order_id != null)
+                            return Html::a('<i class="fa fa-barcode"></i>', \backend\controllers\TrackingController::POCHTA_RU_URL_ORDER_PRINT . $model->pochta_ru_order_id, ['title' => 'Печать конверта', 'class' => 'btn btn-xs btn-default', 'target' => '_blank']);
+                        else
+                            return '';
+                    },
                     'update' => function ($url, $model) {
                         return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-xs btn-default']);
                     },
@@ -143,7 +183,7 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
                 'visibleButtons' => [
                     'delete' => Yii::$app->user->can('root') || Yii::$app->user->can('operator_head'),
                 ],
-                'options' => ['width' => '80'],
+                'options' => ['width' => '100'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
@@ -168,7 +208,6 @@ $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
     </div>
 </div>
 <?php
-$url_form = Url::to(['/correspondence-packages/compose-package-form']);
 $name = 'ComposePackageForm[tpPad]';
 
 $this->registerJs(<<<JS
@@ -180,10 +219,7 @@ function btnComposePackageFormOnClick() {
     var ids = $("#gw-packages").yiiGridView("getSelectedRows");
     if (ids == "") return false;
 
-    $("#modal_title").text("Формирование отправления из пакетов документов");
-    $("#modal_body_compose_addr").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
-    $("#mw_compose").modal();
-    $("#modal_body_compose_addr").load("$url_form?ids=" + ids);
+    $.get("$urlComposePackage?ids=" + ids);
 
     return false;
 } // btnComposePackageFormOnClick()

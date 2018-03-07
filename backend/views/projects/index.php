@@ -28,7 +28,7 @@ $this->params['breadcrumbs'][] = 'Проекты';
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'id' => 'gw-projects',
-        'layout' => '{items}{pager}',
+        'layout' => '{summary}{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             [

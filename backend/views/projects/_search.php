@@ -19,7 +19,9 @@ use common\models\foProjectsSearch;
     <?php $form = ActiveForm::begin([
         'action' => ['/projects'],
         'method' => 'get',
-        'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
+        //'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
+        // всегда открыто
+        'options' => ['id' => 'frm-search', 'class' => 'collapse in'],
     ]); ?>
 
     <div class="panel panel-info">
@@ -28,6 +30,10 @@ use common\models\foProjectsSearch;
             <div class="row">
                 <div class="col-md-1">
                     <?= $form->field($model, 'searchPerPage')->textInput() ?>
+
+                </div>
+                <div class="col-md-1">
+                    <?= $form->field($model, 'searchId')->textInput(['placeholder' => 'Введите идентификатор проекта', 'title' => 'Вы можете ввести один или несколько идентификаторов проектов через запятую без пробелов']) ?>
 
                 </div>
                 <div class="col-md-2">

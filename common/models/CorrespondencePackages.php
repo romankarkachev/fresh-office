@@ -27,11 +27,15 @@ use yii\helpers\Html;
  * @property integer $type_id
  * @property string $pad
  * @property integer $pd_id
+ * @property integer $pochta_ru_order_id
  * @property string $track_num
  * @property integer $address_id
  * @property string $other
  * @property string $comment
  * @property integer $manager_id
+ * @property integer $fo_contact_id
+ * @property string $contact_person
+ * @property integer $rejects_count
  *
  * @property string $cpsName
  * @property string $stateName
@@ -49,6 +53,7 @@ use yii\helpers\Html;
  * @property CounteragentsPostAddresses $address
  * @property CorrespondencePackagesStates $cps
  * @property CorrespondencePackagesFiles[] $correspondencePackagesFiles
+ * @property CorrespondencePackagesHistory[] $correspondencePackagesHistory
  */
 class CorrespondencePackages extends \yii\db\ActiveRecord
 {
@@ -82,10 +87,11 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             [['fo_id_company', 'manager_id'], 'required', 'on' => 'manual_creating'],
             // для одобрения менеджером обязательно нужно выбрать способ и адрес доставки
             [['pd_id', 'address_id'], 'required', 'on' => 'manager_approving'],
-            [['created_at', 'is_manual', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'address_id', 'manager_id'], 'integer'],
+            [['created_at', 'is_manual', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'pochta_ru_order_id', 'address_id', 'manager_id', 'fo_contact_id', 'rejects_count'], 'integer'],
             [['pad', 'other', 'comment'], 'string'],
             [['customer_name'], 'string', 'max' => 255],
             [['track_num'], 'string', 'max' => 50],
+            [['contact_person'], 'string', 'max' => 100],
             [['track_num'], 'trim'],
             [['cps_id'], 'exist', 'skipOnError' => true, 'targetClass' => CorrespondencePackagesStates::className(), 'targetAttribute' => ['cps_id' => 'id']],
             [['address_id'], 'exist', 'skipOnError' => true, 'targetClass' => CounteragentsPostAddresses::className(), 'targetAttribute' => ['address_id' => 'id']],
@@ -122,11 +128,15 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             'type_id' => 'Тип',
             'pad' => 'Виды документов',
             'pd_id' => 'Способ доставки',
+            'pochta_ru_order_id' => '№ заказа Почты РФ', // Номер заказа (оправления) на Почте России
             'track_num' => 'Трек-номер',
             'address_id' => 'Адрес почтовый',
             'other' => 'Другие документы',
             'comment' => 'Примечание',
             'manager_id' => 'Ответственный',
+            'fo_contact_id' => 'Контактное лицо',
+            'contact_person' => 'Контактное лицо',
+            'rejects_count' => 'Количество отказов по пакету',
             'rejectReason' => 'Причина отказа',
             // вычисляемые поля
             'cpsName' => 'Статус пакета',
@@ -180,6 +190,16 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function beforeSave($insert)
     {
         if (parent::beforeSave($insert)) {
+            if ($this->is_manual && $this->fo_contact_id != null) {
+                $contactPerson = DirectMSSQLQueries::fetchContactPerson($this->fo_contact_id);
+                if (count($contactPerson) > 0) {
+                    $name = trim($contactPerson[0]['name']);
+                    $phones = trim($contactPerson[0]['phones'], ', ');
+                    $phones = trim($phones);
+                    if ($name != '') $phones = ' (' . $phones . ')';
+                    $this->contact_person = $name . $phones;
+                }
+            }
 
             return true;
         }
@@ -189,8 +209,26 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     /**
      * @inheritdoc
      */
-    public function afterSave($insert, $changedAttributes){
+    public function afterSave($insert, $changedAttributes)
+    {
         parent::afterSave($insert, $changedAttributes);
+
+        if ($insert) {
+            // только для новых
+            if ($this->is_manual && $this->manager != null && $this->managerProfile != null &&
+                $this->managerProfile->notify_when_cp == true) {
+                // если установлен признак необходимости отправки E-mail-уведомления менеджеру, то сделаем это
+                $letter = Yii::$app->mailer->compose([
+                    'html' => 'newCorrespondencePackageHasBeenCreated-ForManager-html',
+                ], [
+                    'model' => $this,
+                ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameVictor']])
+                    ->setSubject('Создан пакет корреспонденции')
+                    ->setTo($this->manager->email);
+
+                $letter->send();
+            }
+        }
 
         if (isset($changedAttributes['cps_id'])) {
             // проверим, изменился ли статус пакета корреспонденции
@@ -214,6 +252,16 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                         $cpHistoryModel->save();
                         break;
                 }
+
+                if ($this->ready_at == null && ($this->cps_id == CorrespondencePackagesStates::STATE_ОТКАЗ || $this->cps_id == CorrespondencePackagesStates::STATE_УТВЕРЖДЕН)) {
+                    $this->ready_at = time();
+                    $this->save(false);
+                }
+
+                if ($this->cps_id == CorrespondencePackagesStates::STATE_ОТКАЗ) {
+                    $this->rejects_count++;
+                    $this->save(false);
+                }
             }
         }
 
@@ -224,21 +272,22 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                 switch ($this->state_id) {
                     case ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ:
                         $this->ready_at = time();
-                        $this->save();
+                        $this->save(false);
                         break;
                     case ProjectsStates::STATE_ОТПРАВЛЕНО:
                         $this->sent_at = time();
-                        $this->save();
+                        $this->save(false);
                         break;
                     case ProjectsStates::STATE_ДОСТАВЛЕНО:
                         // фиксируем время доставки
                         if ($this->delivered_at == null) {
                             $this->delivered_at = time();
-                            $this->save();
+                            $this->save(false);
                         }
 
                         // переводим проект сразу в статус Завершено при определенных условиях
-                        if ($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_КУРЬЕР || $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_САМОВЫВОЗ && $this->fo_project_id != null) {
+                        // не применяется для пакетов, созданных вручную (поскольку в них нет проектов)
+                        if (!$this->is_manual && $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_КУРЬЕР || $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_САМОВЫВОЗ && $this->fo_project_id != null) {
                             // делаем сразу две записи в истории изменения статусов проекта
                             $this->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
                             $this->project->save();
@@ -457,6 +506,19 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает выборку контактных лиц текущего контрагента и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public function arrayMapOfContactPersonsForSelect2()
+    {
+        $contactPersons = DirectMSSQLQueries::fetchCounteragentsContactPersons($this->fo_id_company);
+        if (count($contactPersons) > 0) return ArrayHelper::map($contactPersons, 'id', 'text');
+
+        return [];
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getCps()
@@ -580,5 +642,13 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function getCorrespondencePackagesFiles()
     {
         return $this->hasMany(CorrespondencePackagesFiles::className(), ['cp_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCorrespondencePackagesHistory()
+    {
+        return $this->hasMany(CorrespondencePackagesHistory::className(), ['cp_id' => 'id']);
     }
 }

@@ -17,6 +17,7 @@ use yii\helpers\ArrayHelper;
  * @property integer $ferryman_id
  * @property string $projects
  * @property string $cas
+ * @property string $vds
  * @property string $amount
  * @property integer $pd_type
  * @property integer $pd_id
@@ -67,7 +68,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
         return [
             [['ferryman_id', 'projects'], 'required'],
             [['created_at', 'created_by', 'creation_type', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'emf_sent_at', 'approved_at'], 'integer'],
-            [['projects', 'cas', 'comment'], 'string'],
+            [['projects', 'cas', 'vds', 'comment'], 'string'],
             [['amount'], 'number'],
             [['payment_date'], 'safe'],
             [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
@@ -93,6 +94,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
             'ferryman_id' => 'Перевозчик',
             'projects' => 'Проекты',
             'cas' => 'Контрагенты из проектов',
+            'vds' => 'Даты вывоза из проектов',
             'amount' => 'Сумма',
             'pd_type' => 'Способ расчетов', // 1 - банковский счет, 2 - перевод на карту
             'pd_id' => 'Ссылка на банковский счет (номер карты)',
@@ -258,11 +260,12 @@ class PaymentOrders extends \yii\db\ActiveRecord
     /**
      * Собирает наименования контрагентов по идентификаторам проектов.
      */
-    public function collectCas()
+    public function collectCasVd()
     {
         $projects = explode(',', $this->projects);
         if (count($projects) > 0) {
             $poCas = [];
+            $poVds = [];
             foreach ($projects as $project) {
                 $project_id = trim($project);
                 if (is_numeric($project_id) === false) {
@@ -275,10 +278,17 @@ class PaymentOrders extends \yii\db\ActiveRecord
 
                 // проект должен существовать
                 $object = DirectMSSQLQueries::fetchProjectsData($project_id);
-                if (count($object) > 0 && (!in_array($object['ca_name'], $poCas))) $poCas[] = $object['ca_name'];
+                if (count($object) > 0) {
+                    if (!in_array($object['ca_name'], $poCas)) $poCas[] = $object['ca_name'];
+                    if ($object['vivozdate'] != null) {
+                        $date = Yii::$app->formatter->asDate($object['vivozdate'], 'php:d.m.Y');
+                        if (!in_array($date, $poVds)) $poVds[] = $date;
+                    }
+                }
             }
 
             $this->cas = implode(', ', $poCas);
+            $this->vds = implode(', ', $poVds);
         }
     }
 
@@ -287,7 +297,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
      */
     public function beforeValidate() {
         if ($this->state_id == PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК && $this->creation_type == PaymentOrders::PAYMENT_ORDER_CREATION_TYPE_ВРУЧНУЮ)
-            $this->collectCas();
+            $this->collectCasVd();
 
         return parent::beforeValidate();
     }

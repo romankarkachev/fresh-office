@@ -5,7 +5,9 @@ use yii\helpers\Html;
 /* @var $this yii\web\View */
 /* @var $pad array */
 /* @var $model common\models\CorrespondencePackages */
+/* @var $form yii\bootstrap\ActiveForm */
 ?>
+
 <table class="table table-striped table-hover">
                 <thead>
                     <tr>

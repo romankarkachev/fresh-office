@@ -6,6 +6,7 @@ use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use common\models\ProjectsStates;
 use common\models\PostDeliveryKinds;
+use common\models\CorrespondencePackagesStates;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\CorrespondencePackages */
@@ -67,6 +68,7 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
                 </div>
             </div>
             <div class="row">
+                <?php if (!Yii::$app->user->can('sales_department_manager')): ?>
                 <div class="col-md-3">
                     <?= $form->field($model, 'state_id')->widget(Select2::className(), [
                         'data' => ProjectsStates::arrayMapForSelect2(),
@@ -75,6 +77,7 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
                     ]) ?>
 
                 </div>
+                <?php endif; ?>
                 <div class="col-md-3">
                     <?= $form->field($model, 'pd_id')->widget(Select2::className(), [
                         'data' => PostDeliveryKinds::arrayMapForSelect2(),
@@ -102,6 +105,23 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
                     ])->label($model->getAttributeLabel('address_id') . ' &nbsp; '.Html::a('<i class="fa fa-plus" aria-hidden="true"></i> добавить', '#', ['id' => 'createNewAddress', 'class' => 'text-success', 'title' => 'Добавить новый почтовый адрес контрагента'])) ?>
 
                 </div>
+                <?php if ((Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('root')) &&
+                    ($model->cps_id == CorrespondencePackagesStates::STATE_ЧЕРНОВИК || $model->cps_id == CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ)): ?>
+                <div class="col-md-6">
+                    <?= $form->field($model, 'fo_contact_id')->widget(Select2::className(), [
+                        'initValueText' => $model->contact_person != null ? $model->contact_person : '',
+                        'data' => $model->fo_id_company != null ? $model->arrayMapOfContactPersonsForSelect2() : [],
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                    ]) ?>
+
+                </div>
+                <?php else: ?>
+                <div class="col-md-6">
+                    <?= $form->field($model, 'contact_person')->textInput(['disabled' => true]) ?>
+
+                </div>
+                <?php endif; ?>
             </div>
             <?php endif; ?>
         </div>
@@ -165,8 +185,14 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Пакеты корреспонденции', ['/correspondence-packages'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
+        <?php if ($model->pd_id == \common\models\PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ && $model->pochta_ru_order_id != null): ?>
+        <?= Html::a('<i class="fa fa-barcode"></i> Печать конверта', \backend\controllers\TrackingController::POCHTA_RU_URL_ORDER_PRINT . $model->pochta_ru_order_id, ['title' => 'Печать конверта', 'class' => 'btn btn-lg btn-default', 'target' => '_blank']); ?>
+
+        <?php endif; ?>
+        <?php if ($model->is_manual): ?>
         <?= Html::a('<i class="fa fa-history"></i> История', ['#block-history'], ['class' => 'btn btn-default btn-lg', 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'block-history']) ?>
 
+        <?php endif; ?>
         <?= $model->renderSubmitButtons() ?>
 
     </div>

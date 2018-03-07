@@ -62,7 +62,7 @@ $this->params['breadcrumbs'][] = 'Статистика по файловому �
             <?php Pjax::end(); ?>
 
         </div>
-        <div class="col-md-4">
+        <div class="col-md-6">
             <?php Pjax::begin(['id' => 'pjax-table2', 'enablePushState' => false, 'timeout' => 5000]); ?>
 
             <?= GridView::widget([

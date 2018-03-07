@@ -14,6 +14,7 @@ use common\models\TransportRequests;
 /* @var $form yii\bootstrap\ActiveForm */
 
 $formNameId = strtolower($model->formName());
+$urlFetchContactPersons = Url::to(['/correspondence-packages/fetch-contact-persons']);
 ?>
 
 <div class="correspondence-packages-form">
@@ -53,13 +54,21 @@ $formNameId = strtolower($model->formName());
 if (!result.custom) return result.text;
 $("#' . $formNameId . '-customer_name").val(result.text);
 $("#' . $formNameId . '-manager_id").val(result.managerId).trigger("change");
+$contactField = $("#' . $formNameId . '-fo_contact_id");
+$.get("' . $urlFetchContactPersons . '?id=" + result.id, function (retval) {
+    $contactField.empty().trigger("change");
+    $.each(retval, function(index, value) {
+        var newOption = new Option(value.text, value.id, true, true);
+        $contactField.append(newOption).trigger("change");
+    });
+});
 return result.text;
 }'),
                         ],
                     ]) ?>
 
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-3">
                     <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
                         'data' => User::arrayMapForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
@@ -67,6 +76,17 @@ return result.text;
                     ]) ?>
 
                 </div>
+                <?php if (Yii::$app->user->can('root')): ?>
+                <div class="col-md-3">
+                    <?= $form->field($model, 'fo_contact_id')->widget(Select2::className(), [
+                        'initValueText' => $model->contact_person != null ? $model->contact_person : '',
+                        'data' => $model->fo_id_company != null ? $model->arrayMapOfContactPersonsForSelect2() : [],
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                    ]) ?>
+
+                </div>
+                <?php endif; ?>
             </div>
             <?= $form->field($model, 'other')->textarea(['rows' => 3, 'placeholder' => 'Введите наименования других документов из этого пакета']) ?>
 

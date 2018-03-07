@@ -77,6 +77,12 @@ switch ($model->pd_type) {
             ]) ?>
 
         </div>
+    </div>
+    <div class="form-group">
+        <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите комментарий']) ?>
+
+    </div>
+    <div class="row">
         <div id="block-pd" class="col-md-3">
             <?php if ($dataSet != null): ?>
             <?= $this->render('_block_pd', [

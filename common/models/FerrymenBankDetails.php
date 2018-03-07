@@ -18,6 +18,8 @@ use yii\helpers\ArrayHelper;
  * @property string $bank_bik
  * @property string $bank_name
  * @property string $bank_ca
+ * @property string $address_j
+ * @property string $address_f
  * @property string $contract_num
  * @property string $contract_date
  * @property string $comment
@@ -48,6 +50,7 @@ class FerrymenBankDetails extends \yii\db\ActiveRecord
         return [
             [['ferryman_id', 'name_full', 'inn', 'ogrn', 'bank_an', 'bank_ca', 'bank_bik', 'bank_name'], 'required'],
             [['ferryman_id'], 'integer'],
+            [['address_j', 'address_f', 'comment'], 'string'],
             [['contract_date'], 'safe'],
             [['comment'], 'string'],
             [['name_full'], 'string', 'max' => 200],
@@ -78,6 +81,8 @@ class FerrymenBankDetails extends \yii\db\ActiveRecord
             'bank_bik' => 'БИК банка',
             'bank_name' => 'Наименование банка',
             'bank_ca' => 'Корр. счет',
+            'address_j' => 'Адрес юридический',
+            'address_f' => 'Адрес фактический',
             'contract_num' => 'Номер договора',
             'contract_date' => 'Дата договора',
             'comment' => 'Примечания',

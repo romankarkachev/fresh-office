@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\DadataAPI;
 use Yii;
 use yii\db\Expression;
 use yii\helpers\ArrayHelper;
@@ -677,7 +678,7 @@ class ServicesController extends Controller
     }
 
     /**
-     * Получает информацию о контрагенте по его ИНН или ОГРН.
+     * Получает информацию о контрагенте по его ИНН или ОГРН через сервис ОГРН.ОНЛАЙН.
      * @param $field_id integer поле для поиска данных (1 - инн, 2 - огрн(ип), 3 - наименование)
      * @param $value string значение для поиска
      * @return array|bool
@@ -748,6 +749,32 @@ class ServicesController extends Controller
                 return $result;
 
             }
+        }
+
+        return false;
+    }
+
+    /**
+     * Получает подробную информацию о контрагенте через сервис dadata.ru.
+     * @param $query string ИНН или ОГРН контрагента
+     * @return array|false
+     */
+    public function actionFetchCounteragentsInfoDadata($query)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $details = DadataAPI::postRequestToApi($query);
+        if (false !== $details) {
+            $result = [
+                'name_full' => $details['name']['full_with_opf'],
+                'name_short' => $details['name']['short_with_opf'],
+                'inn' => $details['inn'],
+                'ogrn' => $details['ogrn'],
+            ];
+            $result['kpp'] = $details['kpp'];
+            $result['address'] = $details['address']['unrestricted_value'];
+
+            return $result;
         }
 
         return false;

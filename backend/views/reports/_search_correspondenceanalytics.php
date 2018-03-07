@@ -75,6 +75,8 @@ anyDateOnChange();
             <div class="form-group">
                 <?= Html::submitButton('<i class="fa fa-repeat"></i> Сформировать', ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'id' => 'btnSearch']) ?>
 
+                <?= Html::a('Отключить отбор', ['/reports/correspondence-analytics'], ['class' => 'btn btn-default']) ?>
+
             </div>
         </div>
     </div>

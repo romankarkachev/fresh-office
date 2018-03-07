@@ -21,6 +21,7 @@ use common\models\TransportInspectionsSearch;
 use common\models\FerrymenFiles;
 use common\models\FerrymenFilesSearch;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\httpclient\Client;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;

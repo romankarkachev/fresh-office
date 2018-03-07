@@ -17,6 +17,13 @@ use yii\helpers\ArrayHelper;
  * @property integer $fo_id
  * @property string $name
  * @property string $name_crm
+ * @property string $name_full
+ * @property string $name_short
+ * @property string $inn
+ * @property string $kpp
+ * @property string $ogrn
+ * @property string $address_j
+ * @property string $address_f
  * @property integer $opfh_id
  * @property integer $tax_kind
  * @property integer $ft_id
@@ -100,7 +107,11 @@ class Ferrymen extends \yii\db\ActiveRecord
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
             [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created'], 'integer'],
+            [['name_full', 'name_short', 'address_j', 'address_f'], 'string'],
             [['name', 'name_crm', 'email', 'email_dir'], 'string', 'max' => 255],
+            [['inn'], 'string', 'min' => 10, 'max' => 12],
+            [['kpp'], 'string', 'length' => 9],
+            [['ogrn'], 'string', 'max' => 15],
             [['phone', 'contact_person', 'phone_dir', 'contact_person_dir'], 'string', 'max' => 50],
             [['post', 'post_dir'], 'string', 'max' => 100],
             [['ati_code'], 'string', 'max' => 9],
@@ -126,6 +137,13 @@ class Ferrymen extends \yii\db\ActiveRecord
             'fo_id' => 'Идентификатор в Fresh Office',
             'name' => 'Наименование',
             'name_crm' => 'Наименование в CRM',
+            'name_full' => 'Полное наименование',
+            'name_short' => 'Сокращенное наименование наименование',
+            'inn' => 'ИНН',
+            'kpp' => 'КПП',
+            'ogrn' => 'ОГРН(ИП)',
+            'address_j' => 'Адрес юридический',
+            'address_f' => 'Адрес фактический',
             'opfh_id' => 'ОПФХ',
             'tax_kind' => 'Плательщик НДС', // 0 - нет, 1 - да
             'ft_id' => 'Тип',

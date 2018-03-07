@@ -110,6 +110,7 @@ class PaymentOrdersSearch extends PaymentOrders
             'query' => $query,
             'pagination' => [
                 'route' => 'payment-orders',
+                'pageSize' => 50,
             ],
             'sort' => [
                 'route' => 'payment-orders',

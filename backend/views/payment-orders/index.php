@@ -63,12 +63,24 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
             ],
             [
                 'attribute' => 'projects',
-                'footer' => '<strong>Итого:</strong>',
-                'footerOptions' => ['class' => 'text-right'],
+                'format' => 'raw',
+                'options' => ['width' => '200'],
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\PaymentOrders */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return implode(', ', explode(',', $model->{$column->attribute}));
+                },
             ],
             [
                 'attribute' => 'cas',
                 'label' => 'Контрагенты',
+            ],
+            [
+                'attribute' => 'vds',
+                'label' => 'Вывоз',
+                'footer' => '<strong>Итого:</strong>',
+                'footerOptions' => ['class' => 'text-right'],
             ],
             [
                 'class' => TotalsColumn::className(),

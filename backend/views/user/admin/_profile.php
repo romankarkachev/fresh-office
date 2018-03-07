@@ -56,6 +56,8 @@ use common\models\User;
     'title' => 'Менеджер не сможет выбрать способ доставки Major Express, если с 1 числа текущего месяца будет достигнут этот предел',
 ]) ?>
 
+<?= $form->field($profile, 'notify_when_cp')->checkbox([], false)->label(null, ['title' => 'Уведомлять по E-mail при создании пакета корреспонденции']) ?>
+
 <div class="form-group field-profile-role">
     <label class="control-label col-sm-3" for="profile-role"><?= $profile->user->getAttributeLabel('role_id') ?></label>
     <div class="col-sm-9">
@@ -69,5 +71,14 @@ use common\models\User;
 </div>
 
 <?php ActiveForm::end(); ?>
+
+<?php
+$this->registerJs(<<<JS
+$("input").iCheck({
+    checkboxClass: "icheckbox_square-green"
+});
+JS
+    , yii\web\View::POS_READY);
+?>
 
 <?php $this->endContent() ?>

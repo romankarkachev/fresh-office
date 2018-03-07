@@ -17,6 +17,7 @@ use common\models\PadKinds;
 use common\models\DirectMSSQLQueries;
 use common\models\Profile;
 use yii\helpers\ArrayHelper;
+use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -39,7 +40,7 @@ class CorrespondencePackagesController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['download-file'],
+                        'actions' => ['download-file', 'temp'],
                         'allow' => true,
                         'roles' => ['?', '@'],
                     ],
@@ -51,7 +52,9 @@ class CorrespondencePackagesController extends Controller
                     [
                         'actions' => [
                             'index', 'create', 'update',
-                            'compose-package-form', 'compose-package', 'create-address-form', 'counteragent-casting-by-name',
+                            'compose-package-by-selection', 'compose-package',
+                            'create-address-form', 'counteragent-casting-by-name',
+                            'fetch-contact-persons', 'normalize-empty-addresses',
                             'upload-files', 'preview-file', 'delete-file',
                         ],
                         'allow' => true,
@@ -217,20 +220,17 @@ class CorrespondencePackagesController extends Controller
     }
 
     /**
-     * Формирует и отдает форму назначения трек-номера, статуса, выборка видов документов.
-     * @param $ids string идентификаторы проектов
+     * Перенаправляет на страницу формирования почтового отправления. В сессию записываются идентификаторы пакетов,
+     * чтобы там уже их обработать.
+     * @param $ids string идентификаторы пакетов
      * @return mixed
      */
-    public function actionComposePackageForm($ids)
+    public function actionComposePackageBySelection($ids)
     {
         if (Yii::$app->request->isAjax) {
-            $model = new ComposePackageForm();
-            $model->project_ids = explode(',', $ids);
-            $model->tpPad = PadKinds::find()->select(['id', 'name', 'name_full', 'is_provided' => new \yii\db\Expression(0)])->orderBy('name_full')->asArray()->all();
-
-            return $this->renderAjax('_compose_package_form', [
-                'model' => $model,
-            ]);
+            Yii::$app->session->set('ids_for_compose_package_' . Yii::$app->user->id, explode(',', $ids));
+            Yii::$app->session->setFlash('warning', 'Не обновляйте страницу без надобности, поскольку идентификаторы пакетов будут утрачены.');
+            return $this->redirect('/correspondence-packages/compose-package');
         }
 
         return '';
@@ -238,30 +238,105 @@ class CorrespondencePackagesController extends Controller
 
     /**
      * Назначает виды документов, способ доставки, статус пакета документов и трек-номер (при необходимости).
+     * @return mixed
      */
     public function actionComposePackage()
     {
         Url::remember(Yii::$app->request->referrer);
+        $model = new ComposePackageForm();
         if (Yii::$app->request->isPost) {
-            $model = new ComposePackageForm();
             if ($model->load(Yii::$app->request->post())) {
-                $packages = CorrespondencePackages::find()->where(['in', 'id', $model->project_ids])->all();
-                foreach ($packages as $package) {
-                    /* @var $package CorrespondencePackages */
-                    $package->state_id = ProjectsStates::STATE_ОТПРАВЛЕНО;
-                    $package->tpPad = $model->tpPad;
-                    $package->pad = $package->convertPadTableToArray();
-                    $package->pd_id = $model->pd_id;
-                    $package->track_num = '';
-                    if ($package->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ ||
-                        $package->pd_id == PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS)
-                        $package->track_num = $model->track_num;
+                $pad = $model->tpPad;
+                $model->tpPad = json_decode($model->convertPadTableToArray(), true);
 
-                    $package->save();
+                $fine = true;
+                $order = null;
+                $track_num = null;
+                // создадим заказ и вычислим трек-номер, если в качестве способа доставки выбрана Почта России
+                if ($model->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ) {
+                    $order = TrackingController::pochtaRuCreateOrder($model->zip_code, $model->address, $model->contact_person);
+                    if (false !== $order) {
+                        $track_num = TrackingController::pochtaRuExtractTrackNumberFromOrder($order);
+                        if (false == $track_num) {
+                            $fine = false;
+                            $model->addError('pd_id', 'Трек-номер определить не удалось.');
+                        }
+                    }
+                    else {
+                        $fine = false;
+                        $model->addError('pd_id', 'Не удалось создать отправление.');
+                    }
                 }
-                $this->goBack();
+
+                if ($fine) {
+                    $packages = CorrespondencePackages::find()->where(['in', 'id', $model->packages_ids])->all();
+                    foreach ($packages as $package) {
+                        /* @var $package CorrespondencePackages */
+                        $package->state_id = ProjectsStates::STATE_ОТПРАВЛЕНО;
+                        if ($model->isReplacePad) {
+                            $package->tpPad = $pad;
+                            $package->pad = $package->convertPadTableToArray();
+                        }
+                        $package->pd_id = $model->pd_id;
+                        if ($package->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ ||
+                            $package->pd_id == PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS
+                        ) {
+                            $package->pochta_ru_order_id = $order;
+                            $package->track_num = $track_num;
+                        }
+
+                        $package->save();
+                    }
+                    $this->goBack();
+                }
             }
         }
+        else {
+            // извлекаем идентификаторы выделенных пакетов из сессии
+            $key = 'ids_for_compose_package_' . Yii::$app->user->id;
+            $ids = Yii::$app->session->get($key);
+            if ($ids != null) {
+                $model->packages_ids = $ids;
+                Yii::$app->session->remove($key);
+            }
+            else {
+                Yii::$app->session->setFlash('error', 'Ни один пакет не выбран.');
+                return $this->redirect(['/correspondence-packages']);
+            }
+
+            // проверим адреса и контактных лиц
+            // если адрес один, то отображаем в поле только для чтения, а если несколько, то не пускаем вообще
+            // если контактные лица отличаются, то выводим select для указания конкретного контактного лица
+            $address = [];
+            $model->contactPersons = [];
+            $packages = CorrespondencePackages::find()->where(['in', 'id', $model->packages_ids])->all();
+            foreach ($packages as $package) {
+                /* @var $package CorrespondencePackages */
+                if ($package->address_id != null && !in_array($package->address_id, $address)) {
+                    $address[] = $package->address_id;
+                    $model->zip_code = $package->address->zip_code;
+                    $model->address = $package->address->address_m;
+                }
+
+                if ($package->fo_contact_id != null && !in_array($package->contact_person, $model->contactPersons)) {
+                    $model->contact_person = $package->contact_person;
+                    $model->contactPersons[$package->fo_contact_id] = $package->contact_person;
+                }
+            }
+
+            // если адресов несколько, то вообще не пускаем дальше
+            if (count($address) > 1) {
+                Yii::$app->session->setFlash('error', 'В выбранных пакетах ' . implode(',', $ids) . ' не один и тот же адрес, что недопустимо.');
+                return $this->redirect(['/correspondence-packages']);
+            }
+
+            // пустая табличная часть
+            $model->tpPad = PadKinds::find()->select(['id', 'name', 'name_full', 'is_provided' => new \yii\db\Expression(0)])->orderBy('name_full')->asArray()->all();
+        }
+
+        return $this->render('compose_package', [
+            'model' => $model,
+        ]);
     }
 
     /**
@@ -385,7 +460,9 @@ class CorrespondencePackagesController extends Controller
     }
 
     /**
-     *
+     * Выполняет подбор контрагентов по части наименования, переданной в параметрах.
+     * @param $q string подстрока поиска
+     * @return array
      */
     public function actionCounteragentCastingByName($q)
     {
@@ -399,15 +476,39 @@ class CorrespondencePackagesController extends Controller
                 if (isset($profiles[$ca['managerId']]))
                     $results[$index]['managerId'] = $profiles[$ca['managerId']];
             }
-            /*
-            if (isset($results[0]['managerId'])) {
-                $profiles
-                $manager = Profile::findOne(['fo_id' => $results[0]['managerId']]);
-                //if ($manager != null) $results[0]['managerId'] = $manager->user_id;
-            }
-            */
         }
 
         return ['results' => $results];
+    }
+
+    /**
+     * Выполняет выборку контактных лиц контрагента и возвращает ее.
+     * @param $id integer идентификатор контрагента
+     * @return array
+     */
+    public function actionFetchContactPersons($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $results = DirectMSSQLQueries::fetchCounteragentsContactPersons($id);
+        if (count($results) > 0) return $results;
+
+        return [];
+    }
+
+    /**
+     * Делает выборку адресов контрагентов с пустыми почтовыми индексами и нормализует каждый из них.
+     */
+    public function actionNormalizeEmptyAddresses()
+    {
+        $addresses = CounteragentsPostAddresses::find()->where(['zip_code' => null])->limit(50)->all();
+        foreach ($addresses as $address) {
+            $data = TrackingController::pochtaRuNormalizeAddress($address->src_address);
+            if ($data !== false) {
+                $address->zip_code = $data['index'];
+                $address->address_m = TrackingController::implodePochtaRuAnswerToString($data);
+                if (!$address->save()) var_dump($address->errors); else sleep(5);
+            }
+        }
     }
 }

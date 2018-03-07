@@ -5,7 +5,6 @@ use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
 use yii\widgets\MaskedInput;
 use kartik\datecontrol\DateControl;
-use common\models\Counteragents;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\FerrymenBankDetails */
@@ -70,8 +69,20 @@ $label_bank_bik = $model->attributeLabels()['bank_bik'];
 
         </div>
     </div>
-    <?= $form->field($model, 'name_full')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование организации']) ?>
+    <div class="row">
+        <div class="col-md-4">
+            <?= $form->field($model, 'name_full')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование организации']) ?>
 
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'address_j')->textInput(['placeholder' => 'Введите юридический адрес']) ?>
+
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'address_f')->textInput(['placeholder' => 'Введите фактический адрес']) ?>
+
+        </div>
+    </div>
     <div class="row">
         <div class="col-md-2">
             <?= $form->field($model, 'bank_bik')->widget(\yii\widgets\MaskedInput::className(), [
@@ -119,10 +130,7 @@ $label_bank_bik = $model->attributeLabels()['bank_bik'];
 
 </div>
 <?php
-$field_inn = Counteragents::API_FIELD_ИНН;
-$field_ogrn = Counteragents::API_FIELD_ОГРН;
-
-$url_inn_ogrn = Url::to(['/services/fetch-counteragents-info-by-inn-orgn']);
+$url_inn_ogrn = Url::to(['/services/fetch-counteragents-info-dadata']);
 $url_bank_bik = Url::to(['/services/fetch-bank-by-bik']);
 
 $formName = strtolower($model->formName());
@@ -144,7 +152,11 @@ function fillFields(caInfo) {
 
     \$field = $("#$formName-name_full");
     \$field.val("");
-    if (caInfo.name_full) \$field.val(caInfo.name_full);
+    if (caInfo.name_short) \$field.val(caInfo.name_short);
+
+    \$field = $("#$formName-address_j");
+    \$field.val("");
+    if (caInfo.address) \$field.val(caInfo.address);
 } // fillFields()
 
 // Обработчик изменения значения в поле "ИНН".
@@ -157,7 +169,7 @@ function innOnChange() {
         if (inn != "") {
             \$label = $("#label-inn");
             \$label.html("$label_inn &nbsp;<i class=\"fa fa-spinner fa-pulse fa-fw text-primary\"></i>");
-            $.get("$url_inn_ogrn?field_id=" + $field_inn + "&value=" + inn, function(response) {
+            $.get("$url_inn_ogrn?query=" + inn, function(response) {
                 if (response != false) {
                     fillFields(response);
                 }
@@ -179,7 +191,7 @@ function ogrnOnChange() {
         if (ogrn != "") {
             \$label = $("#label-ogrn");
             \$label.html("$label_ogrn &nbsp;<i class=\"fa fa-spinner fa-pulse fa-fw text-primary\"></i>");
-            $.get("$url_inn_ogrn?field_id=" + $field_ogrn + "&value=" + ogrn, function(response) {
+            $.get("$url_inn_ogrn?query=" + ogrn, function(response) {
                 if (response != false) {
                     fillFields(response);
                 }

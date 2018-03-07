@@ -148,6 +148,10 @@ class FileStorage extends \yii\db\ActiveRecord
     public function beforeDelete()
     {
         if (parent::beforeDelete()) {
+            // удалим статы
+            FileStorageStats::deleteAll(['fs_id' => $this->id]);
+
+            // удалим сам файл
             if (file_exists($this->ffp)) unlink($this->ffp);
 
             return true;

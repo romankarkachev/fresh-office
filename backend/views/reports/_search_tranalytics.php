@@ -65,6 +65,8 @@ use kartik\datecontrol\DateControl;
             <div class="form-group">
                 <?= Html::submitButton('<i class="fa fa-repeat"></i> Сформировать', ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default')]) ?>
 
+                <?= Html::a('Отключить отбор', ['/reports/tr-analytics'], ['class' => 'btn btn-default']) ?>
+
             </div>
         </div>
     </div>

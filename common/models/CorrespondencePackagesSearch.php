@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use common\models\CorrespondencePackages;
+use yii\helpers\ArrayHelper;
 
 /**
  * CorrespondencePackagesSearch represents the model behind the search form about `common\models\CorrespondencePackages`.
@@ -25,6 +26,18 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     const CLAUSE_STATE_ALL = 8; // все статусы
 
     /**
+     * Возможные значения для отбора по способу создания пакета
+     */
+    const FILTER_PACKAGE_TYPE_ALL = 1;
+    const FILTER_PACKAGE_TYPE_MANUAL = 2;
+    const FILTER_PACKAGE_TYPE_AUTO = 3;
+
+    /**
+     * @var integer значение отбора по способу создания пакетов корреспонденции
+     */
+    public $searchPackageType;
+
+    /**
      * Флаг для управления статусами в выборке.
      * @var integer
      */
@@ -36,8 +49,8 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     public function rules()
     {
         return [
-            [['id', 'created_at', 'is_manual', 'ready_at', 'sent_at', 'delivered_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'manager_id', 'searchGroupProjectStates'], 'integer'],
-            [['customer_name', 'pad', 'track_num', 'other', 'comment'], 'safe'],
+            [['id', 'created_at', 'is_manual', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'address_id', 'manager_id', 'fo_contact_id', 'rejects_count', 'searchPackageType', 'searchGroupProjectStates'], 'integer'],
+            [['customer_name', 'pad', 'track_num', 'other', 'comment', 'contact_person'], 'safe'],
         ];
     }
 
@@ -46,13 +59,60 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
      */
     public function attributeLabels()
     {
-        return [
-            'fo_id_company' => 'Контрагент',
-            // для отбора
+        return ArrayHelper::merge(parent::attributeLabels(), [
+            'searchPackageType' => 'Способ создания',
             'searchGroupProjectStates' => 'Группы статусов',
             'searchCreatedFrom' => 'Период с',
             'searchCreatedTo' => 'Период по',
             'searchPerPage' => 'Записей', // на странице
+        ]);
+    }
+
+    /**
+     * Возвращает массив со значениями для отбора по способу создания пакета.
+     * @return array
+     */
+    public static function fetchFilterPackagesTypes()
+    {
+        return [
+            [
+                'id' => self::FILTER_PACKAGE_TYPE_ALL,
+                'name' => 'Все',
+            ],
+            [
+                'id' => self::FILTER_PACKAGE_TYPE_MANUAL,
+                'name' => 'Ручные',
+                'hint' => 'Только созданные старшими операторами вручную',
+            ],
+            [
+                'id' => self::FILTER_PACKAGE_TYPE_AUTO,
+                'name' => 'Авто',
+                'hint' => 'Импортированные из CRM автоматически по расписанию',
+            ],
+        ];
+    }
+
+    /**
+     * Возвращает массив со значениями для отбора по статусу пакета корреспонденции.
+     * @return array
+     */
+    public static function fetchFilterCps()
+    {
+        return [
+            [
+                'id' => CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ,
+                'name' => 'Согласование',
+            ],
+            [
+                'id' => self::FILTER_PACKAGE_TYPE_MANUAL,
+                'name' => 'Ручные',
+                'hint' => 'Только созданные старшими операторами вручную',
+            ],
+            [
+                'id' => self::FILTER_PACKAGE_TYPE_AUTO,
+                'name' => 'Авто',
+                'hint' => 'Импортированные из CRM автоматически по расписанию',
+            ],
         ];
     }
 
@@ -62,17 +122,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
      */
     public static function fetchGroupProjectStatesIds()
     {
-        return [
-            [
-                'id' => self::CLAUSE_STATE_DEFAULT,
-                'name' => 'По умолчанию',
-                'hint' => 'Формирование документов на отправку + Ожидает отправки',
-            ],
-            [
-                'id' => self::CLAUSE_STATE_PROCESS,
-                'name' => 'В работе',
-                'hint' => 'Все, кроме доставленных и завершенных',
-            ],
+        $result = [
             [
                 'id' => self::CLAUSE_STATE_JUST_CREATED,
                 'name' => 'Формирование',
@@ -93,6 +143,49 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
             [
                 'id' => self::CLAUSE_STATE_FINISHED,
                 'name' => 'Завершенные',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_ALL,
+                'name' => 'Все',
+            ],
+        ];
+
+        if (!Yii::$app->user->can('operator_head')) {
+            $result = ArrayHelper::merge([
+                [
+                    'id' => self::CLAUSE_STATE_DEFAULT,
+                    'name' => 'По умолчанию',
+                    'hint' => 'Формирование документов на отправку + Ожидает отправки',
+                ],
+                [
+                    'id' => self::CLAUSE_STATE_PROCESS,
+                    'name' => 'В работе',
+                    'hint' => 'Все, кроме доставленных и завершенных',
+                ],
+            ], $result);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Возвращает массив с идентификаторами статусов проектов по группам (для менеджера).
+     * @return array
+     */
+    public static function fetchGroupProjectStatesIdsForManager()
+    {
+        return [
+            [
+                'id' => self::CLAUSE_STATE_READY,
+                'name' => 'Ожидает отправки',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_SENT,
+                'name' => 'Отправленные',
+            ],
+            [
+                'id' => self::CLAUSE_STATE_DELIVERED,
+                'name' => 'Доставленные',
             ],
             [
                 'id' => self::CLAUSE_STATE_ALL,
@@ -125,6 +218,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                 'manager_id' => Yii::$app->user->id,
                 'is_manual' => true,
                 'cps_id' => [
+                    CorrespondencePackagesStates::STATE_ЧЕРНОВИК,
                     CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ,
                     CorrespondencePackagesStates::STATE_УТВЕРЖДЕН,
                     CorrespondencePackagesStates::STATE_ОТКАЗ,
@@ -156,6 +250,9 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                     'track_num',
                     'other',
                     'comment',
+                    'fo_contact_id',
+                    'contact_person',
+                    'rejects_count',
                     'cpsName' => [
                         'asc' => ['correspondence_packages_states.name' => SORT_ASC],
                         'desc' => ['correspondence_packages_states.name' => SORT_DESC],
@@ -181,9 +278,19 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
 
         // по-умолчанию все видят пакеты документов только в статусах "Формирование документов на отправку" и "Ожидает отправки"
         if ($this->searchGroupProjectStates == null) {
-            $this->searchGroupProjectStates = self::CLAUSE_STATE_DEFAULT;
+            if (Yii::$app->user->can('sales_department_manager'))
+                // для менеджеров значение по-умолчанию - Все
+                $this->searchGroupProjectStates = self::CLAUSE_STATE_ALL;
+            else
+                $this->searchGroupProjectStates = self::CLAUSE_STATE_DEFAULT;
         }
 
+        // по-умолчанию отображаются все пакеты вне зависимости от того, каким способом они были созданы (вручную или автоматически)
+        if ($this->searchPackageType == null) {
+            $this->searchPackageType = self::FILTER_PACKAGE_TYPE_ALL;
+        }
+
+        // дополним условием отбора по статусам
         switch ($this->searchGroupProjectStates) {
             case self::CLAUSE_STATE_DEFAULT:
                 $query->andWhere(['in', 'state_id', [ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ, ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ]]);
@@ -208,6 +315,16 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                 break;
         }
 
+        // дополним условие отбора по способу создания
+        switch ($this->searchPackageType) {
+            case self::FILTER_PACKAGE_TYPE_MANUAL:
+                $query->andWhere(['is_manual' => true]);
+                break;
+            case self::FILTER_PACKAGE_TYPE_AUTO:
+                $query->andWhere(['is_manual' => false]);
+                break;
+        }
+
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails
             // $query->where('0=1');
@@ -219,22 +336,28 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
             'id' => $this->id,
             'created_at' => $this->created_at,
             'is_manual' => $this->is_manual,
+            'cps_id' => $this->cps_id,
             'ready_at' => $this->ready_at,
             'sent_at' => $this->sent_at,
             'delivered_at' => $this->delivered_at,
+            'paid_at' => $this->paid_at,
             'fo_project_id' => $this->fo_project_id,
             'fo_id_company' => $this->fo_id_company,
             'state_id' => $this->state_id,
             'type_id' => $this->type_id,
             'pd_id' => $this->pd_id,
+            'address_id' => $this->address_id,
             'manager_id' => $this->manager_id,
+            'fo_contact_id' => $this->fo_contact_id,
+            'rejects_count' => $this->rejects_count,
         ]);
 
         $query->andFilterWhere(['like', 'customer_name', $this->customer_name])
             ->andFilterWhere(['like', 'pad', $this->pad])
             ->andFilterWhere(['like', 'track_num', $this->track_num])
             ->andFilterWhere(['like', 'other', $this->other])
-            ->andFilterWhere(['like', 'comment', $this->comment]);
+            ->andFilterWhere(['like', 'comment', $this->comment])
+            ->andFilterWhere(['like', 'contact_person', $this->contact_person]);
 
         return $dataProvider;
     }

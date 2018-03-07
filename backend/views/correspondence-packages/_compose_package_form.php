@@ -17,7 +17,7 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
         'action' => '/correspondence-packages/compose-package',
     ]); ?>
 
-    <?= $form->field($model, 'project_ids')->widget(Select2::className(), [
+    <?= $form->field($model, 'packages_ids')->widget(Select2::className(), [
         'options' => ['multiple' => true],
         'pluginOptions' => [
             'tags' => true,
@@ -75,7 +75,7 @@ $name = $model->formName() . '[tpPad]';
 
 $this->registerJs(<<<JS
 $("input[name ^= '$name']").iCheck({
-    checkboxClass: 'icheckbox_square-green',
+    checkboxClass: "icheckbox_square-green"
 });
 JS
 , \yii\web\View::POS_READY);

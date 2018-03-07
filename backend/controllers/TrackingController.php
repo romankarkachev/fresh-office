@@ -2,7 +2,10 @@
 
 namespace backend\controllers;
 
+use common\models\CorrespondencePackages;
+use common\models\CounteragentsPostAddresses;
 use Yii;
+use yii\helpers\Json;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\httpclient\Client;
@@ -25,7 +28,10 @@ class TrackingController extends Controller
      */
     const POCHTA_RU_SEND_API_TOKEN = 'R9pmi350HAm6SDNYJjJnZk47B_2PpRtG';
     const POCHTA_RU_SEND_API_AUTHKEY = 'ODgwMDU1NTIxODdAc3Q3Ny5ydTpxd2VydHkxMjM=';
-    const POCHTA_RU_SEND_API_URL = 'https://otpravka-api.pochta.ru/1.0/clean/address';
+    const POCHTA_RU_SEND_API_URL_НОРМАЛИЗАЦИЯ_АДРЕСА = 'https://otpravka-api.pochta.ru/1.0/clean/address';
+    const POCHTA_RU_SEND_API_URL_СОЗДАНИЕ_ЗАКАЗА = 'https://otpravka-api.pochta.ru/1.0/user/backlog';
+    const POCHTA_RU_SEND_API_URL_ПОИСК_ЗАКАЗА = 'https://otpravka-api.pochta.ru/1.0/backlog';
+    const POCHTA_RU_URL_ORDER_PRINT = 'https://otpravka.pochta.ru/document/downloadBacklogForms/';
 
     /**
      * Ответ сервера Почты России должен содержать по одному из каждого массива вариантов
@@ -70,8 +76,10 @@ class TrackingController extends Controller
             ]
         ];
 
+        $history = null;
         try {
             $result = $client2->getOperationHistory(new \SoapParam($params3,'OperationHistoryRequest'));
+            $history = $result->OperationHistoryData->historyRecord;
         }
         catch (\Exception $exception) {
             return false;
@@ -79,7 +87,7 @@ class TrackingController extends Controller
 
         if ($full != null) {
             $tracking = '';
-            foreach ($result->OperationHistoryData->historyRecord as $record) {
+            if (is_array($history)) foreach ($history as $record) {
                 $tracking .= sprintf("<p><strong>%s</strong></br>  %s, %s: %s</p>",
                     Yii::$app->formatter->asDate($record->OperationParameters->OperDate, 'php:d.m.Y в H:i'),
                     $record->AddressParameters->OperationAddress->Description,
@@ -91,7 +99,7 @@ class TrackingController extends Controller
             return $tracking;
         }
         else
-            foreach ($result->OperationHistoryData->historyRecord as $record) {
+            if (is_array($history)) foreach ($history as $record) {
                 if ($record->OperationParameters->OperType->Id == 2) { // 2 - операция Вручение на Почте России
                     return strtotime($record->OperationParameters->OperDate);
                 }
@@ -149,6 +157,184 @@ class TrackingController extends Controller
     }
 
     /**
+     * Выполняет нормализацию адреса, переданного в параметрах.
+     * @param $address string
+     * @return array|bool
+     */
+    public static function pochtaRuNormalizeAddress($address)
+    {
+        $addresses = json_encode([
+            [
+                'id' => '1',
+                'original-address' => $address,
+            ]
+        ]);
+
+        $client = new Client();
+        $response = $client->createRequest()
+            ->setMethod('post')
+            ->setUrl(self::POCHTA_RU_SEND_API_URL_НОРМАЛИЗАЦИЯ_АДРЕСА)
+            ->setContent($addresses)
+            ->setHeaders([
+                'Authorization' => 'AccessToken '. self::POCHTA_RU_SEND_API_TOKEN,
+                'X-User-Authorization' => 'Basic ' . self::POCHTA_RU_SEND_API_AUTHKEY,
+                'Content-Type' => 'application/json;charset=UTF-8',
+            ])->send();
+
+        if ($response->isOk) {
+            // извлекаем результат, берем первый элемент массива
+            $data = $response->getData();
+            if (count($data) > 0) {
+                $data = $data[0];
+
+                // проверим успех выполнения нормализации
+                if (isset($data['quality-code']))
+                    if (!in_array($data['quality-code'], self::POCHTA_RU_SEND_API_RESPONSE_QUALITY_CODES))
+                        return false;
+
+                // вторая проверка успешного выполнения
+                if (isset($data['validation-code']))
+                    if (!in_array($data['validation-code'], self::POCHTA_RU_SEND_API_RESPONSE_VALIDATION_CODES))
+                        return false;
+
+                return $data;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Создает отправление через API Почты России ("заказ в их терминологии). Возвращает id созданного заказа.
+     * @param $postIndex integer почтовый индекс
+     * @param $address string адрес, куда отправляются документы
+     * @return integer|bool
+     */
+    public static function pochtaRuCreateOrder($postIndex, $address, $contact_person)
+    {
+        $data = self::pochtaRuNormalizeAddress($address);
+        if ($data !== false) {
+            $addresses = json_encode([
+                [
+                    /**
+                     * CASHLESS	Безналичный расчет
+                     * STAMP	Оплата марками
+                     * FRANKING	Франкирование
+                     */
+                    'payment-method' => 'STAMP',
+                    /**
+                     * DEFAULT    Стандартный (улица, дом, квартира)
+                     * PO_BOX    Абонентский ящик
+                     * DEMAND    До востребования
+                     */
+                    'address-type-to' => 'DEFAULT',
+                    /**
+                     * SIMPLE    Простое
+                     * ORDERED    Заказное
+                     * ORDINARY    Обыкновенное
+                     * WITH_DECLARED_VALUE    С объявленной ценностью
+                     * WITH_DECLARED_VALUE_AND_CASH_ON_DELIVERY    С объявленной ценностью и наложенным платежом
+                     * COMBINED    Комбинированное
+                     */
+                    'mail-category' => 'ORDERED',
+                    'mail-direct' => 643,
+                    /**
+                     * POSTAL_PARCEL    Посылка "нестандартная"
+                     * ONLINE_PARCEL    Посылка "онлайн"
+                     * ONLINE_COURIER    Курьер "онлайн"
+                     * EMS    Отправление EMS
+                     * EMS_OPTIMAL    EMS оптимальное
+                     * LETTER    Письмо
+                     * BANDEROL    Бандероль
+                     * BUSINESS_COURIER    Бизнес курьер
+                     * BUSINESS_COURIER_ES    Бизнес курьер экпресс
+                     * PARCEL_CLASS_1    Посылка 1-го класса
+                     * COMBINED    Комбинированное
+                     */
+                    'mail-type' => 'LETTER',
+                    'mass' => 2,
+                    'index-to' => $postIndex,
+                    'place-to' => $data['place'],
+                    'region-to' => $data['region'],
+                    'street-to' => $data['street'],
+                    'house-to' => $data['house'],
+                    'building-to' => $data['building'],
+                    'recipient-name' => $contact_person,
+                ],
+            ]);
+
+            $client = new Client();
+            $response = $client->createRequest()
+                ->setMethod('put')
+                ->setUrl(self::POCHTA_RU_SEND_API_URL_СОЗДАНИЕ_ЗАКАЗА)
+                ->setContent($addresses)
+                ->setHeaders([
+                    'Authorization' => 'AccessToken ' . self::POCHTA_RU_SEND_API_TOKEN,
+                    'X-User-Authorization' => 'Basic ' . self::POCHTA_RU_SEND_API_AUTHKEY,
+                    'Content-Type' => 'application/json;charset=UTF-8',
+                ])->send();
+
+            if ($response->isOk) {
+                $data = $response->getData();
+                if (isset($data['result-ids']) && count($data['result-ids']) == 1) {
+                    return $data['result-ids'][0];
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Извлекает трек-номер из заказа, переданного в параметрах.
+     * @param $order_id integer идентификатор заказа в системе Почты России
+     * @return string|bool
+     */
+    public static function pochtaRuExtractTrackNumberFromOrder($order_id)
+    {
+        $client = new Client();
+        $response = $client->createRequest()
+            ->setMethod('get')
+            ->setUrl(self::POCHTA_RU_SEND_API_URL_ПОИСК_ЗАКАЗА . '/' . $order_id)
+            ->setHeaders([
+                'Authorization' => 'AccessToken '. self::POCHTA_RU_SEND_API_TOKEN,
+                'X-User-Authorization' => 'Basic ' . self::POCHTA_RU_SEND_API_AUTHKEY,
+                'Content-Type' => 'application/json;charset=UTF-8',
+            ])->send();
+
+        if ($response->isOk) {
+            $data = $response->getData();
+            if (isset($data['barcode'])) return $data['barcode'];
+        }
+        else {
+            $content = $response->getContent();
+            // если заказ не существует:
+            if (is_array(Json::decode($content)) && isset($content['code']) && $content['code'] == 1001) return false;
+        }
+
+        return false;
+    }
+
+    /**
+     * Раскладывает ответ Почты России в виде массива в строку.
+     * @param $data array входной массив
+     * @return string
+     */
+    public static function implodePochtaRuAnswerToString($data)
+    {
+        $result = '';
+        if (isset($data['region'])) $result = $data['region'] . ', ';
+        if (isset($data['place']) && $result != '' && $data['region'] != $data['place']) $result = trim($result) . ' ' . $data['place'] . ', ';
+        if (isset($data['street'])) $result = trim($result) . ' ' . $data['street'] . ', ';
+        if (isset($data['house'])) $result = trim($result) . ' д.' . $data['house'] . ', ';
+        if (isset($data['building'])) $result = trim($result) . ' стр.' . $data['building'];
+        $result = trim($result, ', ');
+
+        if ($result == '') $result = $data['original-address'];
+        return $result;
+    }
+
+    /**
      * @param $pd_id integer способ доставки
      * @param $track_num string трек-номер отправления
      * @return bool|string
@@ -167,7 +353,7 @@ class TrackingController extends Controller
 
             }
 
-            if ($result)
+            if (isset($result))
                 return $result;
             else
                 return 'Невозможно загрузить результаты.';
@@ -183,59 +369,15 @@ class TrackingController extends Controller
      */
     public function actionNormalizeAddress($address)
     {
-        $addresses = json_encode([
-            [
-                'id' => '1',
-                'original-address' => $address,
-            ]
-        ]);
-
-        $client = new Client();
-        $response = $client->createRequest()
-            ->setMethod('post')
-            ->setUrl(self::POCHTA_RU_SEND_API_URL)
-            ->setContent($addresses)
-            ->setHeaders([
-                'Authorization' => 'AccessToken '. self::POCHTA_RU_SEND_API_TOKEN,
-                'X-User-Authorization' => 'Basic ' . self::POCHTA_RU_SEND_API_AUTHKEY,
-                'Content-Type' => 'application/json;charset=UTF-8',
-            ])
-            ->send();
-
-        if ($response->isOk) {
+        $data = self::pochtaRuNormalizeAddress($address);
+        if ($data !== false) {
             Yii::$app->response->format = Response::FORMAT_JSON;
 
-            // извлекаем результат, берем первый элемент массива
-            $data = $response->getData();
-            if (count($data) > 0) {
-                $data = $data[0];
-
-                // проверим успех выполнения нормализации
-                if (isset($data['quality-code']))
-                    if (!in_array($data['quality-code'], self::POCHTA_RU_SEND_API_RESPONSE_QUALITY_CODES))
-                        return false;
-
-                // вторая проверка успешного выполнения
-                if (isset($data['validation-code']))
-                    if (!in_array($data['validation-code'], self::POCHTA_RU_SEND_API_RESPONSE_VALIDATION_CODES))
-                        return false;
-
-                $result = '';
-                if (isset($data['region'])) $result = $data['region'] . ', ';
-                if (isset($data['place']) && $result != '' && $data['region'] != $data['place']) $result = trim($result) . ' ' . $data['place'] . ', ';
-                if (isset($data['street'])) $result = trim($result) . ' ' . $data['street'] . ', ';
-                if (isset($data['house'])) $result = trim($result) . ' д.' . $data['house'] . ', ';
-                if (isset($data['building'])) $result = trim($result) . ' стр.' . $data['building'];
-                $result = trim($result, ', ');
-
-                if ($result == '') $result = $data['original-address'];
-
-                return [
-                    'index' => $data['index'],
-                    //'address' => $data['original-address'],
-                    'address' => $result,
-                ];
-            }
+            return [
+                'index' => $data['index'],
+                //'address' => $data['original-address'],
+                'address' => self::implodePochtaRuAnswerToString($data),
+            ];
         }
 
         return false;

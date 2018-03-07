@@ -23,6 +23,12 @@ class foProjectsSearch extends foProjects
     public $searchExcludeIds;
 
     /**
+     * Идентификатор(ы) проекта(ов), по которым производится отбор.
+     * @var string
+     */
+    public $searchId;
+
+    /**
      * Период создания с ... по.
      * @var string
      */
@@ -51,7 +57,7 @@ class foProjectsSearch extends foProjects
             [['type_name', 'ca_name', 'manager_name', 'state_name', 'perevoz', 'proizodstvo', 'oplata', 'adres', 'dannie', 'ttn', 'weight'], 'string'],
             [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchPerPage'], 'integer'],
             [['amount', 'cost'], 'number'],
-            [['vivozdate', 'date_start', 'date_end', 'searchExcludeIds', 'searchGroupProjectTypes', 'searchCreatedFrom', 'searchCreatedTo'], 'safe'],
+            [['vivozdate', 'date_start', 'date_end', 'searchExcludeIds', 'searchId', 'searchGroupProjectTypes', 'searchCreatedFrom', 'searchCreatedTo'], 'safe'],
         ];
     }
 
@@ -61,6 +67,7 @@ class foProjectsSearch extends foProjects
     public function attributeLabels()
     {
         return [
+            'searchId' => 'ID',
             'ca_id' => 'Контрагент',
             'state_id' => 'Статус',
             // для отбора
@@ -121,7 +128,7 @@ class foProjectsSearch extends foProjects
             'payment.cost',
             'state_id' => 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT',
             'state_name' => 'LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT',
-            'perevoz' => 'ADD_perevoz_new',
+            'perevoz' => 'ADD_perevoz',
             'proizodstvo' => 'ADD_proizodstvo',
             'oplata' => 'ADD_oplata',
             'adres' => 'ADD_adres',
@@ -134,7 +141,7 @@ class foProjectsSearch extends foProjects
         $query->leftJoin('COMPANY', 'COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY');
         $query->leftJoin('MANAGERS', 'MANAGERS.ID_MANAGER = LIST_PROJECT_COMPANY.ID_MANAGER_VED');
         $query->leftJoin('(
-	SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR) AS amount, SUM(SS_PRICE_TOVAR) AS cost
+	SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR * KOLVO) AS amount, SUM(SS_PRICE_TOVAR * KOLVO) AS cost
 	FROM CBaseCRM_Fresh_7x.dbo.LIST_TOVAR_PROJECT
 	GROUP BY ID_LIST_PROJECT_COMPANY
 ) AS payment', 'payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY');
@@ -209,8 +216,12 @@ class foProjectsSearch extends foProjects
             'pageSize' => $this->searchPerPage,
         ];
 
+        if ($this->searchId != null)
+            $query->andFilterWhere([
+                'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => explode(',', $this->searchId),
+            ]);
+
         $query->andFilterWhere([
-            //'id' => $this->id,
             'LIST_PROJECT_COMPANY.ID_COMPANY' => $this->ca_id,
             'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $this->state_id,
         ]);

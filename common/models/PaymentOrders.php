@@ -75,8 +75,9 @@ class PaymentOrders extends \yii\db\ActiveRecord
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentOrdersStates::className(), 'targetAttribute' => ['state_id' => 'id']],
             // собственные правила валидации
-            ['projects', 'validateProjects'],
-            ['state_id', 'validateState'],
+            ['ferryman_id', 'validateFerryman'],
+            //['projects', 'validateProjects'],
+            //['state_id', 'validateState'],
         ];
     }
 
@@ -128,6 +129,15 @@ class PaymentOrders extends \yii\db\ActiveRecord
                 ],
             ],
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function validateFerryman()
+    {
+        if ($this->ferryman != null && $this->ferryman->contract_expires_at != null && $this->ferryman->contract_expires_at <= date('Y-m-d', time()))
+            $this->addError('ferryman_id', 'Срок действия договора с перевозчиком истек.');
     }
 
     /**

@@ -36,7 +36,7 @@ use common\models\Ferrymen;
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
                 'pluginEvents' => [
-                    'change' => new JsExpression('function() { ferrymanOnChange(); }'),
+                    'change' => new JsExpression('function() { ferrymanOnChange(1, $(this).val()); }'),
                 ],
             ]) ?>
 

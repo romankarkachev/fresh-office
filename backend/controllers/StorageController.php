@@ -192,7 +192,7 @@ class StorageController extends Controller
         $counter = 1;
         $result = [];
 
-        $ufm = UploadingFilesMeanings::find()->select(['id', 'keywords'])->asArray()->all();
+        $ufm = UploadingFilesMeanings::find()->select(['id', 'keywords'])->where(['not' => ['keywords' => null]])->asArray()->all();
 
         $files = scandir($rootFolder);
         foreach ($files as $file) {

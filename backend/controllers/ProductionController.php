@@ -155,7 +155,7 @@ class ProductionController extends Controller
             // ВЫВОЗЫ
             // соответствует: "вывоз завершен", потом сразу "завершено"
             // не соответствует: -
-            $task_body = 'Производством выявлено несоответствие груза данным CRM. Прошу связаться с клиентом.';
+            $task_body = 'Производством выявлено несоответствие груза данным CRM. Прошу связаться с клиентом.' . chr(13) . $model->message_body;
             $project = foProjects::findOne($model->project_id);
             if ($project != null) {
                 $success = 0;

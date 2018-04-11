@@ -7,11 +7,14 @@ use common\models\Drivers;
 use common\models\DriversSearch;
 use common\models\DriversFiles;
 use common\models\DriversFilesSearch;
+use common\models\UploadingFilesMeanings;
+use yii\helpers\Html;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
+use yii\web\UploadedFile;
 
 /**
  * DriversController implements the CRUD actions for Drivers model.
@@ -26,9 +29,17 @@ class FerrymenDriversController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete', 'upload-files', 'download-file', 'delete-file'],
                 'rules' => [
                     [
+                        'actions' => ['download-from-outside'],
+                        'allow' => true,
+                        'roles' => ['?', '@'],
+                    ],
+                    [
+                        'actions' => [
+                            'index', 'create', 'update', 'delete',
+                            'upload-files', 'download-file', 'preview-file', 'delete-file',
+                        ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'head_assist'],
                     ],
@@ -89,9 +100,60 @@ class FerrymenDriversController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/ferrymen-drivers']);
-        } else {
+        if ($model->load(Yii::$app->request->post())) {
+            // файлы со сканами документов водителя
+            $filesProvided = false;
+            $filesSuccessfullyLoaded = true;
+            $errors = '';
+
+            $model->filePassportFace = UploadedFile::getInstance($model, 'filePassportFace');
+            if ($model->filePassportFace != null) {
+                $filesProvided = true;
+                if (!$model->upload('filePassportFace', $model->filePassportFace->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Главный разворот паспорта не был успешно загружен.</p>';
+                }
+            }
+
+            $model->filePassportReverse = UploadedFile::getInstance($model, 'filePassportReverse');
+            if ($model->filePassportReverse != null) {
+                $filesProvided = true;
+                if (!$model->upload('filePassportReverse', $model->filePassportReverse->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Регистрация по месту жительства в паспорте не была успешно загружена.</p>';
+                }
+            }
+
+            $model->fileDlFace = UploadedFile::getInstance($model, 'fileDlFace');
+            if ($model->fileDlFace != null) {
+                $filesProvided = true;
+                if (!$model->upload('fileDlFace', $model->fileDlFace->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Лицевая сторона водительского удостоверения не была успешно загружена.</p>';
+                }
+            }
+
+            $model->fileDlReverse = UploadedFile::getInstance($model, 'fileDlReverse');
+            if ($model->fileDlReverse != null) {
+                $filesProvided = true;
+                if (!$model->upload('fileDlReverse', $model->fileDlReverse->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ОБОРОТ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Оборотная сторона водительского удостоверения не была успешно загружена.</p>';
+                }
+            }
+
+            if ($errors != '')
+                Yii::$app->session->setFlash('error', $errors);
+            else if ($filesProvided && $filesSuccessfullyLoaded)
+                Yii::$app->session->setFlash('success', 'Файлы успешно загружены.');
+            // -- файлы
+
+            return $this->redirect(['/ferrymen-drivers/update', 'id' => $model->id]);
+        }
+
+        $params = ['model' => $model];
+
+        if (Yii::$app->user->can('root')) {
             // файлы к объекту
             $searchModel = new DriversFilesSearch();
             $dpFiles = $searchModel->search([$searchModel->formName() => ['driver_id' => $model->id]]);
@@ -99,12 +161,19 @@ class FerrymenDriversController extends Controller
                 'defaultOrder' => ['uploaded_at' => SORT_DESC],
             ]);
             $dpFiles->pagination = false;
-
-            return $this->render('/drivers/update', [
-                'model' => $model,
-                'dpFiles' => $dpFiles,
-            ]);
+            $params['dpFiles'] = $dpFiles;
         }
+
+        // файлы конкретных типов
+        $files = DriversFiles::find()->select(['id', 'ufm_id', 'fn', 'ofn'])->where(['driver_id' => $id, 'ufm_id' => [
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ОБОРОТ
+        ]])->asArray()->all();
+        $params['files'] = $files;
+
+        return $this->render('/drivers/update', $params);
     }
 
     /**
@@ -115,7 +184,13 @@ class FerrymenDriversController extends Controller
      */
     public function actionDelete($id)
     {
-        $this->findModel($id)->delete();
+        if (!Yii::$app->user->can('root')) {
+            // для пользователей с ограниченными правами только лишь помечаем на удаление
+            $model = $this->findModel($id);
+            $model->is_deleted = true;
+            $model->save(false);
+        }
+        else $this->findModel($id)->delete();
 
         return $this->redirect(['/ferrymen-drivers']);
     }
@@ -180,6 +255,21 @@ class FerrymenDriversController extends Controller
      * @return mixed
      * @throws NotFoundHttpException если файл не будет обнаружен
      */
+    public function actionDownloadFromOutside($id)
+    {
+        $model = DriversFiles::findOne(['id' => $id]);
+        if (file_exists($model->ffp))
+            return Yii::$app->response->sendFile($model->ffp, $model->ofn);
+        else
+            throw new NotFoundHttpException('Файл не обнаружен.');
+    }
+
+    /**
+     * Отдает на скачивание файл, на который позиционируется по идентификатору из параметров.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
     public function actionDownloadFile($id)
     {
         if (is_numeric($id)) if ($id > 0) {
@@ -208,5 +298,23 @@ class FerrymenDriversController extends Controller
         }
         else
             throw new NotFoundHttpException('Файл не обнаружен.');
+    }
+
+    /**
+     * Выполняет предварительный показ изображения.
+     * @param $id integer идентификатор файла, который необходимо предварительно показать
+     * @return mixed
+     */
+    public function actionPreviewFile($id)
+    {
+        $model = DriversFiles::findOne($id);
+        if ($model != null) {
+            if ($model->isImage())
+                return Html::img(Yii::getAlias('@uploads-ferrymen-drivers') . '/' . $model->fn, ['width' => 600]);
+            else
+                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/ferrymen-drivers/download-from-outside', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
+        }
+
+        return false;
     }
 }

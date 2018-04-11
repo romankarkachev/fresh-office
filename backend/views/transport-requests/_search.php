@@ -37,14 +37,17 @@ use common\models\TransportTypes;
 //        'templateSelection' => new JsExpression('function (result) { return result.text; }'),
 //    ],
 //])
+
+$options = [
+    'action' => ['/transport-requests'],
+    'method' => 'get',
+];
+if (Yii::$app->user->identity->username == 'administrator')
+    $options['options'] = ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')];
 ?>
 
 <div class="transport-requests-search">
-    <?php $form = ActiveForm::begin([
-        'action' => ['/transport-requests'],
-        'method' => 'get',
-        'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
-    ]); ?>
+    <?php $form = ActiveForm::begin($options); ?>
 
     <div class="panel panel-info">
         <div class="panel-heading">Форма отбора</div>

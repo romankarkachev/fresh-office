@@ -22,8 +22,10 @@ $favorite = '/images/favorite16.png';
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
+        <?php if (Yii::$app->user->identity->username == 'administrator'): ?>
         <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
 
+        <?php endif; ?>
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,

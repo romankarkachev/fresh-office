@@ -563,7 +563,7 @@ WHERE ID_MANAGER IN (' . $managers_ids . ')';
             $appeals_array[$index]['state_name'] = Appeals::getIndepAppealStateName($appeal['state_id']);
         }
 
-        if (count($distinct_counteragents) > 0) {
+        if (count($distinct_counteragents) > 0 && count($distinct_managers) > 0) {
             $appeals_array = $this->addAppealsArrayWithResponsible($appeals_array, implode(",", $distinct_managers));
         }
 

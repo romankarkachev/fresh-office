@@ -70,16 +70,20 @@ $this->params['breadcrumbs'][] = 'Проекты';
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{update}',
+                'template' => '{createFerrymanOrder}',
                 'buttons' => [
-                    'update' => function ($url, $model) {
-                        return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-xs btn-default']);
+                    'createFerrymanOrder' => function ($url, $model) {
+                        return Html::a('<i class="fa fa-file-text-o"></i>', '#', [
+                            'id' => 'btnCreateFerrymanOrder' . $model->id,
+                            'data-id' => $model->id,
+                            'class' => 'btn btn-xs btn-default',
+                            'title' => 'Создать заявку для перевозчика',
+                        ]);
                     },
                 ],
-                'options' => ['width' => '80'],
+                'options' => ['width' => '75'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
-                'visible' => false,
             ],
         ],
     ]); ?>
@@ -102,16 +106,20 @@ $this->params['breadcrumbs'][] = 'Проекты';
     </div>
 </div>
 <?php
-$urlCreateOrderBySelection = Url::to(['/projects/create-order-by-selection']);
+$urlCreatePaymentOrderBySelection = Url::to(['/projects/create-order-by-selection']);
 $url_form = Url::to(['/projects/assign-ferryman-form']);
 $url_fields = Url::to(['/projects/compose-ferryman-fields']);
 $url_process = Url::to(['/projects/assign-ferryman']);
+
+$urlFerrymanOrderForm = Url::to(['/projects/ferryman-order-form']);
 $this->registerJs(<<<JS
-function ferrymanOnChange() {
-    $("#block-fields").html("<p class=\"text-center\"><i class=\"fa fa-cog fa-spin fa-2x text-muted\"></i><span class=\"sr-only\">Подождите...</span></p>");
-    ferryman_id = $("#assignferrymanform-ferryman_id").val();
-    if (ferryman_id != 0 && ferryman_id != "" && ferryman_id != undefined)
-        $("#block-fields").load("$url_fields?ferryman_id=" + ferryman_id);
+// Обработчик изменения значения в поле "Перевозчик".
+//
+function ferrymanOnChange(type, ferryman_id) {
+    if (ferryman_id != 0 && ferryman_id != "" && ferryman_id != undefined) {
+        $("#block-fields").html("<p class=\"text-center\"><i class=\"fa fa-cog fa-spin fa-2x text-muted\"></i><span class=\"sr-only\">Подождите...</span></p>");
+        $("#block-fields").load("$url_fields?type=" + type + "&model_id=" + ferryman_id);
+    }
 } // ferrymanOnChange()
 JS
 , \yii\web\View::POS_BEGIN);
@@ -123,7 +131,7 @@ function createOrderOnClick() {
     var ids = $("#gw-projects").yiiGridView("getSelectedRows");
     if (ids == "") return false;
 
-    $.get("$urlCreateOrderBySelection?ids=" + ids);
+    $.get("$urlCreatePaymentOrderBySelection?ids=" + ids);
     return false;
 } // createOrderOnClick()
 
@@ -151,9 +159,25 @@ function assignFerrymanOnClick() {
     return false;
 } // assignFerrymanOnClick()
 
+// Обработчик щелчка на кнопкам "Создать заявку для перевозчика" в списке проектов.
+// Отображает форму создания заявки по шаблону.
+//
+function createFerrymanOrderFormOnClick() {
+    id = $(this).attr("data-id");
+    if (id != "" && id != undefined) {
+        $("#modal_title").text("Создание заявки для перевозчика по проекту " + id);
+        $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+        $("#mw_summary").modal();
+        $("#modal_body").load("$urlFerrymanOrderForm?id=" + id);
+    }
+
+    return false;
+} // createFerrymanOrderFormOnClick()
+
 $(document).on("click", "#btn-create-order", createOrderOnClick);
 $(document).on("click", "#btn-assign-ferryman", assignFerrymanFormOnClick);
 $(document).on("click", "#btn-process", assignFerrymanOnClick);
+$(document).on("click", "a[id ^= 'btnCreateFerrymanOrder']", createFerrymanOrderFormOnClick);
 JS
 , \yii\web\View::POS_READY);
 ?>

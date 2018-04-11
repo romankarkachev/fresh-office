@@ -38,7 +38,9 @@ use yii\helpers\ArrayHelper;
  * @property string $contact_person_dir
  * @property string $post_dir
  * @property string $ati_code
+ * @property string $contract_expires_at
  * @property integer $notify_when_payment_orders_created
+ * @property integer $user_id
  *
  * @property User $createdBy
  * @property User $updatedBy
@@ -106,8 +108,9 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created', 'user_id'], 'integer'],
             [['name_full', 'name_short', 'address_j', 'address_f'], 'string'],
+            [['contract_expires_at'], 'safe'],
             [['name', 'name_crm', 'email', 'email_dir'], 'string', 'max' => 255],
             [['inn'], 'string', 'min' => 10, 'max' => 12],
             [['kpp'], 'string', 'length' => 9],
@@ -115,7 +118,9 @@ class Ferrymen extends \yii\db\ActiveRecord
             [['phone', 'contact_person', 'phone_dir', 'contact_person_dir'], 'string', 'max' => 50],
             [['post', 'post_dir'], 'string', 'max' => 100],
             [['ati_code'], 'string', 'max' => 9],
+            [['user_id'], 'unique'],
             [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
+            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['user_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['opfh_id'], 'exist', 'skipOnError' => true, 'targetClass' => Opfh::className(), 'targetAttribute' => ['opfh_id' => 'id']],
             [['pc_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentConditions::className(), 'targetAttribute' => ['pc_id' => 'id']],
@@ -158,7 +163,9 @@ class Ferrymen extends \yii\db\ActiveRecord
             'contact_person_dir' => 'Имя',
             'post_dir' => 'Должность',
             'ati_code' => 'Код АТИ',
+            'contract_expires_at' => 'Срок действия договора',
             'notify_when_payment_orders_created' => 'Необходимость отправлять уведомление перевозчику при импорте платежного ордера на него',
+            'user_id' => 'Пользователь системы',
             // для вычисляемых полей
             'ftName' => 'Тип',
             'pcName' => 'Условия оплаты',
@@ -302,6 +309,79 @@ class Ferrymen extends \yii\db\ActiveRecord
     }
 
     /**
+     * Массив разновидностей видов файлов к водителям и описания к ним.
+     */
+    public static function fetchAttachedToDriversFilesDescriptions()
+    {
+        return [
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ,
+                'title' => 'Водительское удостоверение',
+                'hint' => 'Лицевая сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ОБОРОТ,
+                'title' => 'Водительское удостоверение',
+                'hint' => 'Оборотная сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ,
+                'title' => 'Паспорт',
+                'hint' => 'Главный разворот',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА,
+                'title' => 'Паспорт',
+                'hint' => 'Прописка',
+            ],
+        ];
+    }
+
+    /**
+     * Массив разновидностей файлов к транспорту и описания к ним.
+     */
+    public static function fetchAttachedToTransportFilesDescriptions()
+    {
+        return [
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ОСАГО,
+                'title' => 'ОСАГО',
+                'hint' => 'Лицевая сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ПТС_ЛИЦЕВАЯ,
+                'title' => 'ПТС',
+                'hint' => 'Лицевая сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ПТС_ОБОРОТ,
+                'title' => 'ПТС',
+                'hint' => 'Оборотная сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_СТС_ЛИЦЕВАЯ,
+                'title' => 'СТС',
+                'hint' => 'Лицевая сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_СТС_ОБОРОТ,
+                'title' => 'СТС',
+                'hint' => 'Оборотная сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ДИАГНОСТИЧЕСКАЯ_КАРТА,
+                'title' => 'Диагностическая карта',
+                'hint' => 'Лицевая сторона',
+            ],
+            [
+                'id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ФОТО_АВТОМОБИЛЯ,
+                'title' => 'Фото автомобиля',
+                'hint' => 'Любой вид',
+            ],
+        ];
+    }
+
+    /**
      * Делает выборку статусов и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array
@@ -338,7 +418,7 @@ class Ferrymen extends \yii\db\ActiveRecord
      */
     public function arrayMapOfDriversForSelect2()
     {
-        return ArrayHelper::map(Drivers::find()->select(['id', 'name' => 'CONCAT(surname, " ", name, " ", patronymic)'])->where(['ferryman_id' => $this->id])->all(), 'id', 'name');
+        return ArrayHelper::map(Drivers::find()->select(['id', 'name' => 'CONCAT(surname, " ", name, " ", patronymic)'])->where(['ferryman_id' => $this->id, 'is_deleted' => false])->all(), 'id', 'name');
     }
 
     /**
@@ -348,7 +428,22 @@ class Ferrymen extends \yii\db\ActiveRecord
      */
     public function arrayMapOfTransportForSelect2()
     {
-        return ArrayHelper::map(Transport::find()->where(['ferryman_id' => $this->id])->all(), 'id', 'representation');
+        return ArrayHelper::map(Transport::find()->where(['ferryman_id' => $this->id, 'is_deleted' => false])->all(), 'id', 'representation');
+    }
+
+    /**
+     * Возвращает заголовок разновидности приаттаченных файлов. Применяется как для водителей, так и для транспорта.
+     * @param $sourceTable array массив, по которому будет осуществляться поиск
+     * @param $id integer идентификатор, по которому осуществляется поиск
+     * @param $field string поле, значение которого будет возвращено
+     * @return string
+     */
+    public static function getAfd($sourceTable, $id, $field)
+    {
+        $key = array_search($id, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key][$field];
+
+        return '';
     }
 
     /**
@@ -449,6 +544,14 @@ class Ferrymen extends \yii\db\ActiveRecord
     public function getPcName()
     {
         return $this->pc != null ? $this->pc->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getUser()
+    {
+        return $this->hasOne(User::className(), ['id' => 'user_id']);
     }
 
     /**

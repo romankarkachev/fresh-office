@@ -67,7 +67,7 @@ if ($model->pd_type != null && $model->pd_id != null) {
         </div>
     </div>
     <?php endif; ?>
-    <?php if (Yii::$app->user->can('root') && (in_array($model->state_id, PaymentOrdersStates::PAYMENT_STATES_SET_RECORD_CONFIRMED))): ?>
+    <?php if ((Yii::$app->user->can('root') || Yii::$app->user->can('accountant')) && (in_array($model->state_id, PaymentOrdersStates::PAYMENT_STATES_SET_RECORD_CONFIRMED))): ?>
     <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите причину отказа']) ?>
 
     <?php endif; ?>

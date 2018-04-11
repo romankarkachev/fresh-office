@@ -36,17 +36,16 @@ class FerrymenBankCardsSearch extends FerrymenBankCards
      * Creates data provider instance with search query applied
      *
      * @param array $params
-     *
+     * @param $route string URL для постраничного перехода и сортировки
      * @return ActiveDataProvider
      */
-    public function search($params)
+    public function search($params, $route='ferrymen-bank-cards')
     {
         $query = FerrymenBankCards::find();
-
-        // add conditions that should always apply here
-
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => ['route' => $route],
+            'sort' => ['route' => $route],
         ]);
 
         $this->load($params);
@@ -55,6 +54,14 @@ class FerrymenBankCardsSearch extends FerrymenBankCards
             // uncomment the following line if you do not want to return any records when validation fails
             // $query->where('0=1');
             return $dataProvider;
+        }
+
+        // если запрос выполняет перевозчик, то ограничим выборку только по нему
+        if (Yii::$app->user->can('ferryman')) {
+            $ferryman = Ferrymen::findOne(['user_id' => Yii::$app->user->id]);
+            // если связанный перевозчик не будет обнаружен, то вернем пустую выборку
+            if ($ferryman == null) {$query->where('1 <> 1'); return $dataProvider;}
+            $query->andWhere(['ferryman_id' => $ferryman->id]);
         }
 
         // grid filtering conditions

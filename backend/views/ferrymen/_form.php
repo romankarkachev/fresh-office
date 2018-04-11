@@ -4,6 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
+use kartik\datecontrol\DateControl;
 use yii\widgets\MaskedInput;
 use common\models\Ferrymen;
 use common\models\FerrymenTypes;
@@ -26,7 +27,7 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 
     <div class="row">
         <div class="col-md-3">
-            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
+            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование', 'readonly' => true]) ?>
 
         </div>
         <div class="col-md-3">
@@ -34,11 +35,11 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 
         </div>
         <div class="col-md-3">
-            <?= $form->field($model, 'name_full')->textInput(['placeholder' => 'Введите полное наименование']) ?>
+            <?= $form->field($model, 'name_full')->textInput(['placeholder' => 'Введите полное наименование', 'readonly' => true]) ?>
 
         </div>
         <div class="col-md-3">
-            <?= $form->field($model, 'name_short')->textInput(['placeholder' => 'Введите сокращенное наименование организации']) ?>
+            <?= $form->field($model, 'name_short')->textInput(['placeholder' => 'Введите сокращенное наименование организации', 'readonly' => true]) ?>
 
         </div>
     </div>
@@ -67,7 +68,7 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 
         </div>
         <div class="col-md-3">
-            <?= $form->field($model, 'address_j')->textInput(['placeholder' => 'Введите юридический адрес']) ?>
+            <?= $form->field($model, 'address_j')->textInput(['placeholder' => 'Введите юридический адрес', 'readonly' => true]) ?>
 
         </div>
         <div class="col-md-3">
@@ -104,15 +105,6 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'opfh_id')->widget(Select2::className(), [
-                'data' => Opfh::arrayMapForSelect2(),
-                'theme' => Select2::THEME_BOOTSTRAP,
-                'options' => ['placeholder' => '- выберите -'],
-                'hideSearch' => true,
-            ]) ?>
-
-        </div>
-        <div class="col-md-2">
             <?= $form->field($model, 'tax_kind')->widget(Select2::className(), [
                 'data' => Ferrymen::arrayMapOfTaxKindsForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
@@ -128,6 +120,26 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
             ])->textInput(['placeholder' => 'Введите код АТИ'])->label(null, ['id' => 'label-ati_code']) ?>
 
         </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'contract_expires_at')->widget(DateControl::className(), [
+                'value' => $model->contract_expires_at,
+                'type' => DateControl::FORMAT_DATE,
+                'language' => 'ru',
+                'displayFormat' => 'php:d.m.Y',
+                'saveFormat' => 'php:Y-m-d',
+                'widgetOptions' => [
+                    'options' => ['placeholder' => '- выберите -'],
+                    'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                    'layout' => '<div class="input-group">{input}{picker}</div>',
+                    'pluginOptions' => [
+                        'todayHighlight' => true,
+                        'weekStart' => 1,
+                        'autoclose' => true,
+                    ],
+                ],
+            ]) ?>
+
+        </div>
     </div>
     <?= $form->field($model, 'notify_when_payment_orders_created')->checkbox()->label('Отправлять уведомление при импорте ордеров', [
         'title' => 'Необходимость отправлять уведомление перевозчику при импорте платежного ордера на него',
@@ -141,7 +153,9 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'phone')->textInput(['maxlength' => true, 'placeholder' => 'Введите телефоны']) ?>
+            <?= $form->field($model, 'phone', ['template' => '{label}<div class="input-group"><span class="input-group-addon">+7</span>{input}</div>{error}'])->widget(\yii\widgets\MaskedInput::className(), [
+                'mask' => '(999) 999-99-99',
+            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите номер телефона']) ?>
 
         </div>
         <div class="col-md-2">
@@ -160,7 +174,9 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'phone_dir')->textInput(['maxlength' => true, 'placeholder' => 'Введите телефоны']) ?>
+            <?= $form->field($model, 'phone_dir', ['template' => '{label}<div class="input-group"><span class="input-group-addon">+7</span>{input}</div>{error}'])->widget(\yii\widgets\MaskedInput::className(), [
+                'mask' => '(999) 999-99-99',
+            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите номер телефона']) ?>
 
         </div>
         <div class="col-md-2">
@@ -178,6 +194,14 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
         <?php if ($model->isNewRecord): ?>
         <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
         <?php else: ?>
+        <?php if ($model->user_id == null): ?>
+        <?= Html::a('<i class="fa fa-paper-plane"></i> Пригласить перевозчика', '#', [
+            'class' => 'btn btn-default btn-lg',
+            'id' => 'btnInviteFerryman',
+            'title' => 'Открыть форму отправки приглашения создать аккаунт в личном кабинете',
+        ]) ?>
+
+        <?php endif; ?>
         <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
         <?php endif; ?>
 
@@ -185,19 +209,34 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
     <?php ActiveForm::end(); ?>
 
 </div>
+<div id="modalWindow" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-info" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="modal_title" class="modal-title">Modal title</h4>
+            </div>
+            <div id="modal_body" class="modal-body">
+                <p>One fine body…</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?php
 $formName = strtolower($model->formName());
 $urlFetchCounteragentsInfo = Url::to(['/services/fetch-counteragents-info-dadata']);
 $urlCheckAtiCode = Url::to(['/ferrymen/validate-ati-code']);
+$urlFerrymanInvitationForm = Url::to(['/ferrymen/invite-ferryman-form']);
+$urlSendInvitation = Url::to(['/ferrymen/send-invitation']);
 
 $opfhPhys = Opfh::OPFH_ФИЗЛИЦО;
 $opfhIp = Opfh::OPFH_ИП;
 $opfhOOO = Opfh::OPFH_ООО;
 
 $this->registerJs(<<<JS
-$("input").iCheck({
-    checkboxClass: "icheckbox_square-green"
-});
+$("input").iCheck({checkboxClass: "icheckbox_square-green"});
 
 // Заполняет реквизиты данными, полученными через механизм API.
 //
@@ -213,6 +252,10 @@ function fillFields(caInfo) {
     \$field = $("#$formName-ogrn");
     \$field.val("");
     if (caInfo.ogrn) \$field.val(caInfo.ogrn);
+
+    \$field = $("#$formName-name");
+    \$field.val("");
+    if (caInfo.name) \$field.val(caInfo.name);
 
     \$field = $("#$formName-name_short");
     \$field.val("");
@@ -306,10 +349,34 @@ function atiCodeOnChange() {
     }
 } // atiCodeOnChange()
 
+// Обработчик щелчка по кнопке "Пригласить перевозчика".
+// Отображает форму отправки приглашения.
+//
+function btnInviteFerrymanOnClick() {
+    $("#modal_title").text("Пригласить перевозчика создать аккаунт");
+    $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+    $("#modalWindow").modal();
+    $("#modal_body").load("$urlFerrymanInvitationForm?id=$model->id");
+
+    return false;
+} // btnInviteFerrymanOnClick()
+
+// Обработчик щелчка по кнопке "Отправить приглашение".
+//
+function btnSendInvitationOnClick() {
+    \$block = $("#spanButtonSubmit");
+    \$block.replaceWith('<span id="spanButtonSubmit" class="input-group-addon"><i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span class="sr-only">Подождите...</span></span>');
+    $.post("$urlSendInvitation", $("#frmInviteFerryman").serialize(), function(result) {
+        if (result == true) $("#spanButtonSubmit").replaceWith('<span id="spanButtonSubmit" class="input-group-addon"><i class="fa fa-check-circle text-success" aria-hidden="true"></i> Приглашение отправлено.</span>');
+    });
+} // btnSendInvitationOnClick()
+
 $(document).on("change", "#$formName-inn", innOnChange);
 $(document).on("change", "#$formName-ogrn", ogrnOnChange);
 $(document).on("change", "#$formName-name", ferrymenNameOnChange);
 $(document).on("change", "#$formName-ati_code", atiCodeOnChange);
+$(document).on("click", "#btnInviteFerryman", btnInviteFerrymanOnClick);
+$(document).on("click", "#btnSendInvitation", btnSendInvitationOnClick);
 JS
 , \yii\web\View::POS_READY);
 ?>

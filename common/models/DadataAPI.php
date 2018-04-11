@@ -3,6 +3,7 @@
 namespace common\models;
 
 use yii\base\Model;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Json;
 use yii\httpclient\Client;
 
@@ -302,7 +303,7 @@ class DadataAPI extends Model
             $data = $response->getData();
             if (isset($data['suggestions']) && count($data['suggestions']) > 0) {
                 // очистим от уже закрытых предприятий
-                $result = self::cleanFromLiquidated($data['suggestions']);
+                $result = array_values(self::cleanFromLiquidated($data['suggestions']));
 
                 // если контрагент однозначно идентифицирован, то возвращаем массив с его данными
                 if (count($result) == 1) return $result[0]['data'];

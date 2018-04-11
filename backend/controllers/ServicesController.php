@@ -766,6 +766,7 @@ class ServicesController extends Controller
         $details = DadataAPI::postRequestToApi($query);
         if (false !== $details) {
             $result = [
+                'name' => $details['name']['full'],
                 'name_full' => $details['name']['full_with_opf'],
                 'name_short' => $details['name']['short_with_opf'],
                 'inn' => $details['inn'],

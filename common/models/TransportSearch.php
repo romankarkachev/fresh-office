@@ -25,7 +25,7 @@ class TransportSearch extends Transport
     public function rules()
     {
         return [
-            [['id', 'ferryman_id', 'state_id', 'tt_id', 'brand_id'], 'integer'],
+            [['id', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id'], 'integer'],
             [['vin', 'rn', 'trailer_rn', 'comment', 'searchEntire'], 'safe'],
         ];
     }
@@ -58,6 +58,22 @@ class TransportSearch extends Transport
     {
         return [
             'id',
+            'created_at' => [
+                'asc' => ['transport.created_at' => SORT_ASC],
+                'desc' => ['transport.created_at' => SORT_DESC],
+            ],
+            'created_by' => [
+                'asc' => ['transport.created_by' => SORT_ASC],
+                'desc' => ['transport.created_by' => SORT_DESC],
+            ],
+            'updated_at' => [
+                'asc' => ['transport.updated_at' => SORT_ASC],
+                'desc' => ['transport.updated_at' => SORT_DESC],
+            ],
+            'updated_by' => [
+                'asc' => ['transport.updated_by' => SORT_ASC],
+                'desc' => ['transport.updated_by' => SORT_DESC],
+            ],
             'vin',
             'ferryman_id',
             'tt_id',
@@ -85,12 +101,12 @@ class TransportSearch extends Transport
      *
      * @param array $params
      * @param $defaultOrder array массив со значениями для сортировки по-умолчанию
+     * @param $route string URL для постраничного перехода и сортировки
      * @return ActiveDataProvider
      */
-    public function search($params, $defaultOrder=null)
+    public function search($params, $defaultOrder=null, $route='ferrymen-transport')
     {
-        if ($defaultOrder == null)
-            $defaultOrder = ['ferrymanName' => SORT_ASC];
+        if ($defaultOrder == null) $defaultOrder = ['ferrymanName' => SORT_ASC];
 
         $query = Transport::find();
         $query->select([
@@ -115,11 +131,9 @@ class TransportSearch extends Transport
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
-            'pagination' => [
-                'route' => 'ferrymen-transport',
-            ],
+            'pagination' => ['route' => $route],
             'sort' => [
-                'route' => 'ferrymen-transport',
+                'route' => $route,
                 'defaultOrder' => $defaultOrder,
                 'attributes' => self::sortAttributes(),
             ],
@@ -134,6 +148,14 @@ class TransportSearch extends Transport
             return $dataProvider;
         }
 
+        // если запрос выполняет перевозчик, то ограничим выборку только по нему
+        if (Yii::$app->user->can('ferryman')) {
+            $ferryman = Ferrymen::findOne(['user_id' => Yii::$app->user->id]);
+            // если связанный перевозчик не будет обнаружен, то вернем пустую выборку
+            if ($ferryman == null) {$query->where('1 <> 1'); return $dataProvider;}
+            $query->andWhere(['ferryman_id' => $ferryman->id]);
+        }
+
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
@@ -142,6 +164,9 @@ class TransportSearch extends Transport
             'tt_id' => $this->tt_id,
             'brand_id' => $this->brand_id,
         ]);
+
+        // для любых пользователей отбор, который невозможно отменить - записи не должны быть помечены на удаление
+        if (!Yii::$app->user->can('root')) $query->andWhere(['is_deleted' => false]);
 
         if ($this->searchEntire != null && $this->searchEntire != '')
             $query->andFilterWhere([

@@ -24,7 +24,7 @@ class DriversSearch extends Drivers
     public function rules()
     {
         return [
-            [['id', 'ferryman_id', 'state_id', 'has_smartphone'], 'integer'],
+            [['id', 'ferryman_id', 'is_deleted', 'state_id', 'has_smartphone'], 'integer'],
             [['surname', 'name', 'patronymic', 'driver_license', 'dl_issued_at', 'phone', 'pass_serie', 'pass_num', 'pass_issued_at', 'pass_issued_by', 'searchEntire'], 'safe'],
         ];
     }
@@ -77,12 +77,12 @@ class DriversSearch extends Drivers
      *
      * @param array $params
      * @param $defaultOrder array массив со значениями для сортировки по-умолчанию
+     * @param $route string URL для постраничного перехода и сортировки
      * @return ActiveDataProvider
      */
-    public function search($params, $defaultOrder=null)
+    public function search($params, $defaultOrder=null, $route='ferrymen-drivers')
     {
-        if ($defaultOrder == null)
-            $defaultOrder = ['ferrymanName' => SORT_ASC];
+        if ($defaultOrder == null) $defaultOrder = ['ferrymanName' => SORT_ASC];
 
         $query = Drivers::find();
         $query->select([
@@ -109,11 +109,9 @@ class DriversSearch extends Drivers
 
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
-            'pagination' => [
-                'route' => 'ferrymen-drivers',
-            ],
+            'pagination' => ['route' => $route],
             'sort' => [
-                'route' => 'ferrymen-drivers',
+                'route' => $route,
                 'defaultOrder' => $defaultOrder,
                 'attributes' => self::sortAttributes(),
             ]
@@ -128,6 +126,14 @@ class DriversSearch extends Drivers
             return $dataProvider;
         }
 
+        // если запрос выполняет перевозчик, то ограничим выборку только по нему
+        if (Yii::$app->user->can('ferryman')) {
+            $ferryman = Ferrymen::findOne(['user_id' => Yii::$app->user->id]);
+            // если связанный перевозчик не будет обнаружен, то вернем пустую выборку
+            if ($ferryman == null) {$query->where('1 <> 1'); return $dataProvider;}
+            $query->andWhere(['ferryman_id' => $ferryman->id]);
+        }
+
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
@@ -136,14 +142,17 @@ class DriversSearch extends Drivers
             'has_smartphone' => $this->has_smartphone,
         ]);
 
+        // для любых пользователей отбор, который невозможно отменить - записи не должны быть помечены на удаление
+        if (!Yii::$app->user->can('root')) $query->andWhere(['is_deleted' => false]);
+
         if ($this->searchEntire != null && $this->searchEntire != '')
             $query->andFilterWhere([
                 'or',
                 ['like', 'surname', $this->searchEntire],
-                ['like', 'name', $this->searchEntire],
+                ['like', 'drivers.name', $this->searchEntire],
                 ['like', 'patronymic', $this->searchEntire],
                 ['like', 'driver_license', $this->searchEntire],
-                ['like', 'phone', $this->searchEntire],
+                ['like', 'drivers.phone', $this->searchEntire],
                 // не уверен, что это нужно:
                 //['like', 'pass_serie', $this->searchEntire],
                 //['like', 'pass_num', $this->searchEntire],
@@ -151,10 +160,10 @@ class DriversSearch extends Drivers
             ]);
         else
             $query->andFilterWhere(['like', 'surname', $this->surname])
-                ->andFilterWhere(['like', 'name', $this->name])
+                ->andFilterWhere(['like', 'drivers.name', $this->name])
                 ->andFilterWhere(['like', 'patronymic', $this->patronymic])
                 ->andFilterWhere(['like', 'driver_license', $this->driver_license])
-                ->andFilterWhere(['like', 'phone', $this->phone])
+                ->andFilterWhere(['like', 'drivers.phone', $this->phone])
                 ->andFilterWhere(['like', 'driver_license', $this->driver_license])
                 ->andFilterWhere(['like', 'pass_serie', $this->pass_serie])
                 ->andFilterWhere(['like', 'pass_num', $this->pass_num])

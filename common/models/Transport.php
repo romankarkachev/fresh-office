@@ -15,6 +15,7 @@ use yii\db\ActiveRecord;
  * @property integer $updated_at
  * @property integer $updated_by
  * @property integer $ferryman_id
+ * @property integer $is_deleted
  * @property integer $state_id
  * @property integer $tt_id
  * @property integer $brand_id
@@ -23,6 +24,7 @@ use yii\db\ActiveRecord;
  * @property string $rn
  * @property string $rn_index
  * @property string $trailer_rn
+ * @property string $osago_expires_at
  * @property string $comment
  *
  * @property string $brandName
@@ -39,6 +41,41 @@ use yii\db\ActiveRecord;
  */
 class Transport extends \yii\db\ActiveRecord
 {
+    /*
+     * @var UploadedFile ОСАГО
+     */
+    public $fileOsago;
+
+    /*
+     * @var UploadedFile лицевая сторона ПТС
+     */
+    public $filePtsFace;
+
+    /*
+     * @var UploadedFile оборотная сторона ПТС
+     */
+    public $filePtsReverse;
+
+    /*
+     * @var UploadedFile лицевая сторона СТС
+     */
+    public $fileStsFace;
+
+    /*
+     * @var UploadedFile оборотная сторона СТС
+     */
+    public $fileStsReverse;
+
+    /*
+     * @var UploadedFile диагностическая карта
+     */
+    public $fileDk;
+
+    /*
+     * @var UploadedFile фото автомобиля
+     */
+    public $fileAutoPicture;
+
     /**
      * Вычисляемое виртуальное поле.
      * @var integer количество техосмотров транспортного средства
@@ -65,8 +102,9 @@ class Transport extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['ferryman_id'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'state_id', 'tt_id', 'brand_id'], 'integer'],
+            [['ferryman_id', 'brand_id'], 'required'],
+            [['osago_expires_at'], 'safe'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id'], 'integer'],
             [['comment'], 'string'],
             [['vin', 'vin_index'], 'string', 'max' => 50],
             [['rn', 'rn_index', 'trailer_rn'], 'string', 'max' => 30],
@@ -75,6 +113,13 @@ class Transport extends \yii\db\ActiveRecord
             [['brand_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportBrands::className(), 'targetAttribute' => ['brand_id' => 'id']],
             [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
             [['tt_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportTypes::className(), 'targetAttribute' => ['tt_id' => 'id']],
+            [['fileOsago'], 'file', 'skipOnEmpty' => true],
+            [['filePtsFace'], 'file', 'skipOnEmpty' => true],
+            [['filePtsReverse'], 'file', 'skipOnEmpty' => true],
+            [['fileStsFace'], 'file', 'skipOnEmpty' => true],
+            [['fileStsReverse'], 'file', 'skipOnEmpty' => true],
+            [['fileDk'], 'file', 'skipOnEmpty' => true],
+            [['fileAutoPicture'], 'file', 'skipOnEmpty' => true],
             // собственные правила валидации
             ['vin', 'validateVin'],
         ];
@@ -92,13 +137,22 @@ class Transport extends \yii\db\ActiveRecord
             'updated_at' => 'Дата и время изменения',
             'updated_by' => 'Автор изменений',
             'ferryman_id' => 'Перевозчик',
+            'is_deleted' => 'Признак удаления записи', // 0 - пометка не установлена, 1 - запись помечена на удаление
             'state_id' => 'Статус', // 1 - нареканий нет, 2 - есть замечания, 3 - черный список
             'tt_id' => 'Тип',
             'brand_id' => 'Марка',
             'vin' => 'VIN',
             'rn' => 'Госномер',
             'trailer_rn' => 'Прицеп',
+            'osago_expires_at' => 'Срок действия полиса ОСАГО',
             'comment' => 'Примечание',
+            'fileOsago' => 'Файл с изображением полиса ОСАГО',
+            'filePtsFace' => 'Файл с изображением лицевой стороны ПТС',
+            'filePtsReverse' => 'Файл с изображением оборотной стороны ПТС',
+            'fileStsFace' => 'Файл с изображением лицевой стороны СТС',
+            'fileStsReverse' => 'Файл с изображением оборотной стороны СТС',
+            'fileDk' => 'Файл с изображением диагностической карты',
+            'fileAutoPicture' => 'Файл с изображением автомобиля',
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
             'stateName' => 'Статус',
@@ -189,6 +243,44 @@ class Transport extends \yii\db\ActiveRecord
             $this->ferryman->updated_by = Yii::$app->user->id;
             $this->ferryman->save(false);
         }
+    }
+
+    /**
+     * @param string $attribute наименование атрибута ($fileOsago, $filePtsFace, $filePtsReverse и т.д.)
+     * @param string $ofn оригинальное имя файла
+     * @param integer $ufm_id тип контента файла (вид документа)
+     * @return bool
+     */
+    public function upload($attribute, $ofn, $ufm_id)
+    {
+        if ($this->validate()) {
+            $uploadDir = TransportFiles::getUploadsFilepath();
+            if (!file_exists($uploadDir) && !is_dir($uploadDir)) mkdir($uploadDir, 0755);
+
+            $fn = strtolower(Yii::$app->security->generateRandomString() . '.' . $this->{$attribute}->extension);
+            $ffp = $uploadDir . '/' . $fn;
+            if ($this->{$attribute}->saveAs($ffp)) {
+                $fu = TransportFiles::findOne(['transport_id' => $this->id, 'ufm_id' => $ufm_id]);
+                if ($fu == null)
+                    $fu = new TransportFiles([
+                        'transport_id' => $this->id,
+                        'ufm_id' => $ufm_id,
+                    ]);
+                else unlink($fu->ffp);
+
+                $fu->ffp = $ffp;
+                $fu->fn = $fn;
+                $fu->ofn = $ofn;
+                $fu->size = filesize($ffp);
+                if ($fu->save())
+                    return true;
+                else
+                    // удаляем загруженный файл, возвратится false
+                    unlink($ffp);
+            }
+        }
+
+        return false;
     }
 
     /**

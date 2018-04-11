@@ -5,6 +5,7 @@ namespace common\models;
 use Yii;
 use common\behaviors\IndexFieldBehavior;
 use yii\db\ActiveRecord;
+use yii\web\UploadedFile;
 
 /**
  * This is the model class for table "drivers".
@@ -15,6 +16,7 @@ use yii\db\ActiveRecord;
  * @property integer $updated_at
  * @property integer $updated_by
  * @property integer $ferryman_id
+ * @property integer $is_deleted
  * @property integer $state_id
  * @property string $surname
  * @property string $name
@@ -42,6 +44,26 @@ use yii\db\ActiveRecord;
 class Drivers extends \yii\db\ActiveRecord
 {
     /**
+     * @var UploadedFile лицевая сторона водительского удостоверения
+     */
+    public $fileDlFace;
+
+    /**
+     * @var UploadedFile оборотная сторона водительского удостоверения
+     */
+    public $fileDlReverse;
+
+    /**
+     * @var UploadedFile главный разворот паспорта
+     */
+    public $filePassportFace;
+
+    /**
+     * @var UploadedFile происка в паспорте
+     */
+    public $filePassportReverse;
+
+    /**
      * Вычисляемое виртуальное поле.
      * @var integer количество инструктажей водителя
      */
@@ -68,7 +90,7 @@ class Drivers extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'surname', 'name', 'driver_license', 'phone'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'state_id', 'has_smartphone'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'is_deleted', 'state_id', 'has_smartphone'], 'integer'],
             [['dl_issued_at', 'pass_issued_at'], 'safe'],
             [['surname', 'name', 'patronymic'], 'string', 'max' => 50],
             [['driver_license', 'driver_license_index'], 'string', 'max' => 30],
@@ -78,9 +100,16 @@ class Drivers extends \yii\db\ActiveRecord
             [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
+            [['fileDlFace'], 'file', 'skipOnEmpty' => true],
+            [['fileDlReverse'], 'file', 'skipOnEmpty' => true],
+            [['filePassportFace'], 'file', 'skipOnEmpty' => true],
+            [['filePassportReverse'], 'file', 'skipOnEmpty' => true],
+            [['patronymic', 'pass_serie', 'pass_num'], 'default', 'value' => null],
             // собственные правила валидации
             ['phone', 'validatePhone'],
             ['driver_license', 'validateDriverLicense'],
+            //[['surname', 'name', 'patronymic', 'driver_license', 'pass_serie', 'pass_num'], 'filter', 'filter' => 'trim', 'skipOnArray' => true],
+            [['surname', 'name', 'patronymic', 'driver_license', 'pass_serie', 'pass_num'], 'trim'],
         ];
     }
 
@@ -96,6 +125,7 @@ class Drivers extends \yii\db\ActiveRecord
             'updated_at' => 'Дата и время изменения',
             'updated_by' => 'Автор изменений',
             'ferryman_id' => 'Перевозчик',
+            'is_deleted' => 'Признак удаления записи', // 0 - пометка не установлена, 1 - запись помечена на удаление
             'state_id' => 'Статус', // 1 - нареканий нет, 2 - есть замечания, 3 - черный список
             'surname' => 'Фамилия',
             'name' => 'Имя',
@@ -109,6 +139,10 @@ class Drivers extends \yii\db\ActiveRecord
             'pass_issued_at' => 'Дата выдачи',
             'pass_issued_by' => 'Кем выдан',
             'has_smartphone' => 'Смартфон с камерой',
+            'fileDlFace' => 'Файл с изображением лицевой стороны водительского удостоверения',
+            'fileDlReverse' => 'Файл с изображением оборотной стороны водительского удостоверения',
+            'filePassportFace' => 'Файл с главным разворотом паспорта',
+            'filePassportReverse' => 'Файл с пропиской в паспорте',
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
             'stateName' => 'Статус',
@@ -231,6 +265,44 @@ class Drivers extends \yii\db\ActiveRecord
 
         // не удалось преобразовать в человеческий вид - отображаем как есть
         return $phone;
+    }
+
+    /**
+     * @param string $attribute наименование атрибута ($fileDlFace, $fileDlReverse и т.д.)
+     * @param string $ofn оригинальное имя файла
+     * @param integer $ufm_id тип контента файла (вид документа)
+     * @return bool
+     */
+    public function upload($attribute, $ofn, $ufm_id)
+    {
+        if ($this->validate()) {
+            $uploadDir = DriversFiles::getUploadsFilepath();
+            if (!file_exists($uploadDir) && !is_dir($uploadDir)) mkdir($uploadDir, 0755);
+
+            $fn = strtolower(Yii::$app->security->generateRandomString() . '.' . $this->{$attribute}->extension);
+            $ffp = $uploadDir . '/' . $fn;
+            if ($this->{$attribute}->saveAs($ffp)) {
+                $fu = DriversFiles::findOne(['driver_id' => $this->id, 'ufm_id' => $ufm_id]);
+                if ($fu == null)
+                    $fu = new DriversFiles([
+                        'driver_id' => $this->id,
+                        'ufm_id' => $ufm_id,
+                    ]);
+                else unlink($fu->ffp);
+
+                $fu->ffp = $ffp;
+                $fu->fn = $fn;
+                $fu->ofn = $ofn;
+                $fu->size = filesize($ffp);
+                if ($fu->save())
+                    return true;
+                else
+                    // удаляем загруженный файл, возвратится false
+                    unlink($ffp);
+            }
+        }
+
+        return false;
     }
 
     /**

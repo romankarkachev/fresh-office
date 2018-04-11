@@ -3,7 +3,7 @@
 use kartik\select2\Select2;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\AssignFerrymanForm */
+/* @var $model common\models\AssignFerrymanForm|common\models\FerrymanOrderForm */
 /* @var $form yii\bootstrap\ActiveForm */
 ?>
 

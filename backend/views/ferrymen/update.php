@@ -77,7 +77,7 @@ $this->params['breadcrumbs'][] = $model->name;
                 <div class="modal-header">
                     <h4 id="modal_title" class="modal-title">Modal title</h4>
                 </div>
-                <div id="modal_body" class="modal-body">
+                <div id="modalBodyPreview" class="modal-body">
                     <p>One fine body…</p>
                 </div>
                 <div class="modal-footer">
@@ -102,9 +102,9 @@ function previewFileOnClick() {
     id = $(this).attr("data-id");
     if (id != "") {
         $("#modal_title").text("Предпросмотр изображения");
-        $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+        $("#modalBodyPreview").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
         $("#mw_preview").modal();
-        $("#modal_body").load("$url?id=" + id);
+        $("#modalBodyPreview").load("$url?id=" + id);
     }
 
     return false;

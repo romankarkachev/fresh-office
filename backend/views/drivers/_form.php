@@ -1,14 +1,43 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
 use common\models\Ferrymen;
+use common\models\UploadingFilesMeanings;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Drivers */
 /* @var $form yii\bootstrap\ActiveForm */
+/* @var $files array массив приаттаченных к текущий модели файлов */
+
+if (isset($files)) {
+    $key = array_search(UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ, array_column($files, 'ufm_id'));
+    if (false !== $key) {
+        $filePassportFace = $files[$key];
+        unset($key);
+    }
+
+    $key = array_search(UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА, array_column($files, 'ufm_id'));
+    if (false !== $key) {
+        $filePassportReverse = $files[$key];
+        unset($key);
+    }
+
+    $key = array_search(UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ, array_column($files, 'ufm_id'));
+    if (false !== $key) {
+        $fileDlFace = $files[$key];
+        unset($key);
+    }
+
+    $key = array_search(UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ОБОРОТ, array_column($files, 'ufm_id'));
+    if (false !== $key) {
+        $fileDlReverse = $files[$key];
+        unset($key);
+    }
+}
 ?>
 
 <div class="drivers-form">
@@ -125,6 +154,189 @@ use common\models\Ferrymen;
 
         </div>
     </div>
+    <?php if (!$model->isNewRecord): ?>
+    <div class="row">
+        <div class="col-lg-3">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <i class="fa fa-camera-retro bg-info p-3 font-2xl mr-3 float-left"></i>
+                    <?php if (isset($filePassportFace)): ?>
+                    <?= Html::a(
+                        Ferrymen::getAfd(
+                            Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                            UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ,
+                            'title'
+                        ),
+                        '#',
+                        UploadingFilesMeanings::optionsForAttachedFilesLink($filePassportFace))
+                    ?>
+                    <?php else: ?>
+                    <?= Ferrymen::getAfd(
+                        Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                        UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ,
+                        'title'
+                    ) ?>
+                    <?php endif; ?>
+
+                </div>
+                <div class="panel-body">
+                    <div class="text-muted text-uppercase font-weight-bold font-xs">
+                        <?= Ferrymen::getAfd(
+                            Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                            UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ,
+                            'hint'
+                        ) ?>
+
+                    </div>
+                    <?= $form->field($model, 'filePassportFace')->fileInput()->label(false) ?>
+
+                </div>
+                <div class="panel-footer">
+                    <?php if (isset($filePassportFace)): ?>
+                    <?= Html::a('Скачать <i class="fa fa-cloud-download float-right font-lg"></i>', ['/ferrymen-drivers/download-file', 'id' => $filePassportFace['id']], [
+                        'class' => 'font-weight-bold font-xs btn-block text-muted',
+                    ]) ?>
+
+                    <?php else: ?>
+                    <small class="font-xs btn-block text-muted">нет файла</small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <i class="fa fa-camera-retro bg-info p-3 font-2xl mr-3 float-left"></i>
+                    <?php if (isset($filePassportReverse)): ?>
+                    <?= Html::a(
+                        Ferrymen::getAfd(
+                            Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                            UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА,
+                            'title'
+                        ),
+                        '#',
+                        UploadingFilesMeanings::optionsForAttachedFilesLink($filePassportReverse))
+                    ?>
+                    <?php else: ?>
+                    <?= Ferrymen::getAfd(
+                        Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                        UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА,
+                        'title'
+                    ) ?>
+                    <?php endif; ?>
+
+                </div>
+                <div class="panel-body">
+                    <div class="text-muted text-uppercase font-weight-bold font-xs"><?= Ferrymen::getAfd(
+                        Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                        UploadingFilesMeanings::ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА,
+                        'hint'
+                    ) ?></div>
+                    <?= $form->field($model, 'filePassportReverse')->fileInput()->label(false) ?>
+
+                </div>
+                <div class="panel-footer">
+                    <?php if (isset($filePassportReverse)): ?>
+                    <?= Html::a('Скачать <i class="fa fa-cloud-download float-right font-lg"></i>', ['/ferrymen-drivers/download-file', 'id' => $filePassportReverse['id']], [
+                        'class' => 'font-weight-bold font-xs btn-block text-muted',
+                    ]) ?>
+
+                    <?php else: ?>
+                    <small class="font-xs btn-block text-muted">нет файла</small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <i class="fa fa-camera-retro bg-info p-3 font-2xl mr-3 float-left"></i>
+                    <?php if (isset($fileDlFace)): ?>
+                    <?= Html::a(
+                        Ferrymen::getAfd(
+                            Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                            UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ,
+                            'title'
+                        ),
+                        '#',
+                        UploadingFilesMeanings::optionsForAttachedFilesLink($fileDlFace))
+                    ?>
+                    <?php else: ?>
+                    <?= Ferrymen::getAfd(
+                        Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                        UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ,
+                        'title'
+                    ) ?>
+                    <?php endif; ?>
+
+                </div>
+                <div class="panel-body">
+                    <div class="text-muted text-uppercase font-weight-bold font-xs"><?= Ferrymen::getAfd(
+                        Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                        UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ,
+                        'hint'
+                    ) ?></div>
+                    <?= $form->field($model, 'fileDlFace')->fileInput()->label(false) ?>
+
+                </div>
+                <div class="panel-footer">
+                    <?php if (isset($fileDlFace)): ?>
+                    <?= Html::a('Скачать <i class="fa fa-cloud-download float-right font-lg"></i>', ['/ferrymen-drivers/download-file', 'id' => $fileDlFace['id']], [
+                        'class' => 'font-weight-bold font-xs btn-block text-muted',
+                    ]) ?>
+
+                    <?php else: ?>
+                    <small class="font-xs btn-block text-muted">нет файла</small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-3">
+            <div class="panel panel-info">
+                <div class="panel-heading">
+                    <i class="fa fa-camera-retro bg-info p-3 font-2xl mr-3 float-left"></i>
+                    <?php if (isset($fileDlReverse)): ?>
+                    <?= Html::a(
+                        Ferrymen::getAfd(
+                            Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                            UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ОБОРОТ,
+                            'title'
+                        ),
+                        '#',
+                        UploadingFilesMeanings::optionsForAttachedFilesLink($fileDlReverse))
+                    ?>
+                    <?php else: ?>
+                    <?= Ferrymen::getAfd(
+                        Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                        UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ОБОРОТ,
+                        'title'
+                    ) ?>
+                    <?php endif; ?>
+
+                </div>
+                <div class="panel-body">
+                    <div class="text-muted text-uppercase font-weight-bold font-xs"><?= Ferrymen::getAfd(
+                        Ferrymen::fetchAttachedToDriversFilesDescriptions(),
+                        UploadingFilesMeanings::ТИП_КОНТЕНТА_ВУ_ОБОРОТ,
+                        'hint'
+                    ) ?></div>
+                    <?= $form->field($model, 'fileDlReverse')->fileInput()->label(false) ?>
+
+                </div>
+                <div class="panel-footer">
+                    <?php if (isset($fileDlReverse)): ?>
+                    <?= Html::a('Скачать <i class="fa fa-cloud-download float-right font-lg"></i>', ['/ferrymen-drivers/download-file', 'id' => $fileDlReverse['id']], [
+                        'class' => 'font-weight-bold font-xs btn-block text-muted',
+                    ]) ?>
+
+                    <?php else: ?>
+                    <small class="font-xs btn-block text-muted">нет файла</small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
     <div class="form-group">
         <?php if ($model->ferryman != null): ?>
         <div class="btn-group">
@@ -151,11 +363,43 @@ use common\models\Ferrymen;
     <?php ActiveForm::end(); ?>
 
 </div>
+<div id="mwPreview" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-info" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 id="modal_title" class="modal-title">Предпросмотр файла</h4>
+            </div>
+            <div id="modal_body_preview" class="modal-body">
+                <p>One fine body…</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?php
+$urlPreview = Url::to(['/ferrymen-drivers/preview-file']);
+
 $this->registerJs(<<<JS
 $("input").iCheck({
-    checkboxClass: "icheckbox_square-green",
+    checkboxClass: "icheckbox_square-green"
 });
+
+// Обработчик щелчка по ссылкам в колонке "Наименование" в таблице файлов.
+//
+function previewFileOnClick() {
+    id = $(this).attr("data-id");
+    if (id != "") {
+        $("#modal_body_preview").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+        $("#mwPreview").modal();
+        $("#modal_body_preview").load("$urlPreview?id=" + id);
+    }
+
+    return false;
+} // previewFileOnClick()
+
+$(document).on("click", "a[id ^= 'previewFile']", previewFileOnClick);
 JS
 , yii\web\View::POS_READY);
 ?>

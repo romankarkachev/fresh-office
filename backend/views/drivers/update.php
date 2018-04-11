@@ -7,6 +7,7 @@ use kartik\file\FileInput;
 /* @var $this yii\web\View */
 /* @var $model common\models\Drivers */
 /* @var $dpFiles \yii\data\ActiveDataProvider */
+/* @var $files array массив приаттаченных к текущий модели файлов */
 
 $modelRepresentation = $model->surname . ' ' . $model->name . ' ' . $model->patronymic;
 
@@ -17,8 +18,9 @@ $this->params['breadcrumbs'][] = ['label' => 'Водители', 'url' => ['/fer
 $this->params['breadcrumbs'][] = $modelRepresentation;
 ?>
 <div class="drivers-update">
-    <?= $this->render('_form', ['model' => $model]) ?>
+    <?= $this->render('_form', ['model' => $model, 'files' => $files]) ?>
 
+    <?php if (Yii::$app->user->can('root')): ?>
     <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 
     <?= FileInput::widget([
@@ -35,9 +37,11 @@ $this->params['breadcrumbs'][] = $modelRepresentation;
         ]
     ]) ?>
 
+    <?php endif; ?>
 </div>
 <?php
-$this->registerJs(<<<JS
+if (Yii::$app->user->can('root'))
+    $this->registerJs(<<<JS
 $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
     $.pjax.reload({container:"#afs"});
 });

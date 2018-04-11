@@ -20,8 +20,9 @@ use common\models\TransportInspections;
 use common\models\TransportInspectionsSearch;
 use common\models\FerrymenFiles;
 use common\models\FerrymenFilesSearch;
+use backend\models\FerrymanInvitationForm;
+use common\models\FerrymenInvitations;
 use yii\helpers\Html;
-use yii\helpers\Json;
 use yii\httpclient\Client;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
@@ -43,17 +44,23 @@ class FerrymenController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => [
-                    'index', 'create', 'update', 'delete',
-                    'create-bank-account', 'delete-bank-account', 'create-bank-card', 'delete-bank-card',
-                    'create-driver', 'delete-driver', 'create-transport', 'delete-transport',
-                    'upload-files', 'download-file', 'preview-file', 'delete-file',
-                    'drivers-instructings', 'create-instructing', 'delete-instructing',
-                    'transports-inspections', 'create-inspection', 'delete-inspection',
-                    'list-of-packing-ferrymen-for-typeahead', 'validate-ati-code',
-                ],
                 'rules' => [
                     [
+                        'actions' => ['download-from-outside'],
+                        'allow' => true,
+                        'roles' => ['?', '@'],
+                    ],
+                    [
+                        'actions' => [
+                            'index', 'create', 'update', 'delete',
+                            'create-bank-account', 'delete-bank-account', 'create-bank-card', 'delete-bank-card',
+                            'create-driver', 'delete-driver', 'create-transport', 'delete-transport',
+                            'upload-files', 'download-file', 'preview-file', 'delete-file',
+                            'drivers-instructings', 'create-instructing', 'delete-instructing',
+                            'transports-inspections', 'create-inspection', 'delete-inspection',
+                            'list-of-packing-ferrymen-for-typeahead', 'validate-ati-code',
+                            'invite-ferryman-form', 'validate-invitation', 'send-invitation',
+                        ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'head_assist'],
                     ],
@@ -75,6 +82,8 @@ class FerrymenController extends Controller
                     'delete-instructing' => ['POST'],
                     'create-inspection' => ['POST'],
                     'delete-inspection' => ['POST'],
+                    'validate-invitation' => ['POST'],
+                    'send-invitation' => ['POST'],
                 ],
             ],
         ];
@@ -190,6 +199,13 @@ class FerrymenController extends Controller
             ]);
             $dpFiles->pagination = false;
 
+            // удалим лишние символы из номеров телефонов перевозчика
+            $model->phone = str_replace('+7', '', $model->phone);
+            if ($model->phone[0] == 7 || $model->phone[0] == '8') $model->phone = substr($model->phone, 1);
+
+            $model->phone_dir = str_replace('+7', '', $model->phone_dir);
+            if ($model->phone_dir[0] == 7 || $model->phone_dir[0] == '8') $model->phone_dir = substr($model->phone_dir, 1);
+
             return $this->render('update', [
                 'model' => $model,
                 'dpFiles' => $dpFiles,
@@ -274,6 +290,21 @@ class FerrymenController extends Controller
      * @return mixed
      * @throws NotFoundHttpException если файл не будет обнаружен
      */
+    public function actionDownloadFromOutside($id)
+    {
+        $model = FerrymenFiles::findOne(['id' => $id]);
+        if (file_exists($model->ffp))
+            return Yii::$app->response->sendFile($model->ffp, $model->ofn);
+        else
+            throw new NotFoundHttpException('Файл не обнаружен.');
+    }
+
+    /**
+     * Отдает на скачивание файл, на который позиционируется по идентификатору из параметров.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
     public function actionDownloadFile($id)
     {
         if (is_numeric($id)) if ($id > 0) {
@@ -292,7 +323,10 @@ class FerrymenController extends Controller
     {
         $model = FerrymenFiles::findOne($id);
         if ($model != null) {
-            return Html::img(Yii::getAlias('@uploads-ferrymen') . '/' . $model->fn, ['width' => 600]);
+            if ($model->isImage())
+                return Html::img(Yii::getAlias('@uploads-ferrymen') . '/' . $model->fn, ['width' => 600]);
+            else
+                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/ferrymen/download-from-outside', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
         }
 
         return false;
@@ -459,7 +493,12 @@ class FerrymenController extends Controller
         $driver = Drivers::findOne($id);
         if ($driver != null) {
             $ferryman_id = $driver->ferryman_id;
-            $driver->delete();
+            if (!Yii::$app->user->can('root')) {
+                // для пользователей с ограниченными правами только лишь помечаем на удаление
+                $driver->is_deleted = true;
+                $driver->save(false);
+            }
+            else $driver->delete();
 
             return $this->redirect(['/ferrymen/update', 'id' => $ferryman_id]);
         }
@@ -509,7 +548,12 @@ class FerrymenController extends Controller
         $transport = Transport::findOne($id);
         if ($transport != null) {
             $ferryman_id = $transport->ferryman_id;
-            $transport->delete();
+            if (!Yii::$app->user->can('root')) {
+                // для пользователей с ограниченными правами только лишь помечаем на удаление
+                $transport->is_deleted = true;
+                $transport->save(false);
+            }
+            else $transport->delete();
 
             return $this->redirect(['/ferrymen/update', 'id' => $ferryman_id]);
         }
@@ -699,5 +743,63 @@ class FerrymenController extends Controller
             return true;
         else
             return $response->data;
+    }
+
+    /**
+     * Рендерит форму приглашения перевозчика создать аккаунт в личном кабинете.
+     * @param $id integer идентификатор перевозчика, который приглашается
+     * @return mixed
+     */
+    public function actionInviteFerrymanForm($id)
+    {
+        if (Yii::$app->request->isAjax) {
+            $id = intval($id);
+            $ferryman = Ferrymen::findOne($id);
+            if ($ferryman != null) {
+                $invitationLast = FerrymenInvitations::find()->where(['ferryman_id' => $id])->orderBy('created_at DESC')->one();
+                $email = '';
+                if ($ferryman->email_dir != null && trim($ferryman->email_dir) != '') $email = $ferryman->email_dir;
+                if ($email == '' && $ferryman->email != null && trim($ferryman->email) != '') $email = $ferryman->email;
+
+                $invitationForm = new FerrymanInvitationForm([
+                    'ferryman_id' => $id,
+                    'email' => $email,
+                ]);
+
+                return $this->renderAjax('_invite_form', [
+                    'model' => $invitationForm,
+                    'invitationLast' => $invitationLast,
+                ]);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * AJAX-валидация формы отправки приглашения.
+     */
+    public function actionValidateInvitation()
+    {
+        $model = new FerrymanInvitationForm();
+
+        if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+            echo json_encode(\yii\widgets\ActiveForm::validate($model));
+            Yii::$app->end();
+        }
+    }
+
+    /**
+     * Отправляет приглашение перевозчику создать аккаунт в личном кабинете.
+     * @return array|bool
+     */
+    public function actionSendInvitation()
+    {
+        $model = new FerrymanInvitationForm();
+
+        if ($model->load(Yii::$app->request->post())) {
+            return $model->sendInvitation();
+        }
     }
 }

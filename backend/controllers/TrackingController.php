@@ -27,7 +27,7 @@ class TrackingController extends Controller
      * Реквизиты доступа к API отправлений Почты России
      */
     const POCHTA_RU_SEND_API_TOKEN = 'R9pmi350HAm6SDNYJjJnZk47B_2PpRtG';
-    const POCHTA_RU_SEND_API_AUTHKEY = 'ODgwMDU1NTIxODdAc3Q3Ny5ydTpxd2VydHkxMjM=';
+    const POCHTA_RU_SEND_API_AUTHKEY = 'ODgwMDU1NTIxODdAc3Q3Ny5ydTpRd2VydHk5ODc0NTY=';
     const POCHTA_RU_SEND_API_URL_НОРМАЛИЗАЦИЯ_АДРЕСА = 'https://otpravka-api.pochta.ru/1.0/clean/address';
     const POCHTA_RU_SEND_API_URL_СОЗДАНИЕ_ЗАКАЗА = 'https://otpravka-api.pochta.ru/1.0/user/backlog';
     const POCHTA_RU_SEND_API_URL_ПОИСК_ЗАКАЗА = 'https://otpravka-api.pochta.ru/1.0/backlog';

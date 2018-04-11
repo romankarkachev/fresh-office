@@ -13,7 +13,7 @@ use yii\bootstrap\ActiveForm;
 
     <div class="row">
         <div class="col-md-6">
-            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование']) ?>
+            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
 
         </div>
         <div class="col-md-6">

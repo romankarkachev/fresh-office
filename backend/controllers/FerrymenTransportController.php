@@ -7,11 +7,14 @@ use common\models\Transport;
 use common\models\TransportSearch;
 use common\models\TransportFiles;
 use common\models\TransportFilesSearch;
+use common\models\UploadingFilesMeanings;
+use yii\helpers\Html;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
+use yii\web\UploadedFile;
 
 /**
  * TransportController implements the CRUD actions for Transport model.
@@ -26,9 +29,17 @@ class FerrymenTransportController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete', 'upload-files', 'download-file', 'delete-file'],
                 'rules' => [
                     [
+                        'actions' => ['download-from-outside'],
+                        'allow' => true,
+                        'roles' => ['?', '@'],
+                    ],
+                    [
+                        'actions' => [
+                            'index', 'create', 'update', 'delete',
+                            'upload-files', 'download-file', 'preview-file', 'delete-file',
+                        ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'head_assist'],
                     ],
@@ -89,9 +100,87 @@ class FerrymenTransportController extends Controller
     {
         $model = $this->findModel($id);
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/ferrymen-transport']);
-        } else {
+        if ($model->load(Yii::$app->request->post())) {
+            // файлы со сканами документов водителя
+            $filesProvided = false;
+            $filesSuccessfullyLoaded = true;
+            $errors = '';
+
+            $model->fileOsago = UploadedFile::getInstance($model, 'fileOsago');
+            if ($model->fileOsago != null) {
+                $filesProvided = true;
+                if (!$model->upload('fileOsago', $model->fileOsago->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ОСАГО)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Главный разворот паспорта не был успешно загружен.</p>';
+                }
+            }
+
+            $model->filePtsFace = UploadedFile::getInstance($model, 'filePtsFace');
+            if ($model->filePtsFace != null) {
+                $filesProvided = true;
+                if (!$model->upload('filePtsFace', $model->filePtsFace->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ПТС_ЛИЦЕВАЯ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Регистрация по месту жительства в паспорте не была успешно загружена.</p>';
+                }
+            }
+
+            $model->filePtsReverse = UploadedFile::getInstance($model, 'filePtsReverse');
+            if ($model->filePtsReverse != null) {
+                $filesProvided = true;
+                if (!$model->upload('filePtsReverse', $model->filePtsReverse->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ПТС_ОБОРОТ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Лицевая сторона водительского удостоверения не была успешно загружена.</p>';
+                }
+            }
+
+            $model->fileStsFace = UploadedFile::getInstance($model, 'fileStsFace');
+            if ($model->fileStsFace != null) {
+                $filesProvided = true;
+                if (!$model->upload('fileStsFace', $model->fileStsFace->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_СТС_ЛИЦЕВАЯ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Оборотная сторона водительского удостоверения не была успешно загружена.</p>';
+                }
+            }
+
+            $model->fileStsReverse = UploadedFile::getInstance($model, 'fileStsReverse');
+            if ($model->fileStsReverse != null) {
+                $filesProvided = true;
+                if (!$model->upload('fileStsReverse', $model->fileStsReverse->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_СТС_ОБОРОТ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Оборотная сторона водительского удостоверения не была успешно загружена.</p>';
+                }
+            }
+
+            $model->fileDk = UploadedFile::getInstance($model, 'fileDk');
+            if ($model->fileDk != null) {
+                $filesProvided = true;
+                if (!$model->upload('fileDk', $model->fileDk->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ДИАГНОСТИЧЕСКАЯ_КАРТА)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Оборотная сторона водительского удостоверения не была успешно загружена.</p>';
+                }
+            }
+
+            $model->fileAutoPicture = UploadedFile::getInstance($model, 'fileAutoPicture');
+            if ($model->fileAutoPicture != null) {
+                $filesProvided = true;
+                if (!$model->upload('fileAutoPicture', $model->fileAutoPicture->name, UploadingFilesMeanings::ТИП_КОНТЕНТА_ФОТО_АВТОМОБИЛЯ)) {
+                    $filesSuccessfullyLoaded = false;
+                    $errors .= '<p>Фото автомобиля не было успешно загружено.</p>';
+                }
+            }
+
+            if ($errors != '')
+                Yii::$app->session->setFlash('error', $errors);
+            else if ($filesProvided && $filesSuccessfullyLoaded)
+                Yii::$app->session->setFlash('success', 'Файлы успешно загружены.');
+            // -- файлы
+
+            if ($model->save()) return $this->redirect(['/ferrymen-transport/update', 'id' => $model->id]);
+        }
+
+        $params = ['model' => $model];
+
+        if (Yii::$app->user->can('root')) {
             // файлы к объекту
             $searchModel = new TransportFilesSearch();
             $dpFiles = $searchModel->search([$searchModel->formName() => ['transport_id' => $model->id]]);
@@ -99,12 +188,22 @@ class FerrymenTransportController extends Controller
                 'defaultOrder' => ['uploaded_at' => SORT_DESC],
             ]);
             $dpFiles->pagination = false;
-
-            return $this->render('/transport/update', [
-                'model' => $model,
-                'files' => $dpFiles,
-            ]);
+            $params['dpFiles'] = $dpFiles;
         }
+
+        // файлы конкретных типов
+        $files = TransportFiles::find()->select(['id', 'ufm_id', 'fn', 'ofn'])->where(['transport_id' => $id, 'ufm_id' => [
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ОСАГО,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ПТС_ЛИЦЕВАЯ,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ПТС_ОБОРОТ,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_СТС_ЛИЦЕВАЯ,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_СТС_ОБОРОТ,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ДИАГНОСТИЧЕСКАЯ_КАРТА,
+            UploadingFilesMeanings::ТИП_КОНТЕНТА_ФОТО_АВТОМОБИЛЯ,
+        ]])->asArray()->all();
+        $params['files'] = $files;
+
+        return $this->render('/transport/update', $params);
     }
 
     /**
@@ -115,7 +214,13 @@ class FerrymenTransportController extends Controller
      */
     public function actionDelete($id)
     {
-        $this->findModel($id)->delete();
+        if (!Yii::$app->user->can('root')) {
+            // для пользователей с ограниченными правами только лишь помечаем на удаление
+            $model = $this->findModel($id);
+            $model->is_deleted = true;
+            $model->save(false);
+        }
+        else $this->findModel($id)->delete();
 
         return $this->redirect(['/ferrymen-transport']);
     }
@@ -208,5 +313,23 @@ class FerrymenTransportController extends Controller
         }
         else
             throw new NotFoundHttpException('Файл не обнаружен.');
+    }
+
+    /**
+     * Выполняет предварительный показ изображения.
+     * @param $id integer идентификатор файла, который необходимо предварительно показать
+     * @return mixed
+     */
+    public function actionPreviewFile($id)
+    {
+        $model = TransportFiles::findOne($id);
+        if ($model != null) {
+            if ($model->isImage())
+                return Html::img(Yii::getAlias('@uploads-ferrymen-transport') . '/' . $model->fn, ['width' => 600]);
+            else
+                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/ferrymen-transport/download-from-outside', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
+        }
+
+        return false;
     }
 }

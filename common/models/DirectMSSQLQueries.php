@@ -257,6 +257,7 @@ SELECT
     ADD_perevoz AS ferryman,
     ADD_dannie AS dannie,
     ADD_ttn AS ttn,
+    ADD_adres AS address,
     LIST_PROJECT_COMPANY.PRIM_PROJECT_COMPANY AS comment,
     ISNULL(FINANCES.COUNT_FINANCE, 0) AS finance_count,
     payment.amount,

@@ -109,7 +109,21 @@ class DriversFiles extends \yii\db\ActiveRecord
             if (!FileHelper::createDirectory($filepath)) return false;
         }
 
-        return $filepath;
+        return realpath($filepath);
+    }
+
+    /**
+     * Проверяет, является ли файл изображением.
+     * @return bool
+     */
+    public function isImage()
+    {
+        $is = @getimagesize($this->ffp);
+        if ( !$is )
+            return false;
+        elseif ( !in_array($is[2], array(1,2,3)) )
+            return false;
+        else return true;
     }
 
     /**

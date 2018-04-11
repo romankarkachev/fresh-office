@@ -16,6 +16,12 @@ use dektrium\user\models\User as BaseUser;
 class User extends BaseUser
 {
     /**
+     * Префикс для имен пользователей. Добавляется при регистрации и при каждой авторизации пользователя в роли
+     * перевозчика.
+     */
+    const FERRYMAN_LOGIN_PREFIX = 'ferryman';
+
+    /**
      * Имя.
      * @var string
      */
@@ -89,6 +95,36 @@ class User extends BaseUser
     }
 
     /**
+     * @inheritdoc
+     */
+    public function beforeDelete()
+    {
+        if (parent::beforeDelete()) {
+            // удаляем привязку к перевозчику
+            Ferrymen::updateAll(['user_id' => null], ['user_id' => $this->id]);
+
+            // очищаем поле updated_by таблицы ferrymen
+            Ferrymen::updateAll(['updated_by' => null], ['updated_by' => $this->id]);
+
+            // очищаем поля created_by и updated_by таблицы drivers
+            Drivers::updateAll(['created_by' => null], ['created_by' => $this->id]);
+            Drivers::updateAll(['updated_by' => null], ['updated_by' => $this->id]);
+
+            // очищаем поля created_by и updated_by таблицы transport
+            Transport::updateAll(['created_by' => null], ['created_by' => $this->id]);
+            Transport::updateAll(['updated_by' => null], ['updated_by' => $this->id]);
+
+            // делаем автором загрузки файлов встроенного пользователя
+            DriversFiles::updateAll(['uploaded_by' => 1], ['uploaded_by' => $this->id]);
+            TransportFiles::updateAll(['uploaded_by' => 1], ['uploaded_by' => $this->id]);
+
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
      * Creates new user account. It generates password if it is not provided by user.
      *
      * @return bool
@@ -101,7 +137,6 @@ class User extends BaseUser
 
         $this->confirmed_at = time();
         $this->password = $this->password == null ? Password::generate(8) : $this->password;
-        $password = $this->password;
 
         $this->trigger(self::BEFORE_CREATE);
 

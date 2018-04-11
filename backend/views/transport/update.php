@@ -6,7 +6,8 @@ use kartik\file\FileInput;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Transport */
-/* @var $files \yii\data\ActiveDataProvider */
+/* @var $dpFiles \yii\data\ActiveDataProvider */
+/* @var $files array массив приаттаченных к текущий модели файлов */
 
 $modelRepresentation = $model->brand->name . ' ' . $model->rn;
 
@@ -17,9 +18,10 @@ $this->params['breadcrumbs'][] = ['label' => 'Транспорт', 'url' => ['/f
 $this->params['breadcrumbs'][] = 'Автомобиль ' . $modelRepresentation;
 ?>
 <div class="transport-update">
-    <?= $this->render('_form', ['model' => $model]) ?>
+    <?= $this->render('_form', ['model' => $model, 'files' => $files]) ?>
 
-    <?= $this->render('_files', ['dataProvider' => $files]); ?>
+    <?php if (Yii::$app->user->can('root')): ?>
+    <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 
     <?= FileInput::widget([
         'id' => 'new_files',
@@ -35,9 +37,11 @@ $this->params['breadcrumbs'][] = 'Автомобиль ' . $modelRepresentation;
         ]
     ]) ?>
 
+    <?php endif; ?>
 </div>
 <?php
-$this->registerJs(<<<JS
+if (Yii::$app->user->can('root'))
+    $this->registerJs(<<<JS
 $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
     $.pjax.reload({container:"#afs"});
 });

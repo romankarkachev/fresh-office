@@ -17,6 +17,25 @@ use yii\helpers\ArrayHelper;
 class UploadingFilesMeanings extends \yii\db\ActiveRecord
 {
     /**
+     * Разновидности документов водителей
+     */
+    const ТИП_КОНТЕНТА_ВУ_ЛИЦЕВАЯ = 10;
+    const ТИП_КОНТЕНТА_ВУ_ОБОРОТ = 11;
+    const ТИП_КОНТЕНТА_ПАСПОРТ_ГЛАВНАЯ = 12;
+    const ТИП_КОНТЕНТА_ПАСПОРТ_ПРОПИСКА = 13;
+
+    /**
+     * Разновидности документов транспортных средств
+     */
+    const ТИП_КОНТЕНТА_ОСАГО = 14;
+    const ТИП_КОНТЕНТА_ПТС_ЛИЦЕВАЯ = 15;
+    const ТИП_КОНТЕНТА_ПТС_ОБОРОТ = 16;
+    const ТИП_КОНТЕНТА_СТС_ЛИЦЕВАЯ = 17;
+    const ТИП_КОНТЕНТА_СТС_ОБОРОТ = 18;
+    const ТИП_КОНТЕНТА_ДИАГНОСТИЧЕСКАЯ_КАРТА = 19;
+    const ТИП_КОНТЕНТА_ФОТО_АВТОМОБИЛЯ = 20;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -33,6 +52,7 @@ class UploadingFilesMeanings extends \yii\db\ActiveRecord
             [['name'], 'required'],
             [['keywords'], 'string'],
             [['name'], 'string', 'max' => 50],
+            [['keywords'], 'default', 'value' => null],
         ];
     }
 
@@ -46,6 +66,26 @@ class UploadingFilesMeanings extends \yii\db\ActiveRecord
             'name' => 'Наименование',
             'keywords' => 'Ключевые слова', // по которым можно понять, что это именно тот самый тип
         ];
+    }
+
+    /**
+     * Возвращает массив параметров для ссылки на приаттаченные файлы.
+     * @param $file array массив с данными приаттаченного файла (id, имя файла и т.д.)
+     * @return array
+     */
+    public static function optionsForAttachedFilesLink($file)
+    {
+        $result = [
+            'class' => 'link-ajax',
+        ];
+
+        if (isset($file)) {
+            $result['id'] = 'previewFile' . $file['id'];
+            $result['data-id'] = $file['id'];
+            $result['title'] = $file['ofn'];
+        }
+
+        return $result;
     }
 
     /**
@@ -66,7 +106,7 @@ class UploadingFilesMeanings extends \yii\db\ActiveRecord
      */
     public static function arrayMapForSelect2()
     {
-        return ArrayHelper::map(self::find()->all(), 'id', 'name');
+        return ArrayHelper::map(self::find()->where(['not', ['keywords' => null]])->all(), 'id', 'name');
     }
 
     /**

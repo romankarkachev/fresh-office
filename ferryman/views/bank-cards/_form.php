@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\bootstrap\ActiveForm;
+use common\components\bootstrap\ActiveForm;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\FerrymenBankCards */

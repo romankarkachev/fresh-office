@@ -76,8 +76,8 @@ class PaymentOrders extends \yii\db\ActiveRecord
             [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentOrdersStates::className(), 'targetAttribute' => ['state_id' => 'id']],
             // собственные правила валидации
             ['ferryman_id', 'validateFerryman'],
-            //['projects', 'validateProjects'],
-            //['state_id', 'validateState'],
+            ['projects', 'validateProjects'],
+            ['state_id', 'validateState'],
         ];
     }
 

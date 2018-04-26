@@ -107,10 +107,9 @@ return [
             'showScriptName' => false,
             'rules' => [
                 '' => 'default/index',
-                '<action:login>' => '/user/security/login',
-                '<action:logout>' => '/user/security/logout',
-                '<action:profile>' => 'user/settings/<action>',
-                '<action:account>' => 'user/settings/<action>',
+                '<action:driver-instruction>' => 'default/<action>',
+                '<action:login|logout>' => '/user/security/<action>',
+                '<action:profile|account>' => '/user-settings/<action>',
                 '/register' => '/user/registration/register',
                 '<controller:\w+>/<action:\w+>' => '<controller>/<action>'
             ],

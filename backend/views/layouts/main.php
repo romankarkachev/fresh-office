@@ -103,12 +103,15 @@ if (Yii::$app->user->can('root'))
             'url' => '#',
             'items' => [
                 ['label' => 'Проекты', 'url' => ['/projects']],
+                ['label' => 'Подбор перевозчиков', 'url' => ['/projects/ferrymen-casting']],
                 '<li class="dropdown-header">Производство</li>',
                 ['label' => 'Производство', 'url' => ['/production']],
                 ['label' => 'Файлы обратной связи', 'url' => ['/production-feedback-files']],
                 '<li class="dropdown-header">Лицензии</li>',
                 ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
                 ['label' => 'Файлы сканов', 'url' => ['/licenses-files']],
+                '<li class="dropdown-header">Личный кабинет клиента</li>',
+                ['label' => 'Отправить приглашение', 'url' => ['/invite-customer']],
             ],
         ],
         [
@@ -137,6 +140,7 @@ if (Yii::$app->user->can('root'))
                 '<li class="dropdown-header">Обработки</li>',
                 ['label' => '<i class="fa fa-cogs"></i> Оплата рейсов', 'url' => ['/process/freights-payments']],
                 ['label' => '<i class="fa fa-cogs"></i> Замена видов упаковки', 'url' => ['/transport-requests/packing-type-mass-replace']],
+                ['label' => '<i class="fa fa-cogs"></i> Закрытие этапов', 'url' => ['/process/closing-milestones']],
             ],
         ],
         [

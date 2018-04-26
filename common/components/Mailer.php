@@ -31,6 +31,23 @@ class Mailer extends BaseMailer
     }
 
     /**
+     * Отправляет сообщение клиенту после его регистрации в личном кабинете.
+     * @param User  $user
+     * @param Token $token
+     * @param bool  $showPassword
+     * @return bool
+     */
+    public function sendWelcomeMessageCustomer(User $user, Token $token = null, $showPassword = false)
+    {
+        return $this->sendMessage(
+            $user->email,
+            $this->getWelcomeSubject(),
+            'customerWelcome-html',
+            ['user' => $user, 'token' => $token, 'module' => $this->module, 'showPassword' => $showPassword]
+        );
+    }
+
+    /**
      * @param string $to
      * @param string $subject
      * @param string $view

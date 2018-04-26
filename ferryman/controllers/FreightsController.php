@@ -6,6 +6,9 @@ use Yii;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjects;
 use common\models\foProjectsSearch;
+use common\models\Ferrymen;
+use yii\data\ActiveDataProvider;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\filters\AccessControl;
@@ -50,12 +53,22 @@ class FreightsController extends Controller
 
     /**
      * Отображает список проектов.
-     * Выборка через API Fresh Office.
+     * @return mixed
      */
     public function actionIndex()
     {
         $searchModel = new foProjectsSearch();
-        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+        $ferryman = Ferrymen::findOne(['user_id' => Yii::$app->user->id]);
+        // если связанный перевозчик не будет обнаружен, то вернем пустую выборку
+        if ($ferryman == null)
+            $dataProvider = new ActiveDataProvider(['query' => foProjects::find()->where('1 <> 1')]);
+        else
+            $dataProvider = $searchModel->search(ArrayHelper::merge([
+                'route' => 'freights',
+                $searchModel->formName() => [
+                    'oplata' => $ferryman->name_crm,
+                ],
+            ], Yii::$app->request->queryParams));
 
         return $this->render('index', [
             'searchModel' => $searchModel,

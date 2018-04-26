@@ -729,7 +729,6 @@ class FerrymenController extends Controller
     }
 
     /**
-     *
      * @param $ati_code
      * @return bool
      */

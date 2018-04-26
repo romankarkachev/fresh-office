@@ -82,7 +82,7 @@ class FerrymenDriversController extends Controller
         $model = new Drivers();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/ferrymen-drivers']);
+            return $this->redirect(['/ferrymen-drivers/update', 'id' => $model->id]);
         } else {
             return $this->render('/drivers/create', [
                 'model' => $model,
@@ -153,16 +153,14 @@ class FerrymenDriversController extends Controller
 
         $params = ['model' => $model];
 
-        if (Yii::$app->user->can('root')) {
-            // файлы к объекту
-            $searchModel = new DriversFilesSearch();
-            $dpFiles = $searchModel->search([$searchModel->formName() => ['driver_id' => $model->id]]);
-            $dpFiles->setSort([
-                'defaultOrder' => ['uploaded_at' => SORT_DESC],
-            ]);
-            $dpFiles->pagination = false;
-            $params['dpFiles'] = $dpFiles;
-        }
+        // файлы к объекту
+        $searchModel = new DriversFilesSearch();
+        $dpFiles = $searchModel->search([$searchModel->formName() => ['driver_id' => $model->id]]);
+        $dpFiles->setSort([
+            'defaultOrder' => ['uploaded_at' => SORT_DESC],
+        ]);
+        $dpFiles->pagination = false;
+        $params['dpFiles'] = $dpFiles;
 
         // файлы конкретных типов
         $files = DriversFiles::find()->select(['id', 'ufm_id', 'fn', 'ofn'])->where(['driver_id' => $id, 'ufm_id' => [

@@ -56,7 +56,12 @@ $this->params['breadcrumbsRight'][] = ['icon' => 'fa fa-sort-amount-asc', 'url' 
                                 return '';
                         }
                     ],
-                    ['class' => 'ferryman\components\grid\ActionColumn'],
+                    [
+                        'class' => 'ferryman\components\grid\ActionColumn',
+                        'visibleButtons' => [
+                            'delete' => Yii::$app->user->can('root'),
+                        ],
+                    ],
                 ],
             ]); ?>
 

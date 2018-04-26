@@ -412,6 +412,16 @@ class Ferrymen extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает выборку перевозчиков и возвращает в виде массива, в котором поиск удобно осуществлять по наименованию.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapForSearchByCrmName()
+    {
+        return ArrayHelper::map(self::find()->all(), 'name_crm', 'id');
+    }
+
+    /**
      * Делает выборку водителей и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array

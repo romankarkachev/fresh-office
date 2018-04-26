@@ -658,9 +658,10 @@ ORDER BY COMPANY_NAME';
      * @param $ca_id integer идентификатор контрагента, который привязывается к задаче
      * @param $receiver_id integer идентификатор менеджера-исполнителя задачи
      * @param $note string текст задачи
+     * @param $type_id integer тип задачи
      * @return array|integer|bool
      */
-    public static function foapi_createNewTaskForManager($ca_id, $receiver_id, $note)
+    public static function foapi_createNewTaskForManager($ca_id, $receiver_id, $note, $type_id = FreshOfficeAPI::TASK_TYPE_ОБРАЩЕНИЕ)
     {
         // для начала необходимо выполнить проверку: не требуется ли замена ответственного на реального человека
         $rs = ResponsibleSubstitutes::find()->select('required_id,substitute_id')->asArray()->all();
@@ -677,7 +678,7 @@ ORDER BY COMPANY_NAME';
             //'user_id' => 38, // temporary1
             'category_id' => FreshOfficeAPI::TASK_CATEGORY_СТАНДАРТНАЯ,
             'status_id' => FreshOfficeAPI::TASKS_STATUS_ЗАПЛАНИРОВАН,
-            'type_id' => FreshOfficeAPI::TASK_TYPE_ОБРАЩЕНИЕ,
+            'type_id' => $type_id,
             'date_from' => date('Y-m-d\TH:i:s.u', time()),
             'date_till' => date('Y-m-d\TH:i:s.u', mktime(0, 0, 0, date("m")  , date("d")+1, date("Y"))),
             'note' => $note,
@@ -736,6 +737,7 @@ ORDER BY COMPANY_NAME';
             //'user_id' => 38, // temporary1
             'created' => date('Y-m-d\TH:i:s.u', time()),
             'created_by' => 'Веб-приложение',
+            //'info_source' => 'Создан из мастера обработки обращений веб-приложения',
         ];
         $params['requisites_legal'][] = [
             'short_name' => $appeal->form_company,
@@ -764,6 +766,7 @@ ORDER BY COMPANY_NAME';
                 $inner_message = ' ' . $decoded_response['error']['innererror']['message'];
             // возникла ошибка при выполнении
             return 'При создании контрагента возникла ошибка: ' . $decoded_response['error']['message']['value'] . $inner_message;
+            //return 'При создании контрагента возникла ошибка: ' . print_r($decoded_response['error']) . $inner_message;
         }
         elseif (isset($decoded_response['d']))
             // фиксируем идентификатор контрагента, который был успешно создан

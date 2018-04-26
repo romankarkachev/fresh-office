@@ -57,6 +57,7 @@ $this->params['breadcrumbs'][] = $model->name;
     <div class="page-header"><h3>Файлы</h3></div>
     <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 
+    <?php if (Yii::$app->user->can('root')): ?>
     <?= FileInput::widget([
         'id' => 'new_files',
         'name' => 'files[]',
@@ -71,6 +72,7 @@ $this->params['breadcrumbs'][] = $model->name;
         ]
     ]) ?>
 
+    <?php endif; ?>
     <div id="mw_preview" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-info" role="document">
             <div class="modal-content">

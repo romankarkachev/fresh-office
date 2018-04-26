@@ -1,6 +1,7 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\grid\GridView;
 
 /* @var $this yii\web\View */
@@ -34,9 +35,23 @@ $this->params['breadcrumbs'][] = 'Отчет по дубликатам в кон
                 'contentOptions' => ['class' => 'text-center'],
                 'options' => ['width' => '120'],
             ],
-            //'name',
             'parameter',
             'owners',
+            [
+                'header' => 'Действия',
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\ReportCaDuplicates */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return Html::a('<i class="fa fa-copy"></i> Объединить', Url::to([
+                        '/process/merge-customers', 'field' => $model['field'], 'criteria' => trim($model['parameter'])
+                    ]), [
+                        'class' => 'btn btn-xs btn-info',
+                        'title' => 'Объединить карточки контрагентов',
+                    ]);
+                },
+            ],
         ],
     ]); ?>
 

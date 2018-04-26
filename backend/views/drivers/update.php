@@ -20,9 +20,9 @@ $this->params['breadcrumbs'][] = $modelRepresentation;
 <div class="drivers-update">
     <?= $this->render('_form', ['model' => $model, 'files' => $files]) ?>
 
-    <?php if (Yii::$app->user->can('root')): ?>
     <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 
+    <?php if (Yii::$app->user->can('root')): ?>
     <?= FileInput::widget([
         'id' => 'new_files',
         'name' => 'files[]',
@@ -40,8 +40,7 @@ $this->params['breadcrumbs'][] = $modelRepresentation;
     <?php endif; ?>
 </div>
 <?php
-if (Yii::$app->user->can('root'))
-    $this->registerJs(<<<JS
+if (Yii::$app->user->can('root')) $this->registerJs(<<<JS
 $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
     $.pjax.reload({container:"#afs"});
 });

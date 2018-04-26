@@ -3,8 +3,9 @@
 namespace common\models;
 
 use Yii;
-use common\behaviors\IndexFieldBehavior;
 use yii\db\ActiveRecord;
+use yii\db\Expression;
+use common\behaviors\IndexFieldBehavior;
 
 /**
  * This is the model class for table "transport".
@@ -25,6 +26,7 @@ use yii\db\ActiveRecord;
  * @property string $rn_index
  * @property string $trailer_rn
  * @property string $osago_expires_at
+ * @property integer $is_dopog
  * @property string $comment
  *
  * @property string $brandName
@@ -41,6 +43,11 @@ use yii\db\ActiveRecord;
  */
 class Transport extends \yii\db\ActiveRecord
 {
+    /**
+     * @var array набор доступных транспортному средству типов погрузки
+     */
+    public $loadTypes;
+
     /*
      * @var UploadedFile ОСАГО
      */
@@ -103,8 +110,8 @@ class Transport extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'brand_id'], 'required'],
-            [['osago_expires_at'], 'safe'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id'], 'integer'],
+            [['osago_expires_at', 'loadTypes'], 'safe'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id', 'is_dopog'], 'integer'],
             [['comment'], 'string'],
             [['vin', 'vin_index'], 'string', 'max' => 50],
             [['rn', 'rn_index', 'trailer_rn'], 'string', 'max' => 30],
@@ -145,6 +152,7 @@ class Transport extends \yii\db\ActiveRecord
             'rn' => 'Госномер',
             'trailer_rn' => 'Прицеп',
             'osago_expires_at' => 'Срок действия полиса ОСАГО',
+            'is_dopog' => 'ДОПОГ (допуск на перевозку опасных грузов)',
             'comment' => 'Примечание',
             'fileOsago' => 'Файл с изображением полиса ОСАГО',
             'filePtsFace' => 'Файл с изображением лицевой стороны ПТС',
@@ -153,6 +161,7 @@ class Transport extends \yii\db\ActiveRecord
             'fileStsReverse' => 'Файл с изображением оборотной стороны СТС',
             'fileDk' => 'Файл с изображением диагностической карты',
             'fileAutoPicture' => 'Файл с изображением автомобиля',
+            'loadTypes' => 'Способы погрузки, доступные транспортному средству',
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
             'stateName' => 'Статус',

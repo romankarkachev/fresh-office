@@ -2,13 +2,13 @@
 
 namespace backend\controllers;
 
-use common\models\CorrespondencePackagesHistorySearch;
 use Yii;
 use common\models\CorrespondencePackages;
 use common\models\CorrespondencePackagesSearch;
 use common\models\CorrespondencePackagesFiles;
 use common\models\CorrespondencePackagesFilesSearch;
 use common\models\CorrespondencePackagesStates;
+use common\models\CorrespondencePackagesHistorySearch;
 use common\models\CounteragentsPostAddresses;
 use common\models\PostDeliveryKinds;
 use common\models\ProjectsStates;
@@ -17,7 +17,6 @@ use common\models\PadKinds;
 use common\models\DirectMSSQLQueries;
 use common\models\Profile;
 use yii\helpers\ArrayHelper;
-use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -100,7 +99,7 @@ class CorrespondencePackagesController extends Controller
         $model->pad = $model->convertPadTableToArray();
 
         if ($model->load(Yii::$app->request->post())) {
-            $model->is_manual = true; // всегда, созданные роботом отмечаются противоположным признаком
+            $model->is_manual = true; // всегда созданные роботом отмечаются противоположным признаком
             $model->state_id = ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ;
             $model->cps_id = CorrespondencePackagesStates::STATE_ЧЕРНОВИК;
             $model->pad = $model->convertPadTableToArray();

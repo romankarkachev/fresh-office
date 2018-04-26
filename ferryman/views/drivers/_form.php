@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\bootstrap\ActiveForm;
+use common\components\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
 use common\models\Ferrymen;

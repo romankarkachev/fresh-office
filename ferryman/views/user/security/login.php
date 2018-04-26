@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\bootstrap\ActiveForm;
+use common\components\bootstrap\ActiveForm;
 
 /* @var $this yii\web\View */
 /* @var $model dektrium\user\models\LoginForm */
@@ -28,6 +28,7 @@ $this->params['breadcrumbs'][] = $this->title;
                             'inputOptions' => [
                                 'class' => 'form-control',
                             ],
+                            'errorOptions' => ['class' => 'text-danger'],
                         ],
                     ]) ?>
 
@@ -47,7 +48,7 @@ $this->params['breadcrumbs'][] = $this->title;
 
                         <?= $form->field($model, 'password', [
                             'template' => '
-                        <div class="input-group mb-4">
+                        <div class="input-group mb-1">
                             <span class="input-group-addon"><i class="icon-lock"></i></span>
                             {input}
                         </div>

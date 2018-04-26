@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\TransportLoadTypes;
 use Yii;
 use common\models\Transport;
 use common\models\TransportSearch;
@@ -82,6 +83,17 @@ class FerrymenTransportController extends Controller
         $model = new Transport();
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            // обработаем типы отмеченные погрузок
+            if (!empty($model->loadTypes)) {
+                foreach ($model->loadTypes as $key => $value) {
+                    $ltModel  = new TransportLoadTypes([
+                        'transport_id' => $model->id,
+                        'lt_id' => $value,
+                    ]);
+                    $ltModel ->save();
+                }
+            }
+
             return $this->redirect(['/ferrymen-transport/update', 'id' => $model->id]);
         } else {
             return $this->render('/transport/create', [
@@ -175,21 +187,35 @@ class FerrymenTransportController extends Controller
                 Yii::$app->session->setFlash('success', 'Файлы успешно загружены.');
             // -- файлы
 
-            if ($model->save()) return $this->redirect(['/ferrymen-transport/update', 'id' => $model->id]);
+            if ($model->save()) {
+                // обновим типы погрузок
+                TransportLoadTypes::deleteAll(['transport_id' => $model->id]);
+
+                foreach ($model->loadTypes as $key => $value) {
+                    $ltModel  = new TransportLoadTypes([
+                        'transport_id' => $model->id,
+                        'lt_id' => $value,
+                    ]);
+                    $ltModel ->save();
+                }
+
+                return $this->redirect(['/ferrymen-transport/update', 'id' => $model->id]);
+            }
+        }
+        else {
+            $model->loadTypes = TransportLoadTypes::find()->select('lt_id')->where(['transport_id' => $model->id])->column();
         }
 
         $params = ['model' => $model];
 
-        if (Yii::$app->user->can('root')) {
-            // файлы к объекту
-            $searchModel = new TransportFilesSearch();
-            $dpFiles = $searchModel->search([$searchModel->formName() => ['transport_id' => $model->id]]);
-            $dpFiles->setSort([
-                'defaultOrder' => ['uploaded_at' => SORT_DESC],
-            ]);
-            $dpFiles->pagination = false;
-            $params['dpFiles'] = $dpFiles;
-        }
+        // файлы к объекту
+        $searchModel = new TransportFilesSearch();
+        $dpFiles = $searchModel->search([$searchModel->formName() => ['transport_id' => $model->id]]);
+        $dpFiles->setSort([
+            'defaultOrder' => ['uploaded_at' => SORT_DESC],
+        ]);
+        $dpFiles->pagination = false;
+        $params['dpFiles'] = $dpFiles;
 
         // файлы конкретных типов
         $files = TransportFiles::find()->select(['id', 'ufm_id', 'fn', 'ofn'])->where(['transport_id' => $id, 'ufm_id' => [
@@ -202,6 +228,9 @@ class FerrymenTransportController extends Controller
             UploadingFilesMeanings::ТИП_КОНТЕНТА_ФОТО_АВТОМОБИЛЯ,
         ]])->asArray()->all();
         $params['files'] = $files;
+
+        // типы погрузок
+        //if (empty($model->load_types)) $model->load_types = $model->convertLoadTypesTableToArray();
 
         return $this->render('/transport/update', $params);
     }

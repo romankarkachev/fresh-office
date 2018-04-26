@@ -2,14 +2,17 @@
 
 namespace backend\controllers;
 
-use common\models\Ferrymen;
 use Yii;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjects;
 use common\models\foProjectsSearch;
 use common\models\AssignFerrymanForm;
 use common\models\FerrymanOrderForm;
+use common\models\Ferrymen;
+use common\models\Projects;
 use yii\bootstrap\ActiveForm;
+use yii\data\ArrayDataProvider;
+use yii\db\Expression;
 use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\web\Controller;
@@ -39,7 +42,7 @@ class ProjectsController extends Controller
                     ],
                     [
                         'actions' => [
-                            'index', 'update',
+                            'index', 'update', 'ferrymen-casting', 'cast-ferryman-by-region',
                             'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman',
                             'create-order-by-selection',
                             'ferryman-order-form', 'validate-ferryman-order', 'export-ferryman-order',
@@ -159,6 +162,46 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
+    }
+
+    /**
+     * Отображает форму подбора перевозчиков по региону.
+     * @return mixed
+     */
+    public function actionFerrymenCasting()
+    {
+        return $this->render('fc');
+    }
+
+    /**
+     * Выполняет подбор перевозчиков по переданному в параметрах региону.
+     * @param $region_id integer идентификатор региона, по которому выполняется отбор перевозчиков
+     * @return mixed
+     */
+    public function actionCastFerrymanByRegion($region_id)
+    {
+        return $this->renderAjax('_fc_table', [
+            'dataProvider' => new ArrayDataProvider([
+                'allModels' => Projects::find()
+                    ->select([
+                        'projects.*',
+                        'ferrymanRep' => new Expression('CASE WHEN ferryman_id IS NULL THEN ferryman_origin ELSE ferrymen.name END')
+                    ])->where(['region_id' => intval($region_id)])->joinWith('ferryman')->all(),
+                'key' => 'id',
+                'pagination' => false,
+                'sort' => [
+                    'defaultOrder' => ['id' => SORT_DESC],
+                    'route' => '/projects/cast-ferryman-by-region',
+                    'attributes' => [
+                        'id',
+                        'ferrymanRep',
+                        'data',
+                        'address',
+                        'cityName',
+                    ],
+                ],
+            ]),
+        ]);
     }
 
     /**

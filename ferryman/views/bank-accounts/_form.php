@@ -2,13 +2,13 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\bootstrap\ActiveForm;
+use common\components\bootstrap\ActiveForm;
 use yii\widgets\MaskedInput;
 use kartik\datecontrol\DateControl;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\FerrymenBankDetails */
-/* @var $form yii\bootstrap\ActiveForm */
+/* @var $form common\components\bootstrap\ActiveForm */
 
 $label_inn = $model->attributeLabels()['inn'];
 $label_ogrn = $model->attributeLabels()['ogrn'];

@@ -5,7 +5,7 @@ use yii\helpers\Html;
 /* @var $this yii\web\View */
 /* @var $token string */
 
-$link = Yii::$app->urlManager->createAbsoluteUrl(['/ferryman/register', 'token' => $token]);
+$link = 'http://' . Yii::$app->params['serverIp'] . '/ferryman/register?token=' . $token;
 ?>
 <table width="100%" cellpadding="0" cellspacing="0">
     <tr>

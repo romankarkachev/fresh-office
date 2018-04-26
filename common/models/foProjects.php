@@ -7,28 +7,29 @@ use Yii;
 /**
  * Модель для выборки из таблицы проектов Fresh Office.
  *
- * @property integer $id
- * @property integer $created_at
- * @property integer $type_id
- * @property integer $ca_id
- * @property integer $manager_id
- * @property integer $state_id
+ * @property integer $id [ID_LIST_PROJECT_COMPANY]
+ * @property integer $created_at [DATE_CREATE_PROGECT]
+ * @property integer $type_id поле [ID_LIST_SPR_PROJECT], таблица [LIST_SPR_PROJECT]
+ * @property integer $ca_id [ID_COMPANY]
+ * @property integer $manager_id [ID_MANAGER]
+ * @property integer $state_id поле [ID_PRIZNAK_PROJECT], таблица [LIST_SPR_PRIZNAK_PROJECT]
  * @property float $amount
  * @property float $cost
  * @property string $type_name
  * @property string $ca_name
  * @property string $manager_name
  * @property string $state_name
- * @property string $perevoz
+ * @property string $perevoz [ADD_perevoz]
  * @property string $proizodstvo
  * @property string $oplata
- * @property string $adres
- * @property string $dannie
+ * @property string $adres [ADD_adres]
+ * @property string $dannie [ADD_dannie]
  * @property string $ttn
  * @property string $weight
  * @property string $vivozdate
  * @property string $date_start
  * @property string $date_end
+ * @property string [PRIM_PROJECT_COMPANY]
  *
  * @property string $customerName
  */

@@ -22,6 +22,7 @@ $items = [
     ['label' => 'Водители', 'icon' => 'fa fa-id-card-o', 'url' => ['/drivers']],
     ['label' => 'Банковские счета', 'icon' => 'fa fa-university', 'url' => ['/bank-accounts']],
     ['label' => 'Банковские карты', 'icon' => 'fa fa-credit-card', 'url' => ['/bank-cards']],
+    ['label' => 'Инструкция водителю', 'icon' => 'fa fa-youtube-play', 'url' => ['/driver-instruction']],
 ];
 ?>
 <?php $this->beginPage() ?>

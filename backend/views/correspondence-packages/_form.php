@@ -13,6 +13,8 @@ use common\models\CorrespondencePackagesStates;
 /* @var $form yii\bootstrap\ActiveForm */
 
 $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span class=\"input-group-btn\"><button class=\"btn btn-default\" type=\"button\" id=\"btnTrackNumber\"><i class=\"fa fa-search\" aria-hidden=\"true\"></i> Отследить</button></span></div>\n{error}";
+$pdDisabled = false;
+if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ) $pdDisabled = true;
 ?>
 
 <div class="correspondence-packages-form">
@@ -83,6 +85,7 @@ $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span clas
                         'data' => PostDeliveryKinds::arrayMapForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
+                        'disabled' => $pdDisabled,
                     ]) ?>
 
                 </div>

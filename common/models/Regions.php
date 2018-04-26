@@ -17,6 +17,8 @@ use yii\helpers\ArrayHelper;
  */
 class Regions extends \yii\db\ActiveRecord
 {
+    const COUNTRY_RUSSIA_ID = 3159;
+
     /**
      * Поле для хранения виртуального значения идентификатора региона.
      * @var integer
@@ -62,7 +64,17 @@ class Regions extends \yii\db\ActiveRecord
      */
     public static function arrayMapOnlyRussiaForSelect2()
     {
-        return ArrayHelper::map(self::find()->select(['id' => 'region_id', 'name'])->where(['country_id' => 3159])->orderBy('name')->all(), 'id', 'name');
+        return ArrayHelper::map(self::find()->select(['id' => 'region_id', 'name'])->where(['country_id' => self::COUNTRY_RUSSIA_ID])->orderBy('name')->all(), 'id', 'name');
+    }
+
+    /**
+     * Делает выборку регионов России и возвращает в виде массива, в котором поиск удобно осуществлять по наименованию.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOnlyRussiaForSearchByName()
+    {
+        return ArrayHelper::map(self::find()->where(['country_id' => self::COUNTRY_RUSSIA_ID])->all(), 'name', 'region_id');
     }
 
     /**

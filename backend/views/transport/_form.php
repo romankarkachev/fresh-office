@@ -6,6 +6,7 @@ use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
 use common\models\Ferrymen;
+use common\models\LoadTypes;
 use common\models\TransportTypes;
 use common\models\TransportBrands;
 use common\models\UploadingFilesMeanings;
@@ -116,6 +117,21 @@ if (isset($files)) {
 
         </div>
     </div>
+    <?= $form->field($model, 'is_dopog')->checkbox()->label('Есть допуск на перевозку опасных грузов', [
+        'style' => 'padding-left: 0px;'
+    ]) ?>
+
+    <?= $form->field($model, 'loadTypes')->widget(Select2::classname(), [
+        'data' => LoadTypes::arrayMapForSelect2(),
+        'value' => $model->loadTypes,
+        'options' => ['placeholder' => 'Выберите доступные способы погрузки', 'multiple' => true],
+        'pluginOptions' => [
+            'tags' => true,
+            'tokenSeparators' => [',', ' '],
+            'maximumInputLength' => 10
+        ],
+    ]) ?>
+
     <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите примечание']) ?>
 
     <?php if (!$model->isNewRecord): ?>
@@ -515,6 +531,8 @@ if (isset($files)) {
 $urlPreview = Url::to(['/ferrymen-transport/preview-file']);
 
 $this->registerJs(<<<JS
+$("input").iCheck({checkboxClass: "icheckbox_square-green"});
+
 // Обработчик щелчка по ссылкам в колонке "Наименование" в таблице файлов.
 //
 function previewFileOnClick() {

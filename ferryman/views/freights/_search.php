@@ -2,7 +2,7 @@
 
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
-use yii\bootstrap\ActiveForm;
+use common\components\bootstrap\ActiveForm;
 use kartik\datecontrol\DateControl;
 use common\models\foProjectsSearch;
 

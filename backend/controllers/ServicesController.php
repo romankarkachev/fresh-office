@@ -2,7 +2,11 @@
 
 namespace backend\controllers;
 
+use common\models\City;
 use common\models\DadataAPI;
+use common\models\Ferrymen;
+use common\models\Projects;
+use common\models\Regions;
 use Yii;
 use yii\db\Expression;
 use yii\helpers\ArrayHelper;
@@ -28,6 +32,16 @@ use common\models\TransportRequests;
 
 class ServicesController extends Controller
 {
+    /**
+     * Максимальное количество попыток извлечения проектов для парсинга из них адресов.
+     */
+    const COLLECT_PROJECTS_TRIES_LIMIT = 10;
+
+    /**
+     * Количество проектов, которое необходимо успешно сохранить за проход.
+     */
+    const COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE = 5;
+
     /**
      * Выполняет отсеивание проектов, оставляя только проекты тех типов, которые переданы в параметрах.
      * @param $projects array массив проектов, который необходимо просеять
@@ -808,5 +822,176 @@ class ServicesController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Выполняется выборка проектов с id больше чем уже есть в текущей базе. Всего берется столько проектов, сколько
+     * указано в константе, но не более 10 попыток. В ходе каждой итерации идет попытка наполнить пакет до максимального
+     * количества, указанного в константе. Как только это удается, сразу идет запись пакета в базу. Если по истечении
+     * максимального количества попыток не удалось набрать достаточное количество проектов, то сохраняется их столько,
+     * сколько есть.
+     * Для каждого проекта выполняется попытка определить перевозчика, регион и город. Успешные отмечаются признаком.
+     */
+    public function actionCollectProjects()
+    {
+        // вся работа идет в предеах цикла с четким лимитом попыток
+        $heap = []; // массив значений для будущих (новых) проектов
+        $tryIterator = 0;
+
+        // вспомогательные данные
+        // перевозчики из нашей базы
+        $ferrymen = Ferrymen::arrayMapForSearchByCrmName();
+
+        // регионы
+        $regions = Regions::arrayMapOnlyRussiaForSearchByName();
+
+        // населенные пункты
+        $cities = City::find()->where(['country_id' => Regions::COUNTRY_RUSSIA_ID])->asArray()->all();
+
+        /*
+        $region_id = null;
+        $city_id = null;
+        $region = 'Московская';
+        $region_id = array_filter($regions, function ($name) use ($region) {
+            if (mb_stripos($name, $region) !== false) return true;
+            return false;
+        }, ARRAY_FILTER_USE_KEY);
+        // берем значение первого элемента возвращенного массива, если оно есть
+        if (count($region_id) > 0) {
+            $region_id = current($region_id);
+            $city = 'Мытищи';
+            $regionSelected = array_filter($cities, function ($element) use ($region_id, $city) {
+                //echo '<p>Поиск города ' . $city . ' по региону ' . $region_id . ': ' . $element . $val . '</p>';
+                if ($element['region_id'] == $region_id && mb_stripos($element['name'], $city) !== false) return true;
+                return false;
+            });
+            if (count($regionSelected) > 0) $city_id = current($regionSelected)['city_id'];
+        }
+        var_dump($city_id);
+        return;
+        */
+
+        while ($tryIterator < self::COLLECT_PROJECTS_TRIES_LIMIT) {
+            print '<p>Попытка извлечения проектов № ' . ($tryIterator+1) . '.<p>';
+
+            $projectsStored = 0;
+            // берем только последний проект, нам нужен его идентификатор для продолжения сбора информации
+            // если идентификатора не окажется, то не страшно, значит просто возьмем с первого
+            $lastProject = Projects::find()->orderBy('id DESC')->one();
+            $query = foProjects::find()->select(['LIST_PROJECT_COMPANY.*', 'id' => 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY', 'adres' => 'VALUES_PROPERTIES_PROGECT'])->where([
+                // статусы любые, исключая Неверное оформление и Отказ клиента
+                'not in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', [ProjectsStates::STATE_НЕВЕРНОЕ_ОФОРМЛЕНИЕ_ЗАЯВКИ, ProjectsStates::STATE_ОТКАЗ_КЛИЕНТА]
+            ])->andWhere([
+                // типы только Заказы и Вывоз
+                'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT' => [ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА, ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА, ProjectsTypes::PROJECT_TYPE_ВЫВОЗ],
+            ])->andWhere([
+                'or',
+                ['LIST_PROJECT_COMPANY.TRASH' => null],
+                ['LIST_PROJECT_COMPANY.TRASH' => 0],
+            ])->leftJoin(
+                'LIST_PROPERTIES_PROGECT_COMPANY',
+                'LIST_PROPERTIES_PROGECT_COMPANY.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AND LIST_PROPERTIES_PROGECT_COMPANY.ID_LIST_PROPERTIES_PROGECT IN (12,20,34)'
+            )->orderBy('LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY')->limit(self::COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE);
+
+            if (!empty($lastProject)) $query->andWhere('LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY > ' . $lastProject->id);
+            $projects = $query->all();
+            foreach ($projects as $project) {
+                /* @var $project foProjects */
+                print '<p>Обработка проекта ' . $project->id . '.<p>';
+                // проверим, не был ли текущий проект добавлен ранее
+                $alreadyProject = Projects::findOne($project->id);
+                if (empty($alreadyProject)) {
+                    // проект отсутствует в нашей базе, добавим его в массив
+                    // но предварительно подготовим данные для полей
+                    print '<p>Проект обрабатывается.<p>';
+
+                    // адрес
+                    // если в проекте не окажется адрес, мы его вообще брать не будем
+                    $address = null;
+                    if (!empty($project->ADD_adres)) $address = $project->ADD_adres; else $address = $project->adres;
+
+                    // регион и населенный пункт
+                    $region_id = null;
+                    $city_id = null;
+                    if (!empty($address)) {
+                        try {
+                            $data = TrackingController::pochtaRuNormalizeAddress($address);
+                            sleep(2);
+                            if ($data !== false) {
+                                $region = str_replace('обл', '', $data['region']);
+                                $region = trim($region);
+                                $region_id = array_filter($regions, function ($id, $name) use ($region) {
+                                    if (mb_stripos($name, $region) !== false) return true;
+                                    return false;
+                                }, ARRAY_FILTER_USE_BOTH);
+                                // берем значение первого элемента возвращенного массива, если оно есть
+                                if (count($region_id) > 0) {
+                                    $region_id = current($region_id);
+                                    $city = 'Мытищи';
+                                    $regionSelected = array_filter($cities, function ($element) use ($region_id, $city) {
+                                        //echo '<p>Поиск города ' . $city . ' по региону ' . $region_id . ': ' . $element . $val . '</p>';
+                                        if ($element['region_id'] == $region_id && mb_stripos($element['name'], $city) !== false) return true;
+                                        return false;
+                                    });
+                                    if (count($regionSelected) > 0) $city_id = current($regionSelected)['city_id'];
+                                }
+                            }
+                        } catch (\Exception $exception) {}
+                    }
+
+                    /*
+                    ////////////////////////////////////////////////////////////////////////////////////////////////////
+                    $projectsStored++;
+                    if ($projectsStored == self::COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE) { $tryIterator++; break 2; }
+                    ////////////////////////////////////////////////////////////////////////////////////////////////////
+                    */
+
+                    // перевозчик
+                    $ferryman = null;
+                    try {
+                        $ferryman_id = ArrayHelper::getValue($ferrymen, $project->ADD_perevoz);
+                        if (!empty($ferryman_id)) $ferryman = $ferryman_id;
+                        unset($ferryman_id);
+                    }
+                    catch (\Exception $exception) {}
+
+                    $heap[] = [
+                        // id
+                        $project->id,
+                        // created_at
+                        strtotime($project->DATE_CREATE_PROGECT),
+                        // address берется из проекта, а если нет, то из параметров, а если и там нет, то все
+                        $address,
+                        // data
+                        $project->ADD_dannie,
+                        // ferryman_origin
+                        $project->ADD_perevoz,
+                        // comment
+                        $project->PRIM_PROJECT_COMPANY,
+                        // region_id
+                        $region_id,
+                        // city_id
+                        $city_id,
+                        // ferryman_id
+                        $ferryman,
+                    ];
+                    $projectsStored++;
+                    // если достаточное количество проектов уже собрано, выходим из обоих циклов, чтобы выполнить
+                    // сохранение этих проектов пачкой
+                    if ($projectsStored == self::COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE) { $tryIterator++; break 2; }
+                }
+                else print '<p>Проект существует, и будет пропущен.<p>';
+            }
+            $tryIterator++;
+        }
+
+        print '<p>Завершено на попытке ' . $tryIterator . '.<p>';
+        if (count($heap) > 0) {
+            print '<p>Необходимое для записи количество проектов собрано, выполняется попытка сохранения. В пачке проектов: ' . count($heap) . '.<p>';
+            $rowsAffected = Yii::$app->db->createCommand()->batchInsert('projects', [
+                'id', 'created_at', 'address', 'data', 'ferryman_origin', 'comment', 'region_id', 'city_id', 'ferryman_id'
+            ], $heap)->execute();
+            print '<p>Запрос по сохранению пачки выполнен, строк затронуто: ' . $rowsAffected . '.<p>';
+        }
     }
 }

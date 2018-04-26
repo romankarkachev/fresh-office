@@ -2,14 +2,18 @@
 
 namespace backend\controllers;
 
-use common\models\DirectMSSQLQueries;
+use common\models\foCompany;
 use Yii;
 use yii\helpers\ArrayHelper;
+use yii\web\BadRequestHttpException;
 use yii\web\Controller;
 use yii\web\UploadedFile;
 use yii\filters\AccessControl;
 use moonland\phpexcel\Excel;
 use backend\models\FreightsPaymentsImport;
+use common\models\ClosingMilestonesForm;
+use common\models\DirectMSSQLQueries;
+use common\models\ReportCaDuplicates;
 
 /**
  * Контроллер для обработок
@@ -26,7 +30,7 @@ class ProcessController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['freights-payments'],
+                        'actions' => ['freights-payments', 'closing-milestones', 'merge-customers'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -126,5 +130,105 @@ class ProcessController extends Controller
         return $this->render('freightspayments', [
             'model' => $model,
         ]);
+    }
+
+    /**
+     * Отображает форму закрытия этапов в проектах.
+     * @return mixed
+     */
+    public function actionClosingMilestones()
+    {
+        $model = new ClosingMilestonesForm();
+
+        if ($model->load(Yii::$app->request->post())) {
+            $count = $model->executeClosing();
+            Yii::$app->session->setFlash('info', 'Успешно закрыто этапов: ' . $count . '.');
+            return $this->redirect(['/process/closing-milestones']);
+        }
+
+        return $this->render('closing_milestones', ['model' => $model]);
+    }
+
+    /**
+     * Выполняет замену значения в поле "Контрагент" таблицы, наименование которой передается в параметрах.
+     * @param $tableName
+     * @param $oldCompanyId
+     * @param $newCompanyId
+     * @return mixed
+     */
+    public static function replaceCompany($tableName, $oldCompanyId, $newCompanyId)
+    {
+        return rand(3,400);
+        return Yii::$app->db->createCommand()->update($tableName, [
+            'ID_COMPANY' => $newCompanyId,
+        ], [
+            'ID_COMPANY' => $oldCompanyId,
+        ])->getRawSql();
+    }
+
+    /**
+     * Отображает форму объединения карточек проектов.
+     * @return mixed
+     * @throws BadRequestHttpException если пользователь просто запрашивает эту страницу, без параметров
+     */
+    public function actionMergeCustomers()
+    {
+        if (Yii::$app->request->isPost) {
+            $customers = Yii::$app->request->post('MergeCustomers');
+            if (count($customers) > 0) {
+                $newCompanyId = intval(Yii::$app->request->post('radioButtonSelection'));
+                if (!empty(foCompany::findOne($newCompanyId))) {
+                    // главный контрагент должен существовать
+                    $result = [];
+                    foreach ($customers as $customer) {
+                        // главного сразу пропускаем
+                        if ($newCompanyId == $customer) continue;
+
+                        // выполняем перебор в цикле, на каждой итерации выполняем перенос данных
+                        $model = foCompany::findOne($customer);
+                        $result[$customer] = [
+                            'id' => $customer,
+                            'name' => $model->COMPANY_NAME,
+                        ];
+
+                        // в данном цикле производится перенос данных, список затрагиваемых таблиц в массиве:
+                        foreach (ReportCaDuplicates::fetchCompanyReplaceChapters() as $chapter) {
+                            if ($chapter['active']) {
+                                // перенос по этой таблице разрешен, сделаем запись в логах:
+                                $result[$customer]['actions'][] = $chapter['actionRep'];
+                                foreach ($chapter['tableNames'] as $tableName) {
+                                    $result[$customer]['actions'][] = 'Замена в таблице ' . $tableName . ', строк затронуто: ' .
+                                        self::replaceCompany($tableName, $customer, $newCompanyId) . '';
+                                }
+                            }
+                        }
+
+                        // помечаем на удаление текущего контрагента
+                        /*
+                        if ($model->updateAttributes(['TRASH' => true]) == 1)
+                            $result[$customer]['actions'][] = 'Контрагент помечен на удаление.';
+                        */
+                    }
+
+                    return $this->render('merge_customers_result', [
+                        'runtimeLog' => $result,
+                    ]);
+                }
+            };
+        }
+        else {
+            $field = Yii::$app->request->get('field');
+            $criteria = Yii::$app->request->get('criteria');
+            if (!empty($field)) {
+                $searchModel = new ReportCaDuplicates();
+                $dataProvider = $searchModel->searchDuplicates($field, $criteria);
+                return $this->render('merging_customers', [
+                    'dataProvider' => $dataProvider,
+                    'field' => $field,
+                    'criteria' => $criteria,
+                ]);
+            }
+            else throw new BadRequestHttpException('Инструментом можно пользоваться только из отчета по дубликатам контрагентов.');
+        }
     }
 }

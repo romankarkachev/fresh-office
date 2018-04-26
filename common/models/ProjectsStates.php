@@ -30,6 +30,8 @@ class ProjectsStates extends \yii\db\ActiveRecord
     const STATE_ОТПРАВЛЕНО = 19;
     const STATE_ДОСТАВЛЕНО = 20;
     const STATE_ЗАВЕРШЕНО = 25;
+    const STATE_ОТКАЗ_КЛИЕНТА = 26;
+    const STATE_НЕВЕРНОЕ_ОФОРМЛЕНИЕ_ЗАЯВКИ = 27;
     const STATE_САМОПРИВОЗ_ОДОБРЕН = 28;
     const STATE_ТРАНСПОРТ_ЗАКАЗАН = 30;
     const STATE_ЕДЕТ_К_ЗАКАЗЧИКУ = 31;

@@ -18,10 +18,16 @@ class foProjectsSearch extends foProjects
     const CLAUSE_GROUP_PROJECT_TYPES_III = 3; // фото/видео 7
 
     /**
-     * Условия отбора, доступные перевозчикам
+     * Значения для условий отбора, доступные перевозчикам, по полям ADD_oplata или ADD_ttn
      */
     const CLAUSE_FOR_FERRYMAN_PAID = 1;
     const CLAUSE_FOR_FERRYMAN_TTN = 2;
+
+    /**
+     * Значения для условий отбора, доступных заказчику, по полю Статус
+     */
+    const CLAUSE_FOR_CUSTOMER_STATE_ACTIVE = 1;
+    const CLAUSE_FOR_CUSTOMER_STATE_DONE = 2;
 
     /**
      * Идентификаторы проектов, которые необходимо исключить из выборки.
@@ -62,6 +68,12 @@ class foProjectsSearch extends foProjects
     public $searchForFerryman;
 
     /**
+     * Условия отбора для заказчиков.
+     * @var integer
+     */
+    public $searchForCustomerByState;
+
+    /**
      * Количество записей на странице.
      * По-умолчанию - false.
      * @var integer
@@ -75,7 +87,7 @@ class foProjectsSearch extends foProjects
     {
         return [
             [['type_name', 'ca_name', 'manager_name', 'state_name', 'perevoz', 'proizodstvo', 'oplata', 'adres', 'dannie', 'ttn', 'weight'], 'string'],
-            [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchForFerryman', 'searchPerPage'], 'integer'],
+            [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchForFerryman', 'searchForCustomerByState', 'searchPerPage'], 'integer'],
             [['amount', 'cost'], 'number'],
             [['vivozdate', 'date_start', 'date_end', 'searchExcludeIds', 'searchId', 'searchGroupProjectTypes', 'searchCreatedFrom', 'searchCreatedTo', 'searchVivozDateFrom', 'searchVivozDateTo'], 'safe'],
         ];
@@ -98,6 +110,7 @@ class foProjectsSearch extends foProjects
             'searchVivozDateFrom' => 'Дата вывоза с',
             'searchVivozDateTo' => 'Дата вывоза по',
             'searchForFerryman' => 'Прочие условия',
+            'searchForCustomerByState' => 'Прочие условия',
             'searchPerPage' => 'Записей', // на странице
         ];
     }
@@ -141,6 +154,24 @@ class foProjectsSearch extends foProjects
             [
                 'id' => self::CLAUSE_FOR_FERRYMAN_TTN,
                 'name' => 'Без ТТН',
+            ],
+        ];
+    }
+
+    /**
+     * Возвращает массив с возможными условиями отбора, доступными заказчикам.
+     * @return array
+     */
+    public static function fetchGroupSearchForCustomer()
+    {
+        return [
+            [
+                'id' => self::CLAUSE_FOR_CUSTOMER_STATE_ACTIVE,
+                'name' => 'Действующие',
+            ],
+            [
+                'id' => self::CLAUSE_FOR_CUSTOMER_STATE_DONE,
+                'name' => 'Завершенные',
             ],
         ];
     }
@@ -190,8 +221,12 @@ class foProjectsSearch extends foProjects
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'key' => 'id',
+            'pagination' => [
+                'route' => isset($params['route']) ? $params['route'] : 'projects',
+            ],
             'sort' => [
                 'defaultOrder' => ['date_start' => SORT_DESC],
+                'route' => isset($params['route']) ? $params['route'] : 'projects',
                 'attributes' => [
                     'id' => [
                         'asc' => ['LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => SORT_ASC],
@@ -257,21 +292,22 @@ class foProjectsSearch extends foProjects
             return $dataProvider;
         }
 
-        // если запрос выполняет перевозчик, то ограничим выборку только по нему
-        if (Yii::$app->user->can('ferryman')) {
-            $ferryman = Ferrymen::findOne(['user_id' => Yii::$app->user->id]);
-            // если связанный перевозчик не будет обнаружен, то вернем пустую выборку
-            if ($ferryman == null) {$query->where('1 <> 1'); return $dataProvider;}
-            $query->andWhere(['ADD_perevoz' => $ferryman->name_crm]);
-        }
+        // только не удаленные проекты
+        $query->where([
+            'or',
+            ['LIST_PROJECT_COMPANY.TRASH' => null],
+            ['LIST_PROJECT_COMPANY.TRASH' => 0],
+        ]);
 
         // значения по-умолчанию
         // записей на странице - все
         if (!isset($this->searchPerPage))
-            if (Yii::$app->user->can('ferryman'))
+            if (Yii::$app->user->can('ferryman') || Yii::$app->user->can('customer'))
                 $this->searchPerPage = 100;
             else
                 $this->searchPerPage = false;
+
+        if (!isset($this->searchForCustomerByState) && Yii::$app->user->can('customer')) $this->searchForCustomerByState = self::CLAUSE_FOR_CUSTOMER_STATE_ACTIVE;
         // --значения по-умолчанию
 
         $dataProvider->pagination = [
@@ -286,14 +322,16 @@ class foProjectsSearch extends foProjects
         $query->andFilterWhere([
             'LIST_PROJECT_COMPANY.ID_COMPANY' => $this->ca_id,
             'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $this->state_id,
+            'LIST_PROJECT_COMPANY.ADD_perevoz' => $this->oplata,
         ]);
 
-        if ($this->searchGroupProjectTypes === null && $this->state_id === null)
-            if (!Yii::$app->user->can('ferryman')) $query->andFilterWhere([
+        if ($this->searchGroupProjectTypes === null && $this->state_id === null) {
+            if (!Yii::$app->user->can('ferryman') && !Yii::$app->user->can('customer')) $query->andFilterWhere([
                 'and',
                 ['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', explode(',', DirectMSSQLQueries::PROJECTS_STATES_LOGIST_LIMIT)],
                 ['in', 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT', explode(',', DirectMSSQLQueries::PROJECTS_TYPES_LOGIST_LIMIT)],
             ]);
+        }
         else {
             // проверим параметры отбора, которые может применять пользователь
             if ($this->searchGroupProjectTypes !== null) {
@@ -316,6 +354,16 @@ class foProjectsSearch extends foProjects
                     $query->andWhere(['ADD_ttn' => null]);
                     break;
             }
+
+        // дополним условие отбора возможным значением, заданным заказчиком
+        switch ($this->searchForCustomerByState) {
+            case self::CLAUSE_FOR_CUSTOMER_STATE_ACTIVE:
+                $query->andWhere('LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT <> ' . ProjectsStates::STATE_ЗАВЕРШЕНО);
+                break;
+            case self::CLAUSE_FOR_CUSTOMER_STATE_DONE:
+                $query->andWhere(['LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => ProjectsStates::STATE_ЗАВЕРШЕНО]);
+                break;
+        }
 
         // отбор за период по дате создания
         if ($this->searchCreatedFrom != null && $this->searchCreatedTo != null) {

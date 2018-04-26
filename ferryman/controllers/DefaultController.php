@@ -25,7 +25,7 @@ class DefaultController extends Controller
                         'allow' => true,
                     ],
                     [
-                        'actions' => ['logout', 'index'],
+                        'actions' => ['logout', 'index', 'driver-instruction'],
                         'allow' => true,
                         'roles' => ['@'],
                     ],
@@ -71,12 +71,20 @@ class DefaultController extends Controller
     }
 
     /**
-     * Displays homepage.
-     *
+     * Отображает Рабочий стол.
      * @return mixed
      */
     public function actionIndex()
     {
         return $this->render('index');
+    }
+
+    /**
+     * Отображает страницу с инструкцией для водителей.
+     * @return mixed
+     */
+    public function actionDriverInstruction()
+    {
+        return $this->render('driver_instruction');
     }
 }

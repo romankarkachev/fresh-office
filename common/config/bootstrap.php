@@ -4,6 +4,7 @@ Yii::setAlias('@common', dirname(__DIR__));
 Yii::setAlias('@backend', dirname(dirname(__DIR__)) . '/backend');
 Yii::setAlias('@ferryman', dirname(dirname(__DIR__)) . '/ferryman');
 Yii::setAlias('@customer', dirname(dirname(__DIR__)) . '/customer');
+Yii::setAlias('@cemail', dirname(dirname(__DIR__)) . '/cemail');
 Yii::setAlias('@console', dirname(dirname(__DIR__)) . '/console');
 Yii::setAlias('@uploads', dirname(dirname(__DIR__)) . '/uploads');
 
@@ -18,8 +19,8 @@ Yii::setAlias('@uploads-production-files-fs', '@backend/../uploads/production-fi
 Yii::setAlias('@uploads-licenses-files-fs', '@backend/../uploads/licenses-files'); // файлы со сканами страниц лицензии
 Yii::setAlias('@uploads-payment-orders-fs', '@backend/../uploads/payment-orders'); // файлы заявок на оплату
 Yii::setAlias('@uploads-correspondence-packages-fs', '@backend/../uploads/correspondence-packages'); // файлы пакетов корреспонденции
-
 Yii::setAlias('@uploads-transport-requests-fs', '@backend/../uploads/transport-requests'); // файлы к запросам на транспорт, полный путь
+Yii::setAlias('@uploads-mail-extractions-fs', '@backend/../uploads/mail-extractions'); // файлы с выгрузкой корпоративной почты, полный путь
 
 Yii::setAlias('uploads-appeals', '/uploads/appeals/'); // файлы к обращениям, относительный путь
 Yii::setAlias('uploads-ferrymen-drivers', '/uploads/ferrymen-drivers/'); // файлы к автомобилям перевозчиков, относительный путь

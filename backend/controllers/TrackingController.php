@@ -2,8 +2,6 @@
 
 namespace backend\controllers;
 
-use common\models\CorrespondencePackages;
-use common\models\CounteragentsPostAddresses;
 use Yii;
 use yii\helpers\Json;
 use yii\web\Controller;
@@ -20,13 +18,13 @@ class TrackingController extends Controller
      * Реквизиты доступа к API Почты России
      */
     const POCHTA_RU_LOGIN = 'TcANqqrYvLNUHm';
-    const POCHTA_RU_PASS = '3mlhLBQbogkv';
+    const POCHTA_RU_PASS = 'soTji7KkobWU';
     const POCHTA_RU_API_URL = 'https://tracking.russianpost.ru/rtm34?wsdl';
 
     /**
      * Реквизиты доступа к API отправлений Почты России
      */
-    const POCHTA_RU_SEND_API_TOKEN = 'R9pmi350HAm6SDNYJjJnZk47B_2PpRtG';
+    const POCHTA_RU_SEND_API_TOKEN = 'Ndf4hnjFBH3SlfeFdG0pr2Q0BzQJM86N';
     const POCHTA_RU_SEND_API_AUTHKEY = 'ODgwMDU1NTIxODdAc3Q3Ny5ydTpRd2VydHk5ODc0NTY=';
     const POCHTA_RU_SEND_API_URL_НОРМАЛИЗАЦИЯ_АДРЕСА = 'https://otpravka-api.pochta.ru/1.0/clean/address';
     const POCHTA_RU_SEND_API_URL_СОЗДАНИЕ_ЗАКАЗА = 'https://otpravka-api.pochta.ru/1.0/user/backlog';
@@ -82,6 +80,7 @@ class TrackingController extends Controller
             $history = $result->OperationHistoryData->historyRecord;
         }
         catch (\Exception $exception) {
+            //var_dump($exception);
             return false;
         }
 
@@ -181,6 +180,7 @@ class TrackingController extends Controller
                 'Content-Type' => 'application/json;charset=UTF-8',
             ])->send();
 
+        var_dump($response);
         if ($response->isOk) {
             // извлекаем результат, берем первый элемент массива
             $data = $response->getData();

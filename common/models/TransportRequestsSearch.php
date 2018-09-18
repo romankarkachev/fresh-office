@@ -271,6 +271,13 @@ class TransportRequestsSearch extends TransportRequests
                 'created_at' => $this->created_at,
             ]);
 
+        // дополним запрос условием по отметке "Избранное"
+        if (!empty($this->searchOnlyFavorite)) {
+            $query->andFilterWhere([
+                'is_favorite' => true,
+            ]);
+        }
+
         $query->andFilterWhere([
             'transport_requests.created_by' => $this->created_by,
             'finished_at' => $this->finished_at,
@@ -281,7 +288,6 @@ class TransportRequestsSearch extends TransportRequests
             'our_loading' => $this->our_loading,
             'periodicity_id' => $this->periodicity_id,
             'spec_free' => $this->spec_free,
-            'is_favorite' => $this->searchOnlyFavorite,
         ]);
 
         $query->andFilterWhere(['like', 'customer_name', $this->customer_name])

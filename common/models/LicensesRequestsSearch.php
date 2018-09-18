@@ -80,6 +80,10 @@ class LicensesRequestsSearch extends LicensesRequests
                         'asc' => ['profile.name' => SORT_ASC],
                         'desc' => ['profile.name' => SORT_DESC],
                     ],
+                    'organizationName' => [
+                        'asc' => ['organizations.name' => SORT_ASC],
+                        'desc' => ['organizations.name' => SORT_DESC],
+                    ],
                     'fkkos',
                 ],
             ],

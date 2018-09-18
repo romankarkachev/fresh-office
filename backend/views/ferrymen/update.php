@@ -11,6 +11,10 @@ use kartik\file\FileInput;
 /* @var $dpBankCards common\models\FerrymenBankCards[] */
 /* @var $dpDrivers common\models\Drivers[] */
 /* @var $dpTransport common\models\Transport[] */
+/* @var $dpPaymentOrders common\models\PaymentOrders[] */
+/* @var $poTotalAmount float общая сумма по всем платежным ордерам (вне зависимости от номера просматриваемой страницы) */
+/* @var $dpOrders common\models\foProjects[] */
+/* @var $ordersTotalAmount float общая сумма по всем рейсам (вне зависимости от номера просматриваемой страницы) */
 
 $this->title = $model->name . HtmlPurifier::process(' &mdash; Перевозчики | ') . Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => 'Перевозчики', 'url' => ['/ferrymen']];
@@ -54,6 +58,12 @@ $this->params['breadcrumbs'][] = $model->name;
 
         </div>
     </div>
+    <div class="page-header"><h3>Платежные ордеры</h3></div>
+    <?= $this->render('_payment_orders', ['dataProvider' => $dpPaymentOrders, 'totalAmount' => $poTotalAmount]); ?>
+
+    <div class="page-header"><h3>Рейсы</h3></div>
+    <?= $this->render('_freights', ['dataProvider' => $dpOrders, 'totalAmount' => $ordersTotalAmount]); ?>
+
     <div class="page-header"><h3>Файлы</h3></div>
     <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 

@@ -20,13 +20,18 @@ class TransportSearch extends Transport
     public $searchEntire;
 
     /**
+     * @var string способы погрузки через запятую для отбора по ним
+     */
+    public $searchLoadTypes;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
             [['id', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id'], 'integer'],
-            [['vin', 'rn', 'trailer_rn', 'comment', 'searchEntire'], 'safe'],
+            [['vin', 'rn', 'trailer_rn', 'comment', 'searchEntire', 'searchLoadTypes'], 'safe'],
         ];
     }
 
@@ -38,6 +43,7 @@ class TransportSearch extends Transport
         return [
             'ferryman_id' => 'Перевозчик',
             'searchEntire' => 'Универсальный поиск',
+            'searchLoadTypes' => 'Способы погрузки',
         ];
     }
 
@@ -156,9 +162,19 @@ class TransportSearch extends Transport
             $query->andWhere(['ferryman_id' => $ferryman->id]);
         }
 
+        // отбор по способу погрузки (если выбрано несколько способов, то применяется принцип "любой из выбранных")
+        if (!empty($this->searchLoadTypes)) {
+            $query->andFilterWhere([
+                'transport.id' => TransportLoadTypes::find()->select('transport_id')->where(['lt_id' => $this->searchLoadTypes]),
+            ]);
+        }
+        else {
+            $query->andFilterWhere([
+                'transport.id' => $this->id,
+            ]);
+        }
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
             'ferryman_id' => $this->ferryman_id,
             'state_id' => $this->state_id,
             'tt_id' => $this->tt_id,

@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */

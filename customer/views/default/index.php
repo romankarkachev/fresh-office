@@ -18,7 +18,7 @@ $contractExpiredAt = '';
 if (!empty($caData['contractExpiredAt'])) {
     $warning = '';
     if (strtotime($caData['contractExpiredAt']) <= time()) $warning = ' <i class="fa fa-exclamation-triangle text-danger" aria-hidden="true" title="Срок действия договора истек!"></i>';
-    $contractExpiredAt = ' действителен до ' . Yii::$app->formatter->asDate($caData['contractExpiredAt'], 'php:d F Y г.') . ' г.' . $warning;
+    $contractExpiredAt = ' действителен до ' . Yii::$app->formatter->asDate($caData['contractExpiredAt'], 'php:d F Y г.') . $warning;
 }
 
 // персональный менеджер контрагента
@@ -105,7 +105,7 @@ $contactsRep = '';
         <?php endif; ?>
         <?php if (!empty($caData['ratingProjects'])): ?>
             <div class="col-md-<?= !empty($caData['contacts']) ? 6: 12 ?>">
-                <?= $this->render('_projects_ratings', ['ratingProjects' => $caData['ratingProjects']]) ?>
+                <?= $this->render('_projects_ratings', ['ratingProjects' => $caData['ratingProjects'], 'avgRating' => $caData['avgRating']]) ?>
 
             </div>
         <?php endif; ?>

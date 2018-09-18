@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\TransportTypesSearch */
@@ -32,6 +32,12 @@ $this->params['breadcrumbs'][] = 'Типы техники';
 
                     return $model->{$column->attribute} . $is_spec;
                 },
+            ],
+            [
+                'attribute' => 'unloading_time',
+                'options' => ['width' => '80'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
             ],
             [
                 'class' => 'yii\grid\ActionColumn',

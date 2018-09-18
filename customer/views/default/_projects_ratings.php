@@ -6,13 +6,17 @@ use kartik\rating\StarRating;
 
 /* @var $this yii\web\View */
 /* @var $ratingProjects array */
+/* @var $avgRating float средняя оценка */
 
 $ratingModalTitle = 'Оценка выполнения заказа';
 $iconOk = 'fa fa-check-circle-o fa-lg text-success';
 $iconFail = 'fa fa-times fa-lg text-danger';
 ?>
 <div class="card">
-    <div class="card-header card-header-info card-header-inverse">Оценка нашего сотрудничества</div>
+    <div class="card-header card-header-info card-header-inverse">
+        Оценка нашего сотрудничества
+        <span class="badge badge-pill badge-danger float-right" title="Средняя оценка, которую Вы нам поставили"><?= Yii::$app->formatter->asDecimal($avgRating, 2) ?></span>
+    </div>
     <div class="card-block">
         <table class="table table-responsive-sm table-hover table-outline mb-0">
             <thead class="thead-light">

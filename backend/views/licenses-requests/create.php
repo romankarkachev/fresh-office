@@ -9,13 +9,8 @@ use common\models\Organizations;
 /* @var $model common\models\LicensesRequests */
 
 $this->title = 'Новый запрос | ' . Yii::$app->name;
-if (Yii::$app->user->can('root') || Yii::$app->user->can('sales_department_head')) {
-    $this->params['breadcrumbs'][] = ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']];
-    $this->params['breadcrumbs'][] = 'Новый *';
-}
-else {
-    $this->params['breadcrumbs'][] = 'Новый запрос лицензии *';
-}
+$this->params['breadcrumbs'][] = ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']];
+$this->params['breadcrumbs'][] = 'Новый *';
 ?>
 <div class="licenses-requests-create">
     <?php $form = ActiveForm::begin(); ?>

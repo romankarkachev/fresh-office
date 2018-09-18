@@ -1,7 +1,7 @@
 <?php
 
 use yii\data\ActiveDataProvider;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\View;

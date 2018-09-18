@@ -2,7 +2,9 @@
 
 namespace backend\controllers;
 
-use common\models\foCompany;
+use common\models\foManagers;
+use common\models\Profile;
+use common\models\User;
 use Yii;
 use yii\helpers\ArrayHelper;
 use yii\web\BadRequestHttpException;
@@ -14,6 +16,8 @@ use backend\models\FreightsPaymentsImport;
 use common\models\ClosingMilestonesForm;
 use common\models\DirectMSSQLQueries;
 use common\models\ReportCaDuplicates;
+use common\models\foCompany;
+use common\models\ReplacePasswordsForm;
 
 /**
  * Контроллер для обработок
@@ -30,7 +34,7 @@ class ProcessController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['freights-payments', 'closing-milestones', 'merge-customers'],
+                        'actions' => ['freights-payments', 'closing-milestones', 'merge-customers', 'replace-passwords'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -158,12 +162,12 @@ class ProcessController extends Controller
      */
     public static function replaceCompany($tableName, $oldCompanyId, $newCompanyId)
     {
-        return rand(3,400);
-        return Yii::$app->db->createCommand()->update($tableName, [
+        return Yii::$app->db_mssql->createCommand()->update($tableName, [
             'ID_COMPANY' => $newCompanyId,
         ], [
             'ID_COMPANY' => $oldCompanyId,
-        ])->getRawSql();
+        //])->getRawSql();
+        ])->execute();
     }
 
     /**
@@ -176,13 +180,27 @@ class ProcessController extends Controller
         if (Yii::$app->request->isPost) {
             $customers = Yii::$app->request->post('MergeCustomers');
             if (count($customers) > 0) {
-                $newCompanyId = intval(Yii::$app->request->post('radioButtonSelection'));
-                if (!empty(foCompany::findOne($newCompanyId))) {
+                $newCompany = foCompany::findOne(intval(Yii::$app->request->post('radioButtonSelection')));
+                if (!empty($newCompany)) {
                     // главный контрагент должен существовать
-                    $result = [];
+
+                    // массив E-mail адресов менеджеров, которые должны получить, сразу поместим в него менеджера главной карточки:
+                    $managersToNotify = ['at@st77.ru', $newCompany->managerEmail];
+
+                    // примечания складываются в отдельный массив, а после переноса дописываются в примечание главного контрагента
+                    $comments = [];
+
+                    $result[$newCompany->ID_COMPANY] = [
+                        'id' => $newCompany->ID_COMPANY,
+                        'name' => $newCompany->COMPANY_NAME,
+                        'active' => true,
+                        'actions' => [
+                            'Данный контрагент отмечен как основной. В эту карточку будут перенесены другие данные.',
+                        ],
+                    ];
                     foreach ($customers as $customer) {
                         // главного сразу пропускаем
-                        if ($newCompanyId == $customer) continue;
+                        if ($newCompany->ID_COMPANY == $customer) continue;
 
                         // выполняем перебор в цикле, на каждой итерации выполняем перенос данных
                         $model = foCompany::findOne($customer);
@@ -191,6 +209,9 @@ class ProcessController extends Controller
                             'name' => $model->COMPANY_NAME,
                         ];
 
+                        // фиксируем примечание, если оно есть, потом добавим в главную карточку
+                        if (!empty($model->DOP_INF)) $comments[] = trim($model->DOP_INF);
+
                         // в данном цикле производится перенос данных, список затрагиваемых таблиц в массиве:
                         foreach (ReportCaDuplicates::fetchCompanyReplaceChapters() as $chapter) {
                             if ($chapter['active']) {
@@ -198,17 +219,54 @@ class ProcessController extends Controller
                                 $result[$customer]['actions'][] = $chapter['actionRep'];
                                 foreach ($chapter['tableNames'] as $tableName) {
                                     $result[$customer]['actions'][] = 'Замена в таблице ' . $tableName . ', строк затронуто: ' .
-                                        self::replaceCompany($tableName, $customer, $newCompanyId) . '';
+                                        self::replaceCompany($tableName, intval($customer), $newCompany->ID_COMPANY) . '.';
                                 }
                             }
                         }
 
                         // помечаем на удаление текущего контрагента
-                        /*
-                        if ($model->updateAttributes(['TRASH' => true]) == 1)
+                        if ($model->updateAttributes([
+                            'DATE_TRASH' => new \yii\db\Expression('GETDATE()'),
+                            'TRASH' => true
+                        ]) == 1) {
                             $result[$customer]['actions'][] = 'Контрагент помечен на удаление.';
-                        */
+                            // отправим E-mail ответственному менеджеру о том, что необходимо быть внимательнее
+                            if (!empty($model->managerEmail) && !in_array(trim($model->managerEmail), $managersToNotify)) {
+                                $managersToNotify[] = trim($model->managerEmail);
+                            }
+                        }
                     }
+
+                    // обновим примечания
+                    if (count($comments) > 0) {
+                        $oneBigComment = $newCompany->DOP_INF . chr(13);
+                        foreach ($comments as $comment) $oneBigComment .= chr(13) . $comment;
+                        $newCompany->updateAttributes(['DOP_INF' => $oneBigComment]);
+                    }
+
+                    try {
+                        // один раз подготовим письмо
+                        $letter = Yii::$app->mailer->compose([
+                            'html' => 'mergeCustomersAccountingQuality-html',
+                        ], [
+                            'headliner' => $newCompany,
+                            'customersAffected' => $result,
+                        ])
+                            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderIvanIV']])
+                            ->setSubject('Обратите внимание на качество ведения учета в CRM!');
+
+                        /*
+                        $letter->setTo('post@romankarkachev.ru');
+                        $letter->send();
+                        */
+
+                        // и несколько раз его отправим
+                        foreach ($managersToNotify as $receiver) {
+                            $letter->setTo($receiver);
+                            $letter->send();
+                        }
+                    }
+                    catch (\Exception $exception) {}
 
                     return $this->render('merge_customers_result', [
                         'runtimeLog' => $result,
@@ -230,5 +288,56 @@ class ProcessController extends Controller
             }
             else throw new BadRequestHttpException('Инструментом можно пользоваться только из отчета по дубликатам контрагентов.');
         }
+    }
+
+    /**
+     * @return mixed
+     */
+    public function actionReplacePasswords()
+    {
+        if (Yii::$app->request->isPost) {
+            $selection = Yii::$app->request->post('selection');
+            $usersAffected = [];
+            foreach (Yii::$app->request->post('ReplaceUsersPasswords') as $key => $item) {
+                if (in_array($key, $selection)) {
+                    $user = User::findOne($key);
+                    if ($user) {
+                        $user->password = $item;
+                        $user->save();
+
+                        if (!empty($user->profile->fo_id)) {
+                            foManagers::updateAll(['PASWORD' => $item], ['ID_MANAGER' => $user->profile->fo_id]);
+                        }
+
+                        $usersAffected[] = [
+                            'id' => $key,
+                            'fo_id' => $user->profile->fo_id,
+                            'login' => $user->username,
+                            'name' => $user->profile->name,
+                            'password' => $item,
+                        ];
+                    }
+                }
+            }
+
+            $letter = Yii::$app->mailer->compose([
+                'html' => 'replaceUsersPasswords-html',
+            ], [
+                'iterator' => 1,
+                'usersAffected' => $usersAffected,
+            ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderSaveliy']])
+                ->setTo(Yii::$app->params['receiverEmail'])
+                ->setSubject('Новые пароли пользователей');
+
+            if ($letter->send()) Yii::$app->session->setFlash('success', 'Письмо с новыми паролями успешно отправлено. Пользователей затронуто: ' . count($usersAffected) . '.');
+        }
+
+        $model = new ReplacePasswordsForm();
+        $model->passwordLength = 6;
+        return $this->render('replace_passwords', [
+            'model' => $model,
+            'dataProvider' => $model->search(Yii::$app->request->queryParams),
+        ]);
     }
 }

@@ -31,6 +31,7 @@ use common\behaviors\IndexFieldBehavior;
  *
  * @property string $brandName
  * @property string $ttName
+ * @property string $ttUnloadingTime
  * @property integer $inspCount
  *
  * @property User $updatedBy
@@ -166,6 +167,7 @@ class Transport extends \yii\db\ActiveRecord
             'ferrymanName' => 'Перевозчик',
             'stateName' => 'Статус',
             'ttName' => 'Тип',
+            'ttUnloadingTime' => 'Время на рагрузку',
             'brandName' => 'Марка',
             'inspCount' => 'Техосмотров',
             'inspDetails' => 'Техосмотры',
@@ -371,6 +373,15 @@ class Transport extends \yii\db\ActiveRecord
     public function getTtName()
     {
         return $this->tt != null ? $this->tt->name : '';
+    }
+
+    /**
+     * Возвращает время в минутах, требуемое для разгрузки транспортного средства.
+     * @return string
+     */
+    public function getTtUnloadingTime()
+    {
+        return $this->tt != null ? $this->tt->unloading_time : '';
     }
 
     /**

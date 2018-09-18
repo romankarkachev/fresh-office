@@ -20,13 +20,13 @@ use Yii;
  * @property string $manager_name
  * @property string $state_name
  * @property string $perevoz [ADD_perevoz]
- * @property string $proizodstvo
+ * @property string $proizodstvo [ADD_proizodstvo]
  * @property string $oplata
  * @property string $adres [ADD_adres]
  * @property string $dannie [ADD_dannie]
  * @property string $ttn
  * @property string $weight
- * @property string $vivozdate
+ * @property string $vivozdate [ADD_vivozdate]
  * @property string $date_start
  * @property string $date_end
  * @property string [PRIM_PROJECT_COMPANY]
@@ -131,6 +131,15 @@ class foProjects extends \yii\db\ActiveRecord
             'state_name' => 'Статус',
             'manager_name' => 'Менеджер',
             'ca_name' => 'Контрагент',
+            // поля для электронной очереди транспорта, следующего на склад
+            'state_acquired_at' => 'Уехал',
+            'address' => 'Адрес',
+            'destination' => 'Площадка',
+            'data' => 'Данные',
+            'ferryman' => 'Перевозчик',
+            'remain_text' => 'Время в пути',
+            'arriving_at' => 'Время прибытия',
+            'unload_at' => 'Разгрузка',
         ];
     }
 
@@ -209,6 +218,9 @@ class foProjects extends \yii\db\ActiveRecord
         $historyModel->save();
     }
 
+    /**
+     * @inheritdoc
+     */
     public function afterSave($insert, $changedAttributes){
         parent::afterSave($insert, $changedAttributes);
 

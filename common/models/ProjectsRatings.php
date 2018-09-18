@@ -16,10 +16,19 @@ use yii\db\ActiveRecord;
  * @property string $rate
  * @property string $comment
  *
+ * @property string $caName
+ * @property string $ratedByProfileName
+ *
  * @property User $ratedBy
+ * @property Profile $ratedByProfile
  */
 class ProjectsRatings extends \yii\db\ActiveRecord
 {
+    /**
+     * @var integer количество проектов, которые оценил пользователь (для некоторых отчетов)
+     */
+    public $ratesCount;
+
     /**
      * @inheritdoc
      */
@@ -55,6 +64,10 @@ class ProjectsRatings extends \yii\db\ActiveRecord
             'project_id' => 'Проект',
             'rate' => 'Оценка',
             'comment' => 'Замечания для не самой наивысшей оценки',
+            'ratesCount' => 'Всего оценок',
+            // вычисляемые поля
+            'caName' => 'Контрагент',
+            'ratedByProfileName' => 'Член жюри',
         ];
     }
 
@@ -85,5 +98,39 @@ class ProjectsRatings extends \yii\db\ActiveRecord
     public function getRatedBy()
     {
         return $this->hasOne(User::className(), ['id' => 'rated_by']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getRatedByProfile()
+    {
+        return $this->hasOne(Profile::className(), ['user_id' => 'rated_by']);
+    }
+
+    /**
+     * Возвращает имя пользователя, который поставил оценку.
+     * @return string
+     */
+    public function getRatedByProfileName()
+    {
+        return !empty($this->ratedByProfile) ? $this->ratedByProfile->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCa()
+    {
+        return $this->hasOne(foCompany::className(), ['ID_COMPANY' => 'ca_id']);
+    }
+
+    /**
+     * Возвращает наименование контрагента.
+     * @return string
+     */
+    public function getCaName()
+    {
+        return !empty($this->ca) ? $this->ca->COMPANY_NAME : '';
     }
 }

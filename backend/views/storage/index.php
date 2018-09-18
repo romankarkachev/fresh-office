@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use common\models\TransportRequests;
 
 /* @var $this yii\web\View */

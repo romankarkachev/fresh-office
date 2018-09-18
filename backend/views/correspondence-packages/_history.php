@@ -1,6 +1,6 @@
 <?php
 
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\CorrespondencePackagesHistorySearch */
@@ -9,7 +9,7 @@ use yii\grid\GridView;
 <div id="block-history" class="correspondence-package-history collapse">
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'layout' => '{items}{pager}',
+
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             [

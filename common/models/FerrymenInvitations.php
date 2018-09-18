@@ -24,7 +24,7 @@ class FerrymenInvitations extends \yii\db\ActiveRecord
     /**
      * Количество секунд, через которое токен перестает действовать.
      */
-    const TOKEN_EXPIRATION_TIME = 86400;
+    const TOKEN_EXPIRATION_TIME = 86400 * 3;
 
     /**
      * @inheritdoc

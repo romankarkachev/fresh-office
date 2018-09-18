@@ -71,7 +71,7 @@ $urlFindFolderByName = Url::to(['/storage/find-folder-by-name']);
         </div>
         <?php if ($model->isNewRecord): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'file')->fileInput() ?>
+            <?= $form->field($model, 'file[]')->fileInput(['multiple' => true]) ?>
 
         </div>
         <?php endif; ?>

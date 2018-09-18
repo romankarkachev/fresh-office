@@ -1,6 +1,6 @@
 <?php
 
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use yii\widgets\Pjax;
 use common\models\ReportAnalytics;
 

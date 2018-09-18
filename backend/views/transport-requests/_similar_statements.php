@@ -1,6 +1,6 @@
 <?php
 
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $dataProvider \yii\data\ActiveDataProvider */

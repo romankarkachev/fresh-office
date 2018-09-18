@@ -134,6 +134,8 @@ class DefaultController extends Controller
                         [ProjectsStates::STATE_ОТКАЗ_КЛИЕНТА, ProjectsStates::STATE_НЕВЕРНОЕ_ОФОРМЛЕНИЕ_ЗАЯВКИ],
                     ])->orderBy('DATE_CREATE_PROGECT DESC')->limit(3)->all();
 
+                    $avgRating = ProjectsRatings::find()->where(['ca_id' => $invitation->fo_ca_id])->average('rate');
+
                     $caData = [
                         'faCaId' => $invitation->fo_ca_id,
                         'balance' => intval($company->balanceForCustomer),
@@ -145,6 +147,7 @@ class DefaultController extends Controller
                         'contacts' => $company->tasksInProgress,
                         'canCreateProject' => $canCreateProject,
                         'ratingProjects' => $ratingProjects,
+                        'avgRating' => $avgRating,
                     ];
                 }
             }

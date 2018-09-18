@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use common\models\TransportRequestsStates;
 
 /* @var $this yii\web\View */
@@ -29,8 +29,6 @@ $favorite = '/images/favorite16.png';
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'layout' => '{items}{pager}',
-        'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             'customer_name',
             [

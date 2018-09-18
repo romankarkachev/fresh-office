@@ -11,8 +11,11 @@ use yii\helpers\ArrayHelper;
  * @property integer $id
  * @property string $name
  * @property integer $is_spec
+ * @property integer $unloading_time
  *
  * @property Transport[] $transports
+ * @property TransportByCitiesCost[] $transportByCitiesCosts
+ * @property TransportRequestsTransport[] $transportRequestsTransports
  */
 class TransportTypes extends \yii\db\ActiveRecord
 {
@@ -31,7 +34,7 @@ class TransportTypes extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['is_spec'], 'integer'],
+            [['is_spec', 'unloading_time'], 'integer'],
             [['name'], 'string', 'max' => 30],
         ];
     }
@@ -45,6 +48,7 @@ class TransportTypes extends \yii\db\ActiveRecord
             'id' => 'ID',
             'name' => 'Наименование',
             'is_spec' => 'Является спецтехникой',
+            'unloading_time' => 'Время на разгрузку (мин.)',
         ];
     }
 
@@ -75,5 +79,21 @@ class TransportTypes extends \yii\db\ActiveRecord
     public function getTransports()
     {
         return $this->hasMany(Transport::className(), ['tt_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTransportByCitiesCosts()
+    {
+        return $this->hasMany(TransportByCitiesCost::className(), ['tt_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTransportRequestsTransports()
+    {
+        return $this->hasMany(TransportRequestsTransport::className(), ['tt_id' => 'id']);
     }
 }

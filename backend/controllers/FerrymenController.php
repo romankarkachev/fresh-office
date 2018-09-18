@@ -22,7 +22,11 @@ use common\models\FerrymenFiles;
 use common\models\FerrymenFilesSearch;
 use backend\models\FerrymanInvitationForm;
 use common\models\FerrymenInvitations;
+use common\models\PaymentOrdersSearch;
+use common\models\foProjects;
+use common\models\foProjectsSearch;
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\httpclient\Client;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
@@ -46,13 +50,14 @@ class FerrymenController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['download-from-outside'],
+                        'actions' => ['download-from-outside', 'temp'],
                         'allow' => true,
                         'roles' => ['?', '@'],
                     ],
                     [
                         'actions' => [
                             'index', 'create', 'update', 'delete',
+                            'missing-drivers-transport', 'get-duration-for-route',
                             'create-bank-account', 'delete-bank-account', 'create-bank-card', 'delete-bank-card',
                             'create-driver', 'delete-driver', 'create-transport', 'delete-transport',
                             'upload-files', 'download-file', 'preview-file', 'delete-file',
@@ -108,6 +113,82 @@ class FerrymenController extends Controller
     }
 
     /**
+     * @return mixed
+     */
+    public function actionMissingDriversTransport()
+    {
+        $searchModel = new foProjectsSearch();
+        $dataProvider = $searchModel->searchMissingDriversTransport(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('missing_drivers_transport', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'searchApplied' => $searchApplied,
+        ]);
+    }
+
+    /**
+     * @param $project_id integer идентификатор проекта, адрес которого вычисляется
+     * @return mixed
+     */
+    public function actionGetDurationForRoute($project_id)
+    {
+        if (Yii::$app->request->isAjax) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+            $project = foProjects::find()->where(['ID_LIST_PROJECT_COMPANY' => $project_id])->one();
+            if ($project) {
+                $ferryman_id = -1;
+                $transport_found = -1;
+                $driver_found = -1;
+
+                if (!empty($project['ADD_dannie'])) {
+                    $ferryman = Ferrymen::findOne(['name_crm' => $project['ADD_perevoz']]);
+                    if ($ferryman) {
+                        $ferryman_id = $ferryman->id;
+                        $transport_found = false;
+                        $driver_found = false;
+                        $data = str_replace(chr(32), '', mb_strtolower($project['ADD_dannie']));
+                        $data = str_replace('/', '', $data);
+                        $data = str_replace('\\', '', $data);
+
+                        // перевозчик идентифицирован, теперь попробуем найти у него такой транспорт
+                        foreach ($ferryman->transport as $transport) {
+                            if (false !== stripos($data, $transport->rn_index)) {
+                                // транспорт такой наден, зафиксируем это
+                                $transport_found = true;
+                                break;
+                            }
+                        }
+
+                        // найдем водителя
+                        foreach ($ferryman->drivers as $driver) {
+                            $driverName = mb_strtolower(trim($driver->surname) . trim($driver->name));
+                            $driverSurname = mb_strtolower(trim($driver->surname) . trim($driver->name) . trim($driver->patronymic));
+                            if (false !== stripos($data, $driver->driver_license_index) || false !== stripos($data, $driverName) || false !== stripos($data, $driverSurname)) {
+                                // водитель такой наден, зафиксируем это
+                                $driver_found = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                return [
+                    'project_id' => $project_id,
+                    'ferryman_id' => $ferryman_id,
+                    'transport_found' => $transport_found,
+                    'driver_found' => $driver_found,
+                ];
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Creates a new Ferrymen model.
      * If creation is successful, the browser will be redirected to the 'index' page.
      * @return mixed
@@ -155,6 +236,8 @@ class FerrymenController extends Controller
 
             return $this->redirect(['/ferrymen']);
         } else {
+            $route = Url::to(['ferrymen/update']);
+
             // банковские счета
             $searchModel = new FerrymenBankDetailsSearch();
             $dpBankDetails = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $id]]);
@@ -199,6 +282,28 @@ class FerrymenController extends Controller
             ]);
             $dpFiles->pagination = false;
 
+            // платежные ордеры по перевозчику
+            $searchModel = new PaymentOrdersSearch();
+            list ($dpPaymentOrders, $poTotalAmount) = $searchModel->search([$searchModel->formName() => ['ferryman_id' => $model->id]], $route, true);
+            $dpPaymentOrders->pagination = [
+                'route' => $route,
+                'pageSize' => 5,
+            ];
+
+            // рейсы перевозчика
+            $searchModel = new foProjectsSearch();
+            list ($dpOrders, $ordersTotalAmount) = $searchModel->search([
+                'route' => $route,
+                $searchModel->formName() => [
+                    'perevoz' => $model->name_crm,
+                    'searchGroupProjectTypes' => -5,
+                ]
+            ], true);
+            $dpOrders->pagination = [
+                'route' => $route,
+                'pageSize' => 10,
+            ];
+
             // удалим лишние символы из номеров телефонов перевозчика
             $model->phone = str_replace('+7', '', $model->phone);
             if ($model->phone[0] == 7 || $model->phone[0] == '8') $model->phone = substr($model->phone, 1);
@@ -213,6 +318,10 @@ class FerrymenController extends Controller
                 'dpBankCards' => $dpBankCards,
                 'dpDrivers' => $dpDrivers,
                 'dpTransport' => $dpTransport,
+                'dpPaymentOrders' => $dpPaymentOrders,
+                'poTotalAmount' => $poTotalAmount,
+                'dpOrders' => $dpOrders,
+                'ordersTotalAmount' => $ordersTotalAmount,
             ]);
         }
     }

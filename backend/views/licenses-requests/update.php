@@ -1,6 +1,7 @@
 <?php
 
 use yii\helpers\Html;
+use yii\helpers\Url;
 use yii\helpers\HtmlPurifier;
 use yii\widgets\DetailView;
 use yii\bootstrap\ActiveForm;
@@ -8,10 +9,17 @@ use yii\bootstrap\ActiveForm;
 /* @var $this yii\web\View */
 /* @var $model common\models\LicensesRequests */
 /* @var $dataProvider yii\data\ActiveDataProvider */
+/* @var $is_wizard bool */
 
 $this->title = 'Запрос лицензии № ' . $model->id . HtmlPurifier::process(' &mdash; Запросы лицензий | ') . Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']];
 $this->params['breadcrumbs'][] = '№ ' . $model->id;
+
+$url = ['licenses-requests/update', 'id' => $model->id];
+if (isset($is_wizard) && $is_wizard === true) {
+    $url['is_wizard'] = true;
+}
+$action = Url::to($url);
 ?>
 <div class="licenses-requests-update">
     <?= DetailView::widget([
@@ -44,7 +52,7 @@ $this->params['breadcrumbs'][] = '№ ' . $model->id;
 
     <?php if ($model->state_id == \common\models\LicensesRequestsStates::LICENSE_STATE_НОВЫЙ): ?>
 
-    <?php $form = ActiveForm::begin(); ?>
+    <?php $form = ActiveForm::begin(['action' => $action]); ?>
 
     <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите причину отказа']) ?>
 

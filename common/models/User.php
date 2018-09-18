@@ -207,18 +207,65 @@ class User extends BaseUser
     }
 
     /**
-     * Делает выборку пользователей веб-приложения с ролью "Менеджер" и возвращает в виде массива.
-     * Применяется для вывода в виджетах Select2.
+     * Формирует пользовательское меню в сайдбаре для пользователей в подсистеме корпоративной почты.
      * @return array
      */
-    public static function arrayMapForSelect2()
+    public static function prepateSidebarMenuForCemail()
     {
-        $result = ArrayHelper::merge([
-            1 => 'Алексей Бугров',
-        ], ArrayHelper::map(User::find()->select(User::tableName().'.*')
-            ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`='.User::tableName().'.`id`')
-            ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
-            ->where(['`auth_assignment`.`item_name`' => 'sales_department_manager'])->orderBy('profile.name')->all(), 'id', 'profile.name'));
+        $mailboxo = [
+            ['label' => 'Все ящики', 'url' => ['/mailboxes']],
+        ];
+        $mailboxes = CEMailboxes::find()->orderBy('created_at')->all();
+        foreach ($mailboxes as $mailbox) {
+            //$messagesCount = $mailbox->messagesCount2;
+            $label = $mailbox->name;
+            /*
+             * было раньше так:
+            $messagesCount = 0;
+            if ($messagesCount > 0) $label .= '<span class="badge badge-danger" title="' . $messagesCount . ' (если плохо видно)">' . $messagesCount . '</span>';
+            */
+            $label .= '<small id="mbcb' . $mailbox->id . '" class="badge" title="Вычисляется количество писем..."><i class="fa fa-spinner fa-pulse fa-fw text-warning"></i><span class="sr-only">Подождите...</span></small>';
+
+            $mailboxo[] = ['label' => $label, 'linkClass' => 'nav-link small', 'url' => ['/mail', (new CEMessagesSearch())->formName() => [
+                'mailbox_id' => $mailbox->id,
+            ]]];
+        }
+
+        $items = [
+            ['label' => '<li class="nav-title"><i class="fa fa-envelope"></i> &nbsp;Корпоративная почта</li>'],
+            ['label' => 'Все письма', 'icon' => 'fa fa-envelope-o', 'url' => ['/mail']],
+            ['label' => 'Все вложения', 'icon' => 'fa fa-paperclip', 'url' => ['/attached-files']],
+            ['label' => 'Почтовые ящики', 'icon' => 'fa fa-at', 'url' => '#', 'items' => $mailboxo],
+        ];
+
+        $items[] = ['label' => '<li class="nav-title"><i class="fa fa-cog"></i> &nbsp;Управление</li>'];
+        $items[] = ['label' => 'Категории', 'icon' => 'fa fa-folder', 'url' => ['/categories']];
+        $items[] = ['label' => 'Доступ', 'icon' => 'fa fa-users', 'url' => ['/users-access']];
+
+        return $items;
+    }
+
+    /**
+     * Делает выборку пользователей веб-приложения и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @param $managerRoleFilter bool признак, определяющий необходимость отбора только по роли "Менеджер"
+     * @return array
+     */
+    public static function arrayMapForSelect2($managerRoleFilter = true)
+    {
+        if ($managerRoleFilter) {
+            $result = ArrayHelper::merge([
+                1 => 'Алексей Бугров',
+            ], ArrayHelper::map(self::find()->select(self::tableName() . '.*')
+                ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`=' . self::tableName().'.`id`')
+                ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
+                ->where(['`auth_assignment`.`item_name`' => 'sales_department_manager'])->orderBy('profile.name')->all(), 'id', 'profile.name'));
+        }
+        else {
+            $result = ArrayHelper::map(self::find()->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
+                ->orderBy('profile.name')->all(), 'id', 'profile.name');
+        }
+
         return $result;
     }
 

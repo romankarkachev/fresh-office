@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use common\models\CorrespondencePackagesSearch;
 use common\models\CorrespondencePackagesStates;
 
@@ -34,7 +34,7 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'id' => 'gw-packages',
-        'layout' => '{items}{pager}',
+
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'rowOptions' => function ($model, $key, $index, $grid) {
             /* @var $model \common\models\CorrespondencePackages */

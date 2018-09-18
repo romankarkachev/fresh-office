@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use common\models\LicensesRequestsStates;
 
 /* @var $this yii\web\View */
@@ -45,6 +45,7 @@ $this->params['breadcrumbs'][] = 'Запросы лицензий';
             ],
             'ca_email:email',
             'ca_name',
+            'organizationName',
             [
                 'header' => 'Статус',
                 'format' => 'raw',
@@ -53,11 +54,11 @@ $this->params['breadcrumbs'][] = 'Запросы лицензий';
 
                     switch ($model->state_id) {
                         case LicensesRequestsStates::LICENSE_STATE_НОВЫЙ:
-                            return '<i class="fa fa-asterisk text-warning" aria-hidden="true"></i>';
+                            return '<i class="fa fa-asterisk text-warning" aria-hidden="true" title="Новый необработанный запрос"></i>';
                         case LicensesRequestsStates::LICENSE_STATE_ОДОБРЕН:
-                            return '<i class="fa fa-check-circle-o text-success" aria-hidden="true"></i>';
+                            return '<i class="fa fa-check-circle-o text-success" aria-hidden="true" title="Запрос рассмотрен и одобрен"></i>';
                         case LicensesRequestsStates::LICENSE_STATE_ОТКАЗ:
-                            return '<i class="fa fa-times-circle text-danger" aria-hidden="true"></i>';
+                            return '<i class="fa fa-times-circle text-danger" aria-hidden="true" title="Запрос отклонен администратором"></i>';
                         default:
                             return '';
                     }
@@ -81,6 +82,7 @@ $this->params['breadcrumbs'][] = 'Запросы лицензий';
                 'options' => ['width' => '80'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
+                'visible' => Yii::$app->user->can('root') || Yii::$app->user->can('sales_department_head'),
             ],
         ],
     ]); ?>

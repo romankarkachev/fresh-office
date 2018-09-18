@@ -9,6 +9,10 @@ return [
     'senderNameSvetozar' => 'Робот Светозар',
     'senderNameVictor' => 'Робот Виктор',
     'senderMelania' => 'Мелания',
+    'senderIvanIV' => 'Робот Иван IV',
+    'senderSaveliy' => 'Робот Савелий',
+    'senderNashville' => 'Робот Нэшвиль',
+    'senderCompanyWaste' => 'Компания по обращению с отходами',
     'user.passwordResetTokenExpire' => 3600,
     'serverIp' => '31.148.13.223:8081',
 ];

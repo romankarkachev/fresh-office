@@ -1,7 +1,7 @@
 <?php
 
 use yii\widgets\Pjax;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $form yii\bootstrap\ActiveForm */

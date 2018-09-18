@@ -41,18 +41,22 @@ use yii\helpers\ArrayHelper;
  * @property string $contract_expires_at
  * @property integer $notify_when_payment_orders_created
  * @property integer $user_id
+ * @property integer $ppdq количество дней постоплаты
  *
  * @property User $createdBy
  * @property User $updatedBy
  * @property Opfh $opfh
  * @property FerrymenTypes $ft
  * @property PaymentConditions $pc
+ * @property User $user
  * @property Drivers[] $drivers
+ * @property Projects[] $projects
  * @property Transport[] $transport
  * @property FerrymenFiles[] $ferrymenFiles
  * @property FerrymenBankCards[] $ferrymenBankCards
  * @property FerrymenBankDetails[] $ferrymenBankDetails
  * @property PaymentOrders[] $paymentOrders
+ * @property FerrymenInvitations[] $ferrymenInvitations
  */
 class Ferrymen extends \yii\db\ActiveRecord
 {
@@ -108,7 +112,7 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created', 'user_id'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created', 'user_id', 'ppdq'], 'integer'],
             [['name_full', 'name_short', 'address_j', 'address_f'], 'string'],
             [['contract_expires_at'], 'safe'],
             [['name', 'name_crm', 'email', 'email_dir'], 'string', 'max' => 255],
@@ -166,6 +170,7 @@ class Ferrymen extends \yii\db\ActiveRecord
             'contract_expires_at' => 'Срок действия договора',
             'notify_when_payment_orders_created' => 'Необходимость отправлять уведомление перевозчику при импорте платежного ордера на него',
             'user_id' => 'Пользователь системы',
+            'ppdq' => 'Количество дней постоплаты',
             // для вычисляемых полей
             'ftName' => 'Тип',
             'pcName' => 'Условия оплаты',

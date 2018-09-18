@@ -22,6 +22,8 @@ $emailTemplate = '<div class="input-group">
         <button id="btnSendInvitation" class="btn btn-default" type="submit">Отправить</button>
     </span>
 </div>{error}';
+
+$searchUseGateway = strtolower($model->formName() . '-is_use_gateway');
 ?>
 
 <div class="invite-customer-form">
@@ -31,6 +33,7 @@ $emailTemplate = '<div class="input-group">
         'validationUrl' => ['validate-customer-invitation-form'],
     ]); ?>
 
+    <p>Через эту форму можно отправить приглашение представителю заказчика создать личный кабинет для работы в нашей системе.</p>
     <div class="row">
         <div class="col-md-3">
             <?= $form->field($model, 'fo_id_company')->widget(Select2::className(), [
@@ -61,7 +64,20 @@ $emailTemplate = '<div class="input-group">
             <?= $this->render('_invite_fields', ['model' => $model, 'emails' => CustomerInvitationForm::arrayMapOfEmailsForSelect2($model->fo_id_company), 'form' => $form]) ?>
 
         </div>
+        <div class="col-md-3">
+            <label for="<?= $searchUseGateway ?>" class="control-label"><?= $model->getAttributeLabel('is_use_gateway') ?></label>
+            <div class="form-group">
+                <div class="checkbox" style="margin-top:5px;">
+                    <?= Html::input('checkbox', $model->formName() . '[is_use_gateway]', 1, ['id' => $searchUseGateway, 'checked' => !empty($model->is_use_gateway)]) ?>
+
+                </div>
+            </div>
+        </div>
     </div>
+    <p>
+        Если будет установлен признак использования шлюза, то письмо будет отправлено на ящик <?= Html::mailto('vip@st77.ru') ?>,
+        менеджер должен будет перенаправить клиенту. Регистрироваться клиент будет на тот ящик, который Вы выберете здесь.
+    </p>
     <?= Html::submitButton('<i class="fa fa-paper-plane" aria-hidden="true"></i> Отправить', ['class' => 'btn btn-success btn-lg']) ?>
 
     <?php ActiveForm::end(); ?>
@@ -71,6 +87,9 @@ $emailTemplate = '<div class="input-group">
 $urlComposeFields = Url::to(['/invite-customer/compose-fields']);
 
 $this->registerJs(<<<JS
+
+$("input").iCheck({checkboxClass: "icheckbox_square-green"});
+
 // Обработчик изменения значения в поле "Заказчик".
 //
 function customerOnChange(ca_id) {

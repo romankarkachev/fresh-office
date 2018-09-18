@@ -2,11 +2,8 @@
 
 namespace backend\controllers;
 
-use common\models\City;
-use common\models\DadataAPI;
-use common\models\Ferrymen;
-use common\models\Projects;
-use common\models\Regions;
+use common\models\pbxCalls;
+use common\models\pbxExternalPhoneNumber;
 use Yii;
 use yii\db\Expression;
 use yii\helpers\ArrayHelper;
@@ -15,6 +12,7 @@ use yii\web\Controller;
 use yii\web\Response;
 use yii\httpclient\Client;
 use kartik\mpdf\Pdf;
+use moonland\phpexcel\Excel;
 use common\models\DirectMSSQLQueries;
 use common\models\MailingProjects;
 use common\models\ResponsibleByProjectTypes;
@@ -28,19 +26,29 @@ use common\models\PostDeliveryKinds;
 use common\models\ProjectsTypes;
 use common\models\CounteragentsPostAddresses;
 use common\models\Counteragents;
-use common\models\TransportRequests;
+use common\models\City;
+use common\models\DadataAPI;
+use common\models\Ferrymen;
+use common\models\Projects;
+use common\models\Regions;
+use common\models\YandexAPI;
+use common\models\foProjectsHistory;
+use common\models\foProjectsStates;
+use common\models\NotifReceiversStatesNotChangedByTime;
+use common\models\NotifReceiversStatesNotChangedTodayForALongTime;
+use common\models\ReportPbxAnalytics;
 
 class ServicesController extends Controller
 {
     /**
      * Максимальное количество попыток извлечения проектов для парсинга из них адресов.
      */
-    const COLLECT_PROJECTS_TRIES_LIMIT = 10;
+    const COLLECT_PROJECTS_TRIES_LIMIT = 5;
 
     /**
      * Количество проектов, которое необходимо успешно сохранить за проход.
      */
-    const COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE = 5;
+    const COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE = 50;
 
     /**
      * Выполняет отсеивание проектов, оставляя только проекты тех типов, которые переданы в параметрах.
@@ -593,7 +601,7 @@ class ServicesController extends Controller
         foreach ($packages as $package) {
             /* @var $package CorrespondencePackages */
 
-            if ($package->track_num != null) {
+            if (!empty($package->track_num)) {
                 // если трек вообще задан, то проверим статус доставки
                 $delivered_at = null;
                 switch ($package->pd_id) {
@@ -605,47 +613,53 @@ class ServicesController extends Controller
                         break;
                 }
 
-                if ($delivered_at !== false) {
+                if (!empty($delivered_at)) {
                     // посылка доставлена
-                    switch ($package->type_id) {
-                        case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
-                        case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ:
-                            // создание задачи Контроль качества
-                            try {
+                    if ($package->is_manual) {
+                        // меняем статус ручного пакета
+                        $package->delivered_at = $delivered_at;
+                        $package->state_id = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                        $package->save();
+                    }
+                    else {
+                        switch ($package->type_id) {
+                            case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
+                            case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ:
+                                // создание задачи Контроль качества
+                                try {
+                                    // временно отключено по решению заказчика (предварительно до 01.01.2018)
+                                    //$package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
+                                } catch (\Exception $exception) {}
+
+                                // меняем статус пакета
+                                $package->delivered_at = $delivered_at;
+                                $package->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                                $package->save();
+
+                                // делаем две записи в истории проекта
+                                $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                                $package->project->save();
+
+                                $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                                $package->project->save();
+
+                                break;
+                            case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА:
+                            case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА:
+                                $package->delivered_at = $delivered_at;
+                                $package->state_id = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                                $package->save();
+
+                                // делаем запись в истории проекта
+                                $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                                $package->project->save();
+
+                                // создаем задачу
                                 // временно отключено по решению заказчика (предварительно до 01.01.2018)
                                 //$package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
-                            } catch (\Exception $exception) {
 
-                            }
-
-                            // меняем статус пакета
-                            $package->delivered_at = $delivered_at;
-                            $package->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
-                            $package->save();
-
-                            // делаем две записи в истории проекта
-                            $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                            $package->project->save();
-
-                            $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
-                            $package->project->save();
-
-                            break;
-                        case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА:
-                        case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА:
-                            $package->delivered_at = $delivered_at;
-                            $package->state_id = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                            $package->save();
-
-                            // делаем запись в истории проекта
-                            $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                            $package->project->save();
-
-                            // создаем задачу
-                            // временно отключено по решению заказчика (предварительно до 01.01.2018)
-                            //$package->foapi_createNewTaskForManager(FreshOfficeAPI::TASK_TYPE_КОНТРОЛЬ_КАЧЕСТВА, $package->fo_id_company, 92, 'Контроль качества');
-
-                            break;
+                                break;
+                        }
                     }
                 }
             }
@@ -848,29 +862,6 @@ class ServicesController extends Controller
         // населенные пункты
         $cities = City::find()->where(['country_id' => Regions::COUNTRY_RUSSIA_ID])->asArray()->all();
 
-        /*
-        $region_id = null;
-        $city_id = null;
-        $region = 'Московская';
-        $region_id = array_filter($regions, function ($name) use ($region) {
-            if (mb_stripos($name, $region) !== false) return true;
-            return false;
-        }, ARRAY_FILTER_USE_KEY);
-        // берем значение первого элемента возвращенного массива, если оно есть
-        if (count($region_id) > 0) {
-            $region_id = current($region_id);
-            $city = 'Мытищи';
-            $regionSelected = array_filter($cities, function ($element) use ($region_id, $city) {
-                //echo '<p>Поиск города ' . $city . ' по региону ' . $region_id . ': ' . $element . $val . '</p>';
-                if ($element['region_id'] == $region_id && mb_stripos($element['name'], $city) !== false) return true;
-                return false;
-            });
-            if (count($regionSelected) > 0) $city_id = current($regionSelected)['city_id'];
-        }
-        var_dump($city_id);
-        return;
-        */
-
         while ($tryIterator < self::COLLECT_PROJECTS_TRIES_LIMIT) {
             print '<p>Попытка извлечения проектов № ' . ($tryIterator+1) . '.<p>';
 
@@ -909,73 +900,96 @@ class ServicesController extends Controller
                     // если в проекте не окажется адрес, мы его вообще брать не будем
                     $address = null;
                     if (!empty($project->ADD_adres)) $address = $project->ADD_adres; else $address = $project->adres;
+                    if ($address === '') $address = null;
 
                     // регион и населенный пункт
                     $region_id = null;
                     $city_id = null;
                     if (!empty($address)) {
                         try {
-                            $data = TrackingController::pochtaRuNormalizeAddress($address);
-                            sleep(2);
+                            $data = YandexAPI::getRequestToApi($address);
+                            sleep(1);
                             if ($data !== false) {
-                                $region = str_replace('обл', '', $data['region']);
-                                $region = trim($region);
-                                $region_id = array_filter($regions, function ($id, $name) use ($region) {
-                                    if (mb_stripos($name, $region) !== false) return true;
-                                    return false;
-                                }, ARRAY_FILTER_USE_BOTH);
-                                // берем значение первого элемента возвращенного массива, если оно есть
-                                if (count($region_id) > 0) {
-                                    $region_id = current($region_id);
-                                    $city = 'Мытищи';
-                                    $regionSelected = array_filter($cities, function ($element) use ($region_id, $city) {
-                                        //echo '<p>Поиск города ' . $city . ' по региону ' . $region_id . ': ' . $element . $val . '</p>';
-                                        if ($element['region_id'] == $region_id && mb_stripos($element['name'], $city) !== false) return true;
-                                        return false;
-                                    });
-                                    if (count($regionSelected) > 0) $city_id = current($regionSelected)['city_id'];
+                                if (!empty($data['Components'])) {
+                                    $key = array_search('province', array_column($data['Components'], 'kind'));
+                                    if ($key !== false) {
+                                        if (false !== mb_stripos($data['Components'][$key]['name'], 'округ')) {
+                                            unset($data['Components'][$key]);
+                                            unset($key);
+                                            $data['Components'] = array_values($data['Components']);
+                                            $key = array_search('province', array_column($data['Components'], 'kind'));
+                                            if ($key !== false) $region = $data['Components'][$key]['name'];
+                                        } else $region = $data['Components'][$key]['name'];
+                                    } else print '<p>Округ не найден.</p>';
+
+                                    if (isset($region)) {
+                                        $region = str_replace('область', '', $region);
+                                        $region = str_replace('республика', '', $region);
+                                        $region = trim($region);
+                                        $region_id = array_filter($regions, function ($id, $name) use ($region) {
+                                            if (mb_stripos($name, $region) !== false) return true;
+                                            return false;
+                                        }, ARRAY_FILTER_USE_BOTH);
+                                        // берем значение первого элемента возвращенного массива, если оно есть
+                                        if (count($region_id) > 0) {
+                                            $region_id = current($region_id);
+                                            $key = array_search('locality', array_column($data['Components'], 'kind'));
+                                            if ($key !== false) {
+                                                $city = $data['Components'][$key]['name'];
+                                                $regionSelected = array_filter($cities, function ($element) use ($region_id, $city) {
+                                                    //echo '<p>Поиск города ' . $city . ' по региону ' . $region_id . ': ' . $element . $val . '</p>';
+                                                    if ($element['region_id'] == $region_id && mb_stripos($element['name'], $city) !== false) return true;
+                                                    return false;
+                                                });
+                                                if (count($regionSelected) > 0) $city_id = current($regionSelected)['city_id'];
+                                            }
+                                        }
+                                        else $region_id = null;
+                                    }
                                 }
                             }
-                        } catch (\Exception $exception) {}
+                        } catch (\Exception $exception) {var_dump($exception);}
                     }
-
-                    /*
-                    ////////////////////////////////////////////////////////////////////////////////////////////////////
-                    $projectsStored++;
-                    if ($projectsStored == self::COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE) { $tryIterator++; break 2; }
-                    ////////////////////////////////////////////////////////////////////////////////////////////////////
-                    */
 
                     // перевозчик
                     $ferryman = null;
-                    try {
-                        $ferryman_id = ArrayHelper::getValue($ferrymen, $project->ADD_perevoz);
-                        if (!empty($ferryman_id)) $ferryman = $ferryman_id;
-                        unset($ferryman_id);
+                    if (!empty($project->ADD_perevoz)) {
+                        try {
+                            $ferryman_id = ArrayHelper::getValue($ferrymen, $project->ADD_perevoz);
+                            if (!empty($ferryman_id)) $ferryman = $ferryman_id;
+                            unset($ferryman_id);
+                        }
+                        catch (\Exception $exception) {}
                     }
-                    catch (\Exception $exception) {}
 
-                    $heap[] = [
-                        // id
-                        $project->id,
-                        // created_at
-                        strtotime($project->DATE_CREATE_PROGECT),
-                        // address берется из проекта, а если нет, то из параметров, а если и там нет, то все
-                        $address,
-                        // data
-                        $project->ADD_dannie,
-                        // ferryman_origin
-                        $project->ADD_perevoz,
-                        // comment
-                        $project->PRIM_PROJECT_COMPANY,
-                        // region_id
-                        $region_id,
-                        // city_id
-                        $city_id,
-                        // ferryman_id
-                        $ferryman,
-                    ];
-                    $projectsStored++;
+                    // добавляем в массив новых проектов, но только если его еще там нет
+                    if (count(array_filter($heap, function($innerArray) use ($project) {
+                        return ($innerArray[0] == $project->id);
+                    })) == 0) {
+                        $heap[] = [
+                            // id
+                            $project->id,
+                            // created_at
+                            strtotime($project->DATE_CREATE_PROGECT),
+                            // address берется из проекта, а если нет, то из параметров, а если и там нет, то все
+                            $address,
+                            // data
+                            $project->ADD_dannie,
+                            // ferryman_origin
+                            (!empty($project->ADD_perevoz) ? $project->ADD_perevoz : null),
+                            // comment
+                            $project->PRIM_PROJECT_COMPANY,
+                            // region_id
+                            $region_id,
+                            // city_id
+                            $city_id,
+                            // ferryman_id
+                            $ferryman,
+                        ];
+                        $projectsStored++;
+                        //print '<p>Проект ' . $project->id . ' помещен в пакет.</p>';
+                    }
+                    //print '<p>Проектов собрано: ' . $projectsStored . '.</p>';
                     // если достаточное количество проектов уже собрано, выходим из обоих циклов, чтобы выполнить
                     // сохранение этих проектов пачкой
                     if ($projectsStored == self::COLLECT_PROJECTS_TOTAL_COUNT_PER_CYCLE) { $tryIterator++; break 2; }
@@ -993,5 +1007,275 @@ class ServicesController extends Controller
             ], $heap)->execute();
             print '<p>Запрос по сохранению пачки выполнен, строк затронуто: ' . $rowsAffected . '.<p>';
         }
+    }
+
+    /**
+     * Делает выборку проектов, последнее изменение статуса которых было более заданного количества часов назад.
+     * Проблемные проекты отправляются на почту.
+     * notify-about-outdated-projects-today
+     */
+    public function actionNotifyAboutOutdatedProjectsToday()
+    {
+        $currentDay = time();
+        $timeAgo = time() - 4 * 3600; // за последние четыре часа
+        $stateChangedTimeAgo = new \yii\db\Expression('CONVERT(datetime, \'' . date('Y-m-d', $timeAgo) . 'T' . date('H:i:s', $timeAgo) . '.000\', 126)');
+        $currentDayMsSqlFormat = new \yii\db\Expression('CONVERT(datetime, \'' . date('Y-m-d', $currentDay) . 'T00:00:00.000\', 126)');
+
+        $query = foProjects::find()
+            ->select([
+                'id' => 'ID_LIST_PROJECT_COMPANY',
+            ])
+            ->where([
+                'ID_LIST_SPR_PROJECT' => ProjectsTypes::НАБОР_ВЫВОЗ_ЗАКАЗЫ,
+                'ADD_vivozdate' => $currentDayMsSqlFormat,
+            ])
+        ->andWhere('(
+	SELECT TOP 1 [DATE_CHENCH_PRIZNAK] FROM CBaseCRM_Fresh_7x.dbo.LIST_HISTORY_PROJECT_COMPANY
+	WHERE [LIST_HISTORY_PROJECT_COMPANY].[ID_LIST_PROJECT_COMPANY] = [LIST_PROJECT_COMPANY].[ID_LIST_PROJECT_COMPANY]
+	ORDER BY [DATE_CHENCH_PRIZNAK] DESC
+) <= ' . $stateChangedTimeAgo);
+        // выполним запрос и сразу переведем проекты в строку через запятую
+        $projectsIds = implode(', ', $query->asArray()->column());
+
+        // выборка готова, готовим письмо
+        $letter = Yii::$app->mailer->compose([
+            'html' => 'projectsStatesNotChangedToday-html',
+        ], [
+            'date' => Yii::$app->formatter->asDate($currentDay, 'php:d F Y'),
+            'projectsIds' => $projectsIds,
+        ])
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNashville']])
+            ->setSubject('Обновите статусы в CRM');
+
+        // рассылаем письмо получателям уведомлений
+        foreach (NotifReceiversStatesNotChangedTodayForALongTime::find()->select('receiver')->asArray()->column() as $receiver) {
+            $letter->setTo($receiver);
+            $letter->send();
+        }
+
+        // отправка боссу отдельным письмом индивидуально
+        $letter->setTo('bugrovap@gmail.com');
+        $letter->send();
+    }
+
+    /**
+     * Выполняет отправку письма с просроченными проектами.
+     * Пример: array(2) { [0]=> array(3) { ["stateName"]=> string(33) "Дежурный менеджер" ["time"]=> string(6) "604800" ["projects"]=> array(2) { [0]=> int(19776) [1]=> int(18746) } } [1]=> array(3) { ["stateName"]=> string(17) "На складе" ["time"]=> string(5) "28800" ["projects"]=> array(3) { [0]=> int(20726) [1]=> int(20743) [2]=> int(20571) } } } array(1) { [0]=> array(3) { ["stateName"]=> string(27) "Вывоз завершен" ["time"]=> string(6) "172800" ["projects"]=> array(5) { [0]=> int(19653) [1]=> int(19503) [2]=> int(20373) [3]=> int(18350) [4]=> int(20629) } } }
+     * @param $receiver string E-mail получателя уведомления
+     * @param $data array массив с просроченными проектами по статусам
+     */
+    public function sendEmailNotificationAboutOudatedByCustomTime($receiver, $data)
+    {
+        Yii::$app->mailer->compose([
+            'html' => 'projectsStatesNotChangedByCustomTime-html',
+        ], [
+            'projects' => $data,
+        ])
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNashville']])
+            ->setSubject('Обновите статусы в CRM')
+            ->setTo($receiver)
+            ->send();
+        ;
+    }
+
+    /**
+     * Делает выборку незавершенных проектов, просматривает их статусы и сравнивает допустимые сроки нахождения в этих статусах.
+     * Если срок пребывания проекта в некотором статусе превышен, то проект добавляется в письмо.
+     * notify-about-projects-outdated-by-custom-time
+     */
+    public function actionNotifyAboutProjectsOutdatedByCustomTime()
+    {
+        // получатели уведомлений по статусам и допустимым периодам
+        $receivers = NotifReceiversStatesNotChangedByTime::find()->orderBy('receiver')->asArray()->all();
+
+        $query = foProjects::find()
+            ->select([
+                'id' => '[LIST_PROJECT_COMPANY].[ID_LIST_PROJECT_COMPANY]',
+                'state_id' => '[currentStates].[ID_PRIZNAK_PROJECT]',
+                'changed_at' => '[currentStates].[DATE_CHENCH_PRIZNAK]',
+            ])
+            ->where([
+                '[LIST_PROJECT_COMPANY].[ID_LIST_SPR_PROJECT]' => ProjectsTypes::НАБОР_ВЫВОЗ_ЗАКАЗЫ_ДОКУМЕНТЫ,
+            ])
+            ->andWhere([
+                'not in',
+                '[LIST_PROJECT_COMPANY].[ID_PRIZNAK_PROJECT]',
+                ProjectsStates::НАБОР_ИСКЛЮЧЕНИЙ_ДЛЯ_ОПОВЕЩЕНИЯ_О_ПРОСРОЧЕННЫХ_ПРОЕКТАХ,
+            ])
+            ->andWhere('[currentStates].[ID_PRIZNAK_PROJECT] <> [LIST_PROJECT_COMPANY].[ID_LIST_PROJECT_COMPANY]')
+            ->join('OUTER APPLY', '(
+                SELECT TOP 1 [ID_LIST_PROJECT_COMPANY], [ID_PRIZNAK_PROJECT], [DATE_CHENCH_PRIZNAK]
+                FROM ' . foProjectsHistory::tableName() . '
+                WHERE ' . foProjectsHistory::tableName() . '.[ID_LIST_PROJECT_COMPANY] = [LIST_PROJECT_COMPANY].[ID_LIST_PROJECT_COMPANY]
+                ORDER BY [DATE_CHENCH_PRIZNAK] DESC
+            ) AS currentStates');
+
+        foreach ($query->asArray()->all() as $project) {
+            $key = array_search($project['state_id'], array_column($receivers, 'state_id'));
+            if (false !== $key) {
+                // опишем статус именем, запрос делается только один раз
+                if (empty($receivers[$key]['stateName'])) {
+                    // если статус все еще обезличен, то узнаем его наименование
+                    $state = foProjectsStates::findOne($project['state_id']);
+                    if ($state) {
+                        $receivers[$key]['stateName'] = $state->PRIZNAK_PROJECT;
+                    }
+                    unset($state);
+                }
+
+                // есть такой статус на контроле, проверим, не просрочен ли он
+                $changedAt = strtotime($project['changed_at']); // время приобретения статуса проектом как число
+                $outdatedTermin = time() - $receivers[$key]['time'];
+                if ($changedAt < $outdatedTermin) {
+                    // статус просрочен, поместим проект в списк проблемных
+                    $receivers[$key]['projects'][] = $project['id'];
+                }
+            }
+            //else print '<p>Статус ' . $project['state_id'] . ' для проекта ' . $project['id'] . ' не найден.</p>';
+        }
+
+        $bossArray = []; // сюда собираются различные статусы для отправки боссу одним письмом
+        $prevArray = [];
+        $currentReceiver = -1;
+        foreach ($receivers as $receiver) {
+            // если по статусу проектов нет, переходим к следующему комплекту
+            if (empty($receiver['projects'])) continue;
+
+            if ($currentReceiver != $receiver['receiver'] && $currentReceiver != -1) {
+                // выполняем отправку сообщения
+                $this->sendEmailNotificationAboutOudatedByCustomTime($currentReceiver, $prevArray);
+                $prevArray = [];
+            }
+
+            // найдем статус в подготовленном к отправке массиве
+            // если такой статус туда уже помещен, то дополним его проектами
+            // а если нет, то создадим новый
+            $key = array_search($receiver['stateName'], array_column($prevArray, 'stateName'));
+            if (false !== $key) {
+                ArrayHelper::merge($prevArray[$key], $receiver['projects']);
+                ArrayHelper::merge($bossArray[$key], $receiver['projects']);
+            }
+            else {
+                $record = [
+                    'stateName' => $receiver['stateName'],
+                    'time' => $receiver['time'],
+                    'projects' => $receiver['projects'],
+                ];
+                $prevArray[] = $record;
+                $bossArray[] = $record;
+            }
+
+            $currentReceiver = $receiver['receiver'];
+        }
+
+        // еще раз отправку для последней сборки проектов
+        if (count($prevArray) > 0) $this->sendEmailNotificationAboutOudatedByCustomTime($currentReceiver, $prevArray);
+        // отправим боссу одним письмом все различные статусы
+        if (count($bossArray) > 0) $this->sendEmailNotificationAboutOudatedByCustomTime('bugrovap@gmail.com', $bossArray);
+    }
+
+    /**
+     * Запускается один раз в день утром, отправляет файл Excel, созданный по алгоритму отчета "Наличие проектов и задач".
+     * mailing-pbx-calls-has-projects-and-tasks-assigned
+     */
+    public function actionMailingPbxCallsHasProjectsAndTasksAssigned()
+    {
+        $operatingDate = date('Y-m-d', time() - 24*60*60);
+
+        $searchModel = new ReportPbxAnalytics();
+        $dataProvider = $searchModel->searchCurrentTasks([
+            $searchModel->formName() => [
+                'searchPeriodEnd' => $operatingDate,
+            ],
+        ]);
+
+        $savePath = Yii::getAlias('@uploads');
+        if (!is_dir($savePath)) {
+            if (!FileHelper::createDirectory($savePath)) return false;
+        }
+        $savePath = realpath($savePath);
+
+        $fn = 'Наличие проектов и задач ' . Yii::$app->formatter->asDate($searchModel->searchPeriodEnd, 'php:d.m.Y') . '.xlsx';
+        $ffp = $savePath . '/' . $fn;
+        Excel::export([
+            'models' => $dataProvider->getModels(),
+            'asAttachment' => false,
+            'savePath' => $savePath,
+            'fileName' => $fn,
+            'format' => 'Excel2007',
+            'columns' => [
+                [
+                    'attribute' => 'pbxht_id',
+                    'header' => $searchModel->attributeLabels()['pbxht_id'],
+                ],
+                [
+                    'attribute' => 'pbxht_name',
+                    'header' => $searchModel->attributeLabels()['pbxht_name'],
+                ],
+                [
+                    'attribute' => 'pbxht_managerName',
+                    'header' => $searchModel->attributeLabels()['pbxht_managerName'],
+                ],
+                [
+                    'attribute' => 'pbxht_projectsInProgressCount',
+                    'header' => $searchModel->attributeLabels()['pbxht_projectsInProgressCount'],
+                ],
+                [
+                    'attribute' => 'pbxht_tasksCount',
+                    'header' => $searchModel->attributeLabels()['pbxht_tasksCount'],
+                ],
+            ],
+        ]);
+
+        // отправим письмо с файлом
+        Yii::$app->mailer->compose([
+            'html' => 'pbxCallsHasProjectsAndTasksAssigned-html',
+        ], [
+            'operatingDate' => $operatingDate,
+        ])
+            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderCompanyWaste']])
+            ->setTo('bugrovap@gmail.com')
+            ->setSubject('Незавершенные проекты и наличие задач по контрагентам на ' . Yii::$app->formatter->asDate($operatingDate, 'php:d.m.Y'))
+            ->attach($ffp)
+            ->send();
+
+        // удалим файл после попытки отправить письмо: не важно успешной она была или нет
+        if (file_exists($ffp)) unlink($ffp);
+    }
+
+    /**
+     * Запускается один раз в пять минут, идентифицирует сайты у звонков, у которых они не идентифицированы.
+     * identify-website-in-cdr
+     */
+    public function actionIdentifyWebsiteInCdr()
+    {
+        // делаем выборку номеров телефонов с сайтами, которым они принадлежат
+        $knownPhones = ArrayHelper::map(pbxExternalPhoneNumber::find()->all(), 'phone_number', 'website_id');
+
+        $calls = pbxCalls::find()
+            ->where(['website_id' => null])
+            ->andWhere(['not', ['userfield' => null]])
+            ->andWhere('userfield <> ""')
+            ->orderBy('calldate DESC')
+            ->limit(100)
+            ->all();
+        foreach ($calls as $call) {
+            if (is_numeric($call->userfield)) {
+                $website = ArrayHelper::getValue($knownPhones, $call->userfield);
+                if (!empty($website)) {
+                    //print '<p>Для номера ' . $call->userfield . ' определен сайт ' . $website . '.</p>';
+                    $call->updateAttributes([
+                        'website_id' => $website,
+                    ]);
+                }
+                unset($website);
+            }
+            //else print '<strong>Не число</strong>';
+        }
+    }
+
+    public function actionTemp()
+    {
+
     }
 }

@@ -4,7 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use yii\web\JsExpression;
 use kartik\select2\Select2;
 

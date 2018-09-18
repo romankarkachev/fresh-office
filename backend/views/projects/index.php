@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\foProjectsSearch */
@@ -28,8 +28,6 @@ $this->params['breadcrumbs'][] = 'Проекты';
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'id' => 'gw-projects',
-        'layout' => '{summary}{items}{pager}',
-        'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             [
                 'class' => 'yii\grid\CheckboxColumn',

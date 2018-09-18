@@ -5,6 +5,7 @@
 
 $this->title = 'Новый файл | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => 'Файловое хранилище', 'url' => ['/storage']];
+if (isset($bcCa)) $this->params['breadcrumbs'][] = $bcCa;
 $this->params['breadcrumbs'][] = 'Новый *';
 ?>
 <div class="file-storage-create">

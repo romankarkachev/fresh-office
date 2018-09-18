@@ -31,7 +31,8 @@ class IndexFieldBehavior extends Behavior
      */
     public static function processValue($source)
     {
-        $clean_value = preg_replace("/[^a-zA-ZА-Яа-я0-9\s]/", '', $source);
+        $clean_value = str_replace(chr(32), '', $source);
+        $clean_value = preg_replace("/[^a-zA-ZА-Яа-я0-9\s]/", '', $clean_value);
         $clean_value = mb_strtolower($clean_value);
         return $clean_value;
     }

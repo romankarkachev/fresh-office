@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\User;
 use Yii;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjects;
@@ -10,6 +11,8 @@ use common\models\AssignFerrymanForm;
 use common\models\FerrymanOrderForm;
 use common\models\Ferrymen;
 use common\models\Projects;
+use common\models\ProjectsRatingsSearch;
+use moonland\phpexcel\Excel;
 use yii\bootstrap\ActiveForm;
 use yii\data\ArrayDataProvider;
 use yii\db\Expression;
@@ -39,6 +42,18 @@ class ProjectsController extends Controller
                         'actions' => ['direct-sql-counteragents-list'],
                         'allow' => true,
                         'roles' => ['@'],
+                    ],
+                    [
+                        'actions' => ['ratings', 'states-matrix'],
+                        'allow' => true,
+                        'roles' => ['root'],
+                    ],
+                    [
+                        'actions' => [
+                            'ferrymen-casting', 'cast-ferryman-by-region',
+                        ],
+                        'allow' => true,
+                        'roles' => ['root', 'logist'],
                     ],
                     [
                         'actions' => [
@@ -81,69 +96,67 @@ class ProjectsController extends Controller
     }
 
     /**
-     * Updates an existing HandlingKinds model.
-     * If update is successful, the browser will be redirected to the 'view' page.
-     * @param integer $id
+     * Отображает список проектов с оценками, выставленными клиентами.
      * @return mixed
      */
-    public function actionUpdate($id)
+    public function actionRatings()
     {
-        // не работает
-        /*
-        $model = $this->findModel($id);
+        $searchModel = new ProjectsRatingsSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
-        if ($model->load(Yii::$app->request->post())) {
-            //$model->save();
-            return $this->redirect(['/projects']);
-        } else {
-            return $this->render('update', [
-                'model' => $model,
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('ratings', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'isDetailed' => !empty($searchModel->searchDetailed),
+            'searchApplied' => $searchApplied,
+        ]);
+    }
+
+    /**
+     * Отображает матрицу проектов с их статусами, изменявшимся во времени. Первая колонка- id проекта, остальные колонки -
+     * это статусы, в ячейках дата приобретения статуса.
+     * @return mixed
+     */
+    public function actionStatesMatrix()
+    {
+        $searchModel = new foProjectsSearch();
+        list ($dataProvider, $columns) = $searchModel->searchForMatrix(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        if (Yii::$app->request->get('export') != null) {
+            if ($dataProvider->getTotalCount() == 0) {
+                Yii::$app->getSession()->setFlash('error', 'Нет данных для экспорта.');
+                $this->redirect(['/projects/states-matrix']);
+                return false;
+            }
+
+            // уберем поле value, для экспорта оно не годится
+            $searchModel->removeSortColumn($columns, 'value');
+
+            Excel::export([
+                'models' => $dataProvider->getModels(),
+                'fileName' => 'Матрица статусов проектов (сформирован '.date('Y-m-d в H i').').xlsx',
+                'format' => 'Excel2007',
+                'columns' => $columns,
             ]);
         }
-        */
+        else {
+            // в кнопку Экспорт в Excel встраиваем строку запроса
+            $queryString = '';
+            if (Yii::$app->request->queryString != '') $queryString = '&'.Yii::$app->request->queryString;
 
-        $query_text = '
-SELECT LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY AS id
-,LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT AS type_id, LIST_SPR_PROJECT.NAME_PROJECT AS type_name
-,ADD_vivozdate
-,[DATE_START_PROJECT] AS date_start
-,[DATE_FINAL_PROJECT] AS date_end
-,LIST_PROJECT_COMPANY.ID_COMPANY AS ca_id, COMPANY.COMPANY_NAME AS ca_name
-,LIST_PROJECT_COMPANY.ID_MANAGER_VED AS manager_id, MANAGERS.MANAGER_NAME AS manager_name
-,payment.amount
-,payment.cost
-,LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT AS state_id, LIST_SPR_PRIZNAK_PROJECT.PRIZNAK_PROJECT AS state_name
-,ADD_perevoz AS perevoz
-,ADD_proizodstvo AS proizodstvo
-,ADD_oplata AS oplata
-,ADD_adres AS adres
-,ADD_dannie AS dannie
-,ADD_ttn AS ttn
-,ADD_wieght AS weight
-FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_PROJECT_COMPANY]
-LEFT JOIN LIST_SPR_PROJECT ON LIST_SPR_PROJECT.ID_LIST_SPR_PROJECT = LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT
-LEFT JOIN LIST_SPR_PRIZNAK_PROJECT ON LIST_SPR_PRIZNAK_PROJECT.ID_PRIZNAK_PROJECT = LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT
-LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY
-LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = LIST_PROJECT_COMPANY.ID_MANAGER_VED
-LEFT JOIN (
-	SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR) AS amount, SUM(SS_PRICE_TOVAR) AS cost
-	FROM [CBaseCRM_Fresh_7x].[dbo].[LIST_TOVAR_PROJECT]
-	GROUP BY ID_LIST_PROJECT_COMPANY
-) AS payment ON payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY
-WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
+            // для таблицы GridView уберем поле header, чтобы можно было сортировать по колонкам
+            $searchModel->removeSortColumn($columns, 'header');
 
-        $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
-
-        $model = new foProjects();
-        $model->attributes = $result[0];
-        $model->isNewRecord = false;
-
-        if ($model->load(Yii::$app->request->post())) {
-            //$model->save();
-            return $this->redirect(['/projects']);
-        } else {
-            return $this->render('update', [
-                'model' => $model,
+            return $this->render('states_matrix', [
+                'searchModel' => $searchModel,
+                'dataProvider' => $dataProvider,
+                'columns' => $columns,
+                'searchApplied' => $searchApplied,
+                'queryString' => $queryString,
             ]);
         }
     }
@@ -176,32 +189,54 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
     /**
      * Выполняет подбор перевозчиков по переданному в параметрах региону.
      * @param $region_id integer идентификатор региона, по которому выполняется отбор перевозчиков
+     * @param $is_detailed bool признак необходимости детализировать выборку
      * @return mixed
      */
-    public function actionCastFerrymanByRegion($region_id)
+    public function actionCastFerrymanByRegion($region_id, $is_detailed)
     {
-        return $this->renderAjax('_fc_table', [
-            'dataProvider' => new ArrayDataProvider([
-                'allModels' => Projects::find()
+        if (Yii::$app->request->isAjax) {
+            $is_detailed = boolval(Json::decode($is_detailed));
+            $region_id = intval($region_id);
+
+            if ($is_detailed) {
+                $data = Projects::find()
                     ->select([
                         'projects.*',
                         'ferrymanRep' => new Expression('CASE WHEN ferryman_id IS NULL THEN ferryman_origin ELSE ferrymen.name END')
-                    ])->where(['region_id' => intval($region_id)])->joinWith('ferryman')->all(),
-                'key' => 'id',
-                'pagination' => false,
-                'sort' => [
-                    'defaultOrder' => ['id' => SORT_DESC],
-                    'route' => '/projects/cast-ferryman-by-region',
-                    'attributes' => [
-                        'id',
-                        'ferrymanRep',
-                        'data',
-                        'address',
-                        'cityName',
+                    ])->where(['region_id' => intval($region_id)])->joinWith('ferryman')->all();
+            }
+            else {
+                $data = Projects::find()
+                    ->select([
+                        'cityNames' => 'GROUP_CONCAT(DISTINCT city.name ORDER BY city.name SEPARATOR ", ")',
+                        'ferrymanRep' => new Expression('CASE WHEN ferryman_id IS NULL THEN ferryman_origin ELSE ferrymen.name END')
+                    ])->where(['projects.region_id' => $region_id])
+                    ->joinWith(['ferryman', 'city'])->orderBy('ferrymanRep')->groupBy(['ferrymanRep'])->all();
+            }
+
+            return $this->renderAjax('_fc_table', [
+                'is_detailed' => $is_detailed,
+                'dataProvider' => new ArrayDataProvider([
+                    'allModels' => $data,
+                    'key' => 'id',
+                    'pagination' => [
+                        'route' => '/projects/cast-ferryman-by-region',
+                        'pageSize' => 50,
                     ],
-                ],
-            ]),
-        ]);
+                    'sort' => [
+                        'defaultOrder' => ['id' => SORT_DESC],
+                        'route' => '/projects/cast-ferryman-by-region',
+                        'attributes' => [
+                            'id',
+                            'ferrymanRep',
+                            'data',
+                            'address',
+                            'cityName',
+                        ],
+                    ],
+                ]),
+            ]);
+        }
     }
 
     /**
@@ -339,6 +374,7 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
             $model->hasVat = FerrymanOrderForm::VAT_MIT;
             $model->load_time = FerrymanOrderForm::DEFAULT_VALUE_LOAD_TIME;
             $model->special_conditions = FerrymanOrderForm::DEFAULT_VALUE_SPECIAL_CONDITIONS;
+            $model->unload_address = FerrymanOrderForm::DEFAULT_VALUE_UNLOAD_ADDRESS;
 
             $project = DirectMSSQLQueries::fetchProjectsData($id);
             if (count($project) > 0) {
@@ -425,9 +461,13 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
 
             // стоимость
             $spellout = Yii::$app->formatter->asSpellout($model->amount);
+            /*
             $spellout = str_replace('целых', 'руб.', $spellout);
             $spellout = str_replace('сотых', 'коп.', $spellout);
-            $amount = Yii::$app->formatter->asCurrency($model->amount) . ' (' . $spellout . ') б/нал. ' . ($model->hasVat == 0 ? 'без НДС' : 'с НДС') . ' 10 б/д по ФТТН';
+            */
+            $spellout = str_replace('целых', ' ', $spellout);
+            $spellout = str_replace('сотых', '', $spellout);
+            $amount = Yii::$app->formatter->asDecimal($model->amount) . ' (' . $spellout . ') руб. б/нал. ' . ($model->hasVat == 0 ? 'без НДС' : 'с НДС') . ' 10 б/д по ФТТН';
 
             // представление транспорнтого средства
             $transportRep = '';
@@ -443,19 +483,19 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
             $driverRep = '';
             if ($model->driver != null) {
                 $driverRep = $model->driver->surname . ' ' . $model->driver->name . ' ' . $model->driver->patronymic;
-                $driverRep .= ' ' . $model->driver->pass_serie . ' ' . $model->driver->pass_num .
+                $driverRep .= ' паспорт ' . $model->driver->pass_serie . ' ' . $model->driver->pass_num .
                     ' выдан ' . Yii::$app->formatter->asDate($model->driver->pass_issued_at, 'php:d.m.Y') . ' ' .
                     $model->driver->pass_issued_by;
-                $driverRep .= ', тел. ' . $model->driver->phone;
+                $driverRep .= ', тел. ' . Ferrymen::normalizePhone($model->driver->phone);
                 if ($model->driver->phone2 != null && $model->driver->phone2 != '')
-                    $driverRep .= ' ' . $model->driver->phone2;
+                    $driverRep .= ', ' . Ferrymen::normalizePhone($model->driver->phone2);
             }
 
             $arraySubst = [
                 '%PROJECT_NUM%' => $model->project_id,
-                '%PROJECT_DATE%' => Yii::$app->formatter->asDate(time(), 'php:d.m.Y'),
+                '%PROJECT_DATE%' => Yii::$app->formatter->asDate(time(), 'php:d.m.Y г.'),
                 '%CUSTOMER_REP%' => $customerRep,
-                '%FERRYMAN_REP%' => $model->ferryman->name_short . ', ИНН ' . $model->ferryman->inn,
+                '%FERRYMAN_REP%' => (!empty($model->ferryman->name_short) ? $model->ferryman->name_short : $model->ferryman->name) . ', ИНН ' . $model->ferryman->inn,
                 '%LOAD_ADDRESS%' => $address,
                 '%UNLOAD_ADDRESS%' => $model->unload_address,
                 '%LOAD_DATE%' => Yii::$app->formatter->asDate($project['vivozdate'], 'php:d.m.Y'),
@@ -468,14 +508,20 @@ WHERE LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY=' . $id;
                 '%DRIVER_REP%' => $driverRep,
             ];
 
+            // имя шаблона определяется в соответствии с ОГРН выбранной организации
+            $tmplName = 'tmpl_ferrymanOrder.docx';
+            if (!empty($model->organization) && !empty($model->organization->ogrn)) {
+                $tmplName = 'tmpl_ferrymanOrder_' . $model->organization->ogrn . '.docx';
+            }
+
             $docx_gen = new \DocXGen;
-            $docx_gen->docxTemplate($tmplDir . 'tmpl_ferrymanOrder.docx', $arraySubst, $r);
+            $docx_gen->docxTemplate($tmplDir . $tmplName, $arraySubst, $r);
 
             if (preg_match('/^[a-z0-9]+\.[a-z0-9]+$/i', $rn) !== 0 || !is_file("$ffp")) {
                 throw new NotFoundHttpException('Запрошенный файл не существует.');
             }
 
-            \Yii::$app->response->sendFile($ffp, $rn, ['mimeType'=>'application/docx']);
+            \Yii::$app->response->sendFile($ffp, $rn, ['mimeType' => 'application/docx']);
             if (file_exists($ffp)) unlink($ffp);
         }
     }

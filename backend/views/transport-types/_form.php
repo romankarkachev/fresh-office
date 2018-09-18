@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
+use yii\widgets\MaskedInput;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\TransportTypes */
@@ -12,13 +13,25 @@ use yii\bootstrap\ActiveForm;
     <?php $form = ActiveForm::begin(); ?>
 
     <div class="row">
+        <div class="col-md-8">
+            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'unloading_time', [
+                'template' => '{label}<div class="input-group">{input}<span class="input-group-addon">мин.</span></div>{error}',
+            ])->widget(MaskedInput::class, [
+                'clientOptions' => ['alias' =>  'numeric'],
+            ])->textInput([
+                'maxlength' => true,
+                'placeholder' => '0',
+                'title' => 'Время в минутах, которое требуется для полной разгрузки транспортного средства',
+            ])->label('Время разгрузки') ?>
+
+        </div>
         <div class="col-md-2">
             <label for="<?= strtolower($model->formName()) ?>-is_spec" class="control-label"><?= $model->getAttributeLabel('is_spec') ?></label>
             <?= $form->field($model, 'is_spec')->checkbox()->label(false) ?>
-
-        </div>
-        <div class="col-md-10">
-            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
 
         </div>
     </div>

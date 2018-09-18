@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\TransportSearch */
@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = 'Транспорт';
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
-        <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
+        <?php // echo Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
 
     </p>
     <?= GridView::widget([
@@ -42,6 +42,7 @@ $this->params['breadcrumbs'][] = 'Транспорт';
             'stateName',
             'brandName',
             'ttName',
+            'ttUnloadingTime',
             // колонка преобразована в другую и скрыта за ненадобностью
             [
                 'header' => 'VIN и госномер',

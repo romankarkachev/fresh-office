@@ -2,7 +2,6 @@
 
 namespace backend\controllers;
 
-use common\models\CorrespondencePackages;
 use Yii;
 use yii\helpers\ArrayHelper;
 use yii\web\Controller;
@@ -11,6 +10,7 @@ use yii\filters\AccessControl;
 use moonland\phpexcel\Excel;
 use common\models\DirectMSSQLQueries;
 use common\models\TransportRequests;
+use common\models\CorrespondencePackages;
 use common\models\ReportTurnover;
 use common\models\ReportNofinances;
 use common\models\ReportAnalytics;
@@ -20,6 +20,7 @@ use common\models\ReportEmptycustomers;
 use common\models\ReportTRAnalytics;
 use common\models\ReportCorrespondenceAnalytics;
 use common\models\ReportFileStorageStats;
+use common\models\ReportPbxAnalytics;
 
 /**
  * Reports controller
@@ -54,6 +55,7 @@ class ReportsController extends Controller
                         'actions' => [
                             'emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics', 'tr-analytics',
                             'correspondence-analytics', 'correspondence-manual-analytics', 'file-storage-stats',
+                            'pbx-analytics', 'pbx-calls-has-tasks-assigned',
                         ],
                         'allow' => true,
                         'roles' => ['root'],
@@ -529,5 +531,102 @@ class ReportsController extends Controller
             'dpTable1' => $dpTable1,
             'dpTable2' => $dpTable2,
         ]);
+    }
+
+    /**
+     * @return mixed
+     */
+    public function actionPbxAnalytics()
+    {
+        $searchModel = new ReportPbxAnalytics();
+
+        // Таблица 1. Общие показатели.
+        $dpTable1 = $searchModel->makeDataProviderForTable1(Yii::$app->request->queryParams);
+
+        // Таблица 2, 3, 4, 5: Распределение по регионам, Распределение по сотрудникам, Распределение по сайтам, Потерянные звонки
+        list($dpTable2, $dpTable3, $dpTable4, $dpTable5) = $searchModel->search(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('pbxcalls', [
+            'searchModel' => $searchModel,
+            'searchApplied' => $searchApplied,
+            'dpTable1' => $dpTable1,
+            'dpTable2' => $dpTable2,
+            'dpTable3' => $dpTable3,
+            'dpTable4' => $dpTable4,
+            'dpTable5' => $dpTable5,
+        ]);
+    }
+
+    /**
+     * Отображает отчет по задачам и незавершенным проектам контрагентов, которые звонили сегодня и были идентифицированы.
+        SELECT COMPANY.[ID_COMPANY], [COMPANY_NAME], (
+            SELECT COUNT(ID_LIST_PROJECT_COMPANY) FROM CBaseCRM_Fresh_7x.dbo.LIST_PROJECT_COMPANY
+            WHERE COMPANY.ID_COMPANY = LIST_PROJECT_COMPANY.ID_COMPANY AND ID_PRIZNAK_PROJECT <> 25
+        ), (
+            SELECT COUNT(ID_CONTACT) FROM CBaseCRM_Fresh_7x.dbo.LIST_CONTACT_COMPANY
+            WHERE COMPANY.ID_COMPANY = LIST_CONTACT_COMPANY.ID_COMPANY AND ID_PRIZNAK_CONTACT <> 2
+        )
+        FROM [CBaseCRM_Fresh_7x].[dbo].[COMPANY]
+        WHERE ID_COMPANY IN (6757, 13592, 8243, 11417, 6989)
+        ORDER BY COMPANY_NAME
+     *
+     * @return mixed
+     */
+    public function actionPbxCallsHasTasksAssigned()
+    {
+        $searchModel = new ReportPbxAnalytics();
+        $dataProvider = $searchModel->searchCurrentTasks(Yii::$app->request->queryParams);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        if (Yii::$app->request->get('export') != null) {
+            if ($dataProvider->getTotalCount() == 0) {
+                Yii::$app->getSession()->setFlash('error', 'Нет данных для экспорта.');
+                $this->redirect(['/reports/pbx-calls-has-tasks-assigned']);
+                return false;
+            }
+
+            Excel::export([
+                'models' => $dataProvider->getModels(),
+                'fileName' => 'Незавершенные проекты и наличие задач по контрагентам на дату ' . Yii::$app->formatter->asDate($searchModel->searchPeriodEnd, 'php:d F Y') . ' (сформирован '.date('Y-m-d в H i').').xlsx',
+                'format' => 'Excel2007',
+                'columns' => [
+                    [
+                        'attribute' => 'pbxht_id',
+                        'header' => $searchModel->attributeLabels()['pbxht_id'],
+                    ],
+                    [
+                        'attribute' => 'pbxht_name',
+                        'header' => $searchModel->attributeLabels()['pbxht_name'],
+                    ],
+                    [
+                        'attribute' => 'pbxht_managerName',
+                        'header' => $searchModel->attributeLabels()['pbxht_managerName'],
+                    ],
+                    [
+                        'attribute' => 'pbxht_projectsInProgressCount',
+                        'header' => $searchModel->attributeLabels()['pbxht_projectsInProgressCount'],
+                    ],
+                    [
+                        'attribute' => 'pbxht_tasksCount',
+                        'header' => $searchModel->attributeLabels()['pbxht_tasksCount'],
+                    ],
+                ],
+            ]);
+        }
+        else {
+            // в кнопку Экспорт в Excel встраиваем строку запроса
+            $queryString = '';
+            if (Yii::$app->request->queryString != '') $queryString = '&' . Yii::$app->request->queryString;
+
+            return $this->render('pbxhastasks', [
+                'searchModel' => $searchModel,
+                'dataProvider' => $dataProvider,
+                'searchApplied' => $searchApplied,
+                'queryString' => $queryString,
+            ]);
+        }
     }
 }

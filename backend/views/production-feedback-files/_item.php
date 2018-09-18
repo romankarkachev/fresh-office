@@ -17,7 +17,12 @@ else
 ?>
 <?php if ($renderHeader): ?>
 <div class="clearfix"></div>
-<h4>Проект <strong><?= $item->project_id ?></strong>, файлы отправлены <?= Yii::$app->formatter->asDate($item->uploaded_at, 'php:d.m.Y в H:i') ?> пользователем <?= $item->uploadedByName ?> <?= $icon ?></h4>
+<h4>
+    Проект <strong><?= $item->project_id ?></strong>
+    <small><?= Html::a('<i class="fa fa-share-square-o" aria-hidden="true"></i>', ['/storage', (new \common\models\FileStorageSearch())->formName() => ['ca_id' => $item->ca_id]], ['title' => 'Открыть файлы этого контрагента в хранилище', 'target' => '_blank']); ?></small>,
+    файлы отправлены <?= Yii::$app->formatter->asDate($item->uploaded_at, 'php:d.m.Y в H:i') ?> пользователем <?= $item->uploadedByName ?>
+    <?= $icon ?>
+</h4>
 <div class="clearfix"></div>
 <?php endif; ?>
     <?= Html::a(

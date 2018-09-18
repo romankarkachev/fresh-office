@@ -42,9 +42,6 @@ class OrganizationsSearch extends Organizations
     public function search($params)
     {
         $query = Organizations::find();
-
-        // add conditions that should always apply here
-
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
         ]);

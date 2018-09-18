@@ -381,7 +381,7 @@ WHERE' . $conditionsExcludeIds . '
     LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT = ' . ProjectsStates::STATE_ТРАНСПОРТ_ЗАКАЗАН . '
     AND LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT IN (' . implode(',', ResponsibleByProjectTypes::PROJECT_TYPES_PDF) . ')
     AND ADD_vivozdate BETWEEN ' . $today . ' AND ' . $zwo_days_plus . '
-    AND (ADD_proizodstvo = \'Ступино\' OR ADD_proizodstvo = \'Воскресенск\' OR ADD_proizodstvo = \'Рошаль\')
+    AND (ADD_proizodstvo = \'Ступино\' OR ADD_proizodstvo = \'Воскресенск\' OR ADD_proizodstvo = \'Рошаль\' OR ADD_proizodstvo = \'Потресово\')
 ORDER BY LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT';
 
         $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();

@@ -4,6 +4,7 @@ use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
+use kartik\datecontrol\DateControl;
 use common\models\PaymentOrdersSearch;
 use common\models\Ferrymen;
 
@@ -27,6 +28,56 @@ else
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
             <div class="row">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchPaymentDateStart')->widget(DateControl::className(), [
+                        'value' => $model->searchPaymentDateStart,
+                        'type' => DateControl::FORMAT_DATE,
+                        'language' => 'ru',
+                        'displayFormat' => 'php:d.m.Y',
+                        'saveFormat' => 'php:Y-m-d',
+                        'widgetOptions' => [
+                            'options' => ['placeholder' => 'дата оплаты с', 'title' => 'Начало периода для отбора по дате оплаты'],
+                            'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                            'layout' => '<div class="input-group">{input}{picker}</div>',
+                            'pluginOptions' => [
+                                'todayHighlight' => true,
+                                'weekStart' => 1,
+                                'autoclose' => true,
+                            ],
+                            'pluginEvents' => [
+                                'changeDate' => 'function(e) {
+anyDateOnChange();
+                                }',
+                            ],
+                        ],
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchPaymentDateEnd')->widget(DateControl::className(), [
+                        'value' => $model->searchPaymentDateEnd,
+                        'type' => DateControl::FORMAT_DATE,
+                        'language' => 'ru',
+                        'displayFormat' => 'php:d.m.Y',
+                        'saveFormat' => 'php:Y-m-d',
+                        'widgetOptions' => [
+                            'options' => ['placeholder' => 'дата оплаты по', 'title' => 'Конец периода для отбора по дате оплаты'],
+                            'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                            'layout' => '<div class="input-group">{input}{picker}</div>',
+                            'pluginOptions' => [
+                                'todayHighlight' => true,
+                                'weekStart' => 1,
+                                'autoclose' => true,
+                            ],
+                            'pluginEvents' => [
+                                'changeDate' => 'function(e) {
+anyDateOnChange();
+                                }',
+                            ],
+                        ],
+                    ]) ?>
+
+                </div>
                 <div class="col-md-3 col-lg-2">
                     <?= $form->field($model, 'ferryman_id')->widget(Select2::className(), [
                         'data' => Ferrymen::arrayMapForSelect2(),
@@ -55,7 +106,7 @@ else
                 </div>
             </div>
             <div class="form-group">
-                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info']) ?>
+                <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info', 'id' => 'btnSearch']) ?>
 
                 <?= Html::a('Отключить отбор', ['/payment-orders'], ['class' => 'btn btn-default']) ?>
 

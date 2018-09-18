@@ -2,16 +2,18 @@
 
 namespace backend\controllers;
 
-use common\models\AppealSources;
-use common\models\DirectMSSQLQueries;
-use common\models\FreshOfficeAPI;
-use common\models\ResponsibleRefusal;
+use common\models\MobileAppGeopos;
+use common\models\User;
 use Yii;
 use yii\web\Controller;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 use common\models\Appeals;
 use common\models\ExternalAppealForm;
+use common\models\AppealSources;
+use common\models\DirectMSSQLQueries;
+use common\models\FreshOfficeAPI;
+use common\models\ResponsibleRefusal;
 
 /**
  * ApiController содержит методы для добавления обращения из форм снаружи, отслеживания изменения финансового состояния
@@ -27,7 +29,7 @@ class ApiController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['process-form', 'check-finances', 'update-counteragents-names'],
+                'only' => ['process-form', 'check-finances', 'update-counteragents-names', 'test', 'accept-geopos'],
                 'rules' => [
                     [
                         'allow' => true,
@@ -48,10 +50,15 @@ class ApiController extends Controller
      */
     public function beforeAction($action)
     {
-        if ($action->id === 'process-form') {
-            // для этого экшна отключаем проверку на доступ извне
-            $this->enableCsrfValidation = false;
+        switch ($action->id) {
+            case 'process-form':
+            case 'test':
+            case 'accept-geopos':
+                // для этих экшнов отключаем проверку на доступ извне иначе отдает ошибку 400
+                $this->enableCsrfValidation = false;
+                break;
         }
+
         return parent::beforeAction($action);
     }
 
@@ -213,6 +220,60 @@ WHERE COMPANY.ID_COMPANY IN (' . implode(',', $ca_ids) . ')';
                 if ($appeal_model != null) {
                     $appeal_model->fo_company_name = $appeal['ca_name'];
                     $appeal_model->save();
+                }
+            }
+        }
+    }
+
+    public function actionTest()
+    {
+        $errorMsg = '';
+
+        Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $model = \Yii::createObject(\dektrium\user\models\LoginForm::className());
+        if ($model->load(\Yii::$app->request->post())) {
+            if ($model->login()) {
+                $user = \Yii::$app->user->identity;
+                return [
+                    'error' => false,
+                    'name' => $user->profile->name,
+                    'token' => $user->auth_key,
+                ];
+            }
+            else $errorMsg = 'Не удалось авторизоваться по этим учетным данным';
+        }
+        else $errorMsg = 'Не загружена модель';
+
+        return [
+            'error' => true,
+            'errorMsg' => $errorMsg,
+        ];
+    }
+
+    /**
+     * Принимает координаты пользователя из мобильного приложения и сохраняет их в базу (если уже есть, то обновляет).
+     * accept-geopos
+     */
+    public function actionAcceptGeopos()
+    {
+        // отыщем пользователя по токену
+        $token = Yii::$app->request->post('token');
+        if (!empty($token)) {
+            $user = User::findOne(['auth_key' => $token, 'blocked_at' => null]); // пользователь не должен быть заблокирован
+            if ($user) {
+                // координаты пришли от пользователя, который зарегистрирован в нашей системе
+                $model = MobileAppGeopos::findOne(['user_id' => $user->id]);
+                if ($model) {
+                    $model->arrived_at = time();
+                }
+                else {
+                    $model = new MobileAppGeopos();
+                    $model->user_id = $user->id;
+                }
+
+                if ($model->load(Yii::$app->request->post())) {
+                    $model->save();
                 }
             }
         }

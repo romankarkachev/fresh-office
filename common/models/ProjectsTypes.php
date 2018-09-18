@@ -38,6 +38,20 @@ class ProjectsTypes extends \yii\db\ActiveRecord
         self::PROJECT_TYPE_САМОПРИВОЗ,
     ];
 
+    const НАБОР_ВЫВОЗ_ЗАКАЗЫ = [
+        ProjectsTypes::PROJECT_TYPE_ВЫВОЗ,
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА,
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА,
+    ];
+
+    const НАБОР_ВЫВОЗ_ЗАКАЗЫ_ДОКУМЕНТЫ = [
+        ProjectsTypes::PROJECT_TYPE_ВЫВОЗ,
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА,
+        ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА,
+        ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ,
+        ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ_ПОСТОПЛАТА,
+    ];
+
     /**
      * @inheritdoc
      */

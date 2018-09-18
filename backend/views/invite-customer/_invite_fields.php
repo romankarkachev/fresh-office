@@ -3,7 +3,7 @@
 use kartik\select2\Select2;
 
 /* @var $this yii\web\View */
-/* @var $model \backend\models\CustomerInvitationForm */
+/* @var $model backend\models\CustomerInvitationForm */
 /* @var $emails array массив E-mail адресов заказчика */
 /* @var $form yii\bootstrap\ActiveForm */
 ?>

@@ -13,6 +13,7 @@ use common\models\FileStorageStats;
 use yii\bootstrap\ActiveForm;
 use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -366,6 +367,10 @@ class StorageController extends Controller
         $model = new FileStorage();
         $model->scenario = 'create';
 
+        $params = [
+            'model' => $model,
+        ];
+
         if ($model->load(Yii::$app->request->post())) {
             $pifp = $model->getUploadsFilepath();
             if ($pifp === false)
@@ -383,32 +388,83 @@ class StorageController extends Controller
                     $storedFolder->save();
                 }
 
-                $file = UploadedFile::getInstance($model, 'file');
-                if ($file != null) {
+                $arrayOfModels = []; // в массив будут помещаться все успешно импортированные файлы, запись в базу произойдет пачкой и разом
+                $uploadedAt = time();
+                $uploadedBy = Yii::$app->user->id;
+                $model->file = UploadedFile::getInstances($model, 'file');
+                foreach ($model->file as $file) {
                     $fn = Yii::$app->security->generateRandomString() . '.' . $file->extension;
                     $ffp = $pifp . '/' . $fn;
-                    // описываем загруженный файл: полный путь, имя, оргиниальное имя, размер
-                    $model->ffp = $ffp;
-                    $model->fn = $fn;
-                    $model->ofn = $file->name;
 
                     if ($file->saveAs($ffp)) {
-                        $model->size = filesize($ffp);
-                        $model->file = true; // помечаем, что файл предоставлен, чтобы успешно пройти валидацию
-                        if ($model->save()) return $this->redirect(['/storage', 'FileStorageSearch' => ['ca_id' => $model->ca_id]]);
-                        else
-                            // удалим загруженный файл
-                            if (file_exists($ffp)) unlink($ffp);
+                        $arrayOfModels[] = [
+                            // дата и время загрузки (одно для всех)
+                            $uploadedAt,
+                            // автор загрузки
+                            $uploadedBy,
+                            // контрагент
+                            $model->ca_id,
+                            // наименование контрагента
+                            $model->ca_name,
+                            // тип контента
+                            $model->type_id,
+                            // полный путь
+                            $ffp,
+                            // имя
+                            $fn,
+                            // оргиниальное имя
+                            $file->name,
+                            // размер
+                            filesize($ffp),
+                        ];
                     }
-                    else
-                        $model->addError('file', 'Не удалось загрузить файл на сервер.');
                 }
+
+                $rowsAffected = 0;
+                if (count($arrayOfModels) > 0) {
+                    $rowsAffected = Yii::$app->db->createCommand()->batchInsert(FileStorage::tableName(), [
+                        'uploaded_at',
+                        'uploaded_by',
+                        'ca_id',
+                        'ca_name',
+                        'type_id',
+                        'ffp',
+                        'fn',
+                        'ofn',
+                        'size',
+                    ], $arrayOfModels)->execute();
+                }
+
+                if ($rowsAffected > 0 ) {
+                    // запоминаем контрагента и тип контента
+                    Yii::$app->session->set('storage_ca_id_' . Yii::$app->user->id, $model->ca_id);
+                    Yii::$app->session->set('storage_ca_name_' . Yii::$app->user->id, $model->ca_name);
+                    Yii::$app->session->set('storage_type_id_' . Yii::$app->user->id, $model->type_id);
+                }
+
+                return $this->redirect(['create']);
+            }
+        }
+        else {
+            $key = 'storage_ca_id_' . Yii::$app->user->id;
+            $sessionCaId = Yii::$app->session->get($key);
+            if ($sessionCaId != null) {
+                $model->ca_id = $sessionCaId;
+                $params['bcCa'] = ['label' => Yii::$app->session->get('storage_ca_name_' . Yii::$app->user->id), 'url' => ['/storage', 'FileStorageSearch' => ['ca_id' => $model->ca_id]]];
+
+                Yii::$app->session->remove($key);
+            }
+            unset($key);
+
+            $key = 'storage_type_id_' . Yii::$app->user->id;
+            $sessionTypeId = Yii::$app->session->get($key);
+            if ($sessionTypeId != null) {
+                $model->type_id = $sessionTypeId;
+                Yii::$app->session->remove($key);
             }
         }
 
-        return $this->render('create', [
-            'model' => $model,
-        ]);
+        return $this->render('create', $params);
     }
 
     /**
@@ -479,9 +535,9 @@ class StorageController extends Controller
      */
     public function actionDelete($id)
     {
+        Url::remember(Yii::$app->request->referrer);
         $this->findModel($id)->delete();
-
-        return $this->redirect(['/storage']);
+        return $this->goBack();
     }
 
     /**

@@ -66,7 +66,7 @@ class FreightsController extends Controller
             $dataProvider = $searchModel->search(ArrayHelper::merge([
                 'route' => 'freights',
                 $searchModel->formName() => [
-                    'oplata' => $ferryman->name_crm,
+                    'perevoz' => $ferryman->name_crm,
                 ],
             ], Yii::$app->request->queryParams));
 

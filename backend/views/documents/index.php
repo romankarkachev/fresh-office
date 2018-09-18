@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\DocumentsSearch */
@@ -19,7 +19,7 @@ $this->params['breadcrumbs'][] = 'Документы';
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'layout' => '{items}{pager}',
+
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             'id',

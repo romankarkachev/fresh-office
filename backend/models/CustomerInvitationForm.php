@@ -27,6 +27,11 @@ class CustomerInvitationForm extends Model
     public $email;
 
     /**
+     * @var bool признак необходимости использовать собственный почтовый адрес для перенаправления с него приглашения
+     */
+    public $is_use_gateway;
+
+    /**
      * @inheritdoc
      */
     public function rules()
@@ -34,6 +39,8 @@ class CustomerInvitationForm extends Model
         return [
             [['fo_id_company', 'email'], 'required'],
             [['email'], 'string'],
+            [['email'], 'trim'],
+            ['is_use_gateway', 'integer'],
             // значение в поле E-mail не должно быть обнаружено в таблице user, то есть пользователь должен быть уникален
             ['email', 'unique', 'targetClass' => User::class, 'targetAttribute' => 'email'],
         ];
@@ -47,6 +54,7 @@ class CustomerInvitationForm extends Model
         return [
             'fo_id_company' => 'Заказчик',
             'email' => 'E-mail',
+            'is_use_gateway' => 'Использовать шлюз',
         ];
     }
 
@@ -82,10 +90,17 @@ class CustomerInvitationForm extends Model
             $letter = Yii::$app->mailer->compose([
                 'html' => 'customerInvitation-html',
             ], ['token' => $model->token])
-                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderMelania']])
-                //->setTo($this->email)
-                ->setTo('post@romankarkachev.ru')
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderCompanyWaste']])
                 ->setSubject('Приглашение создать аккаунт в личном кабинете');
+
+            // если установлен признак "Использовать шлюз", то отправляем письмо себе же, с него менеджер перенаправит
+            // клиенту, а, зайдя по ссылке, клиент сможет зарегистрироваться на свой ящик (который выбран здесь)
+            if ($this->is_use_gateway) {
+                $letter->setTo('vip@st77.ru');
+            }
+            else {
+                $letter->setTo($this->email);
+            }
 
             return $letter->send();
         }

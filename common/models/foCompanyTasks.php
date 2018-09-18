@@ -9,12 +9,12 @@ use Yii;
  *
  * @property integer $ID_CONTACT
  * @property integer $ID_COMPANY
- * @property integer $ID_VID_CONTACT
+ * @property integer $ID_VID_CONTACT вид задачи (встреча | напоминание id 3 | обращение | ...) таблица [VID_CONTACT]
  * @property string $REZULTAT_CONTACT
  * @property string $DATA_CONTACT
  * @property string $DATA_NEXT_CONTACT
  * @property integer $ID_VID_CONTACT_NEXT
- * @property integer $ID_PRIZNAK_CONTACT
+ * @property integer $ID_PRIZNAK_CONTACT статус задачи(запланирован id 1 | выполнена id 2 | в процессе id 3) таблица [PRIZNAK_CONTACT]
  * @property string $TIME_CONTACT
  * @property string $TIME_NEXT_CONTACT
  * @property string $PRIMECHANIE
@@ -22,7 +22,7 @@ use Yii;
  * @property string $DATA_END_CONTACT
  * @property string $ID_CH
  * @property integer $ID_MANAGER
- * @property integer $ID_LIST_STATUS_CONTACT
+ * @property integer $ID_LIST_STATUS_CONTACT приоритет задачи (стандартная | высокая), таблица [LIST_STATUS_CONTACT]
  * @property integer $TRASH
  * @property string $DATA_CONTACT_FINAL
  * @property string $TIME_CONTACT_FINAL

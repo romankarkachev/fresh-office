@@ -68,6 +68,7 @@ class LicensesRequests extends \yii\db\ActiveRecord
             [['state_id', 'ca_email', 'org_id'], 'required'],
             [['created_at', 'created_by', 'state_id', 'ca_id', 'org_id'], 'integer'],
             [['comment'], 'string'],
+            [['comment'], 'default', 'value' => null],
             [['ca_email', 'ca_name'], 'string', 'max' => 255],
             ['ca_email', 'trim'],
             ['ca_email', 'email'],
@@ -102,6 +103,7 @@ class LicensesRequests extends \yii\db\ActiveRecord
             // вычисляемые поля
             'createdByName' => 'Менеджер',
             'stateName' => 'Статус запроса',
+            'organizationName' => 'Организация',
         ];
     }
 
@@ -143,12 +145,14 @@ class LicensesRequests extends \yii\db\ActiveRecord
                 $model = Fkko::findOne(['fkko_code' => intval($fkko)]);
                 $page = LicensesFkkoPages::find()->joinWith('file')->where(['fkko_id' => $model->id, 'licenses_files.organization_id' => $this->org_id])->one();
 
-                if ($model != null) {
+                // код ФККО может быть использован, только если он существует в нашей базе, а также если есть
+                // отсканированная страница с этим кодом
+                if ($model != null && !empty($page)) {
                     $lrFkko = new LicensesRequestsFkko([
                         'fkko_id' => $model->id,
+                        'file_id' => $page->file_id,
                     ]);
-                    // если известна страница, на которой расположен данный код, то зафиксируем сразу и его
-                    if ($page != null) $lrFkko->file_id = $page->file_id;
+
                     $this->tpFkkos[] = $lrFkko;
                 }
                 else

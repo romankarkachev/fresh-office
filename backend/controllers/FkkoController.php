@@ -217,11 +217,11 @@ class FkkoController extends Controller
 
                         // проверка на существование
                         // отключена, потому что группы и элементы могут быть похожими
-//                        if (in_array($fkko, $exists_nom)) {
-//                            $errors_import[] = 'Обнаружен дубликат: ' . $fkko . '. Пропущен.';
-//                            $row_number++;
-//                            continue;
-//                        }
+                        if (in_array($fkko, $exists_nom)) {
+                            $errors_import[] = 'Обнаружен дубликат: ' . $fkko . '. Пропущен.';
+                            $row_number++;
+                            continue;
+                        }
 
                         // пустые наименования и бессмысленные пропускаем
                         if ($name == '' || $name == '...') {

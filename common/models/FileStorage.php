@@ -77,7 +77,7 @@ class FileStorage extends \yii\db\ActiveRecord
             ['caFolderName', 'safe'],
             [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => UploadingFilesMeanings::className(), 'targetAttribute' => ['type_id' => 'id']],
             [['uploaded_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['uploaded_by' => 'id']],
-            [['file'], 'file', 'skipOnEmpty' => true],
+            [['file'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 0],
         ];
     }
 

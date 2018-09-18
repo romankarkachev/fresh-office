@@ -148,7 +148,7 @@ class FerrymenDriversController extends Controller
                 Yii::$app->session->setFlash('success', 'Файлы успешно загружены.');
             // -- файлы
 
-            return $this->redirect(['/ferrymen-drivers/update', 'id' => $model->id]);
+            if ($model->save()) return $this->redirect(['/ferrymen-drivers/update', 'id' => $model->id]);
         }
 
         $params = ['model' => $model];

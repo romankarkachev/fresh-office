@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use yii\widgets\Pjax;
 
 /* @var $this yii\web\View */
@@ -89,21 +89,7 @@ use yii\widgets\Pjax;
 
     </div>
 </div>
-<div id="mw_preview" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-info" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4 id="modal_title" class="modal-title">Предпросмотр файла</h4>
-            </div>
-            <div id="modal_body" class="modal-body">
-                <p>One fine body…</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
-            </div>
-        </div>
-    </div>
-</div>
+
 <?php
 $url = Url::to(['/transport-requests/preview-file']);
 
@@ -117,8 +103,9 @@ $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, in
 function previewFileOnClick() {
     id = $(this).attr("data-id");
     if (id != "") {
+        $("#modal_title").text("Предпросмотр файла");
         $("#modal_body").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
-        $("#mw_preview").modal();
+        $("#mw_summary").modal();
         $("#modal_body").load("$url?id=" + id);
     }
 

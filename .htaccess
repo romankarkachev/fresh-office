@@ -10,5 +10,8 @@ RewriteRule ^ferryman(\/?.*)$ ferryman/web/$1 [L]
 RewriteCond %{REQUEST_URI} ^/(customer)
 RewriteRule ^customer(\/?.*)$ customer/web/$1 [L]
 
+RewriteCond %{REQUEST_URI} ^/(cemail)
+RewriteRule ^cemail(\/?.*)$ cemail/web/$1 [L]
+
 RewriteCond %{REQUEST_URI} ^/
 RewriteRule ^(\/?.*)$ backend/web/$1 [L]

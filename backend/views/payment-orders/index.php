@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\Url;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 use backend\components\TotalsColumn;
 use common\models\PaymentOrdersStates;
 
@@ -20,6 +20,14 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
         <?= Html::a('<i class="fa fa-file-excel-o"></i> Импорт ордеров', ['import'], ['class' => 'btn btn-default pull-right']) ?>
+
+        <?= Html::a('<i class="fa fa-close"></i> Удалить черновики', ['drop-drafts'], [
+            'class' => 'btn btn-danger pull-right',
+            'data' => [
+                'confirm' => 'Вы действительно хотите удалить все черновые платежные ордеры из системы?',
+                'method' => 'post',
+            ]
+        ]) ?>
 
     </p>
     <?= GridView::widget([
@@ -158,6 +166,22 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
 </div>
 <?php
 $url = Url::to(['/payment-orders/change-state-on-the-fly']);
+
+$this->registerJs(<<<JS
+// Функция-обработчик изменения даты в любом из соответствующих полей.
+//
+function anyDateOnChange() {
+    \$button = $("#btnSearch");
+    \$button.attr("disabled", "disabled");
+    text = \$button.text();
+    \$button.text("Подождите...");
+    setTimeout(function () {
+        \$button.removeAttr("disabled");
+        \$button.text(text);
+    }, 1500);
+}
+JS
+, \yii\web\View::POS_BEGIN);
 
 $this->registerJs(<<<JS
 // Обработчик щелчка по кнопкам модерации.

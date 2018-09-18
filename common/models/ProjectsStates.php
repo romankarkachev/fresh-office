@@ -29,6 +29,7 @@ class ProjectsStates extends \yii\db\ActiveRecord
     const STATE_ОТДАНО_НА_ОТПРАВКУ = 18; // бухгалтер отнес менеджеру первичку
     const STATE_ОТПРАВЛЕНО = 19;
     const STATE_ДОСТАВЛЕНО = 20;
+    const STATE_ОЖИДАЕТ_ПРИСУТСТВИЕ_ФОТО_ВИДЕО = 23;
     const STATE_ЗАВЕРШЕНО = 25;
     const STATE_ОТКАЗ_КЛИЕНТА = 26;
     const STATE_НЕВЕРНОЕ_ОФОРМЛЕНИЕ_ЗАЯВКИ = 27;
@@ -38,8 +39,14 @@ class ProjectsStates extends \yii\db\ActiveRecord
     const STATE_У_ЗАКАЗЧИКА = 32;
     const STATE_ЕДЕТ_НА_СКЛАД = 33;
     const STATE_НА_СКЛАДЕ = 34;
+    const STATE_ДЕЖУРНЫЙ_МЕНЕДЖЕР = 36;
     const STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ = 38; // документы ушли от бухгалтера, но менеджер с ними еще не разбирался
+    const STATE_ОТЛОЖЕНО_КЛИЕНТОМ = 40;
     const STATE_ОЖИДАЕТ_ОТПРАВКИ = 43; // менеджер разобрался с документами, чуть ли не вложил в конверты пакеты документов
+    const STATE_ОПАНЬКИ = 44;
+    const STATE_СЭД = 45;
+    const STATE_ОТДАНО_НА_ПОДПИСЬ = 46;
+    const STATE_ДОКУМЕНТЫ_НА_СОГЛАСОВАНИИ_У_КЛИЕНТА = 47;
 
     const НАБОР_ОПЕРАТОРА = [
         self::STATE_ОЖИДАЕТ_ОТПРАВКИ,
@@ -66,6 +73,27 @@ class ProjectsStates extends \yii\db\ActiveRecord
         self::STATE_У_ЗАКАЗЧИКА,
         self::STATE_ЕДЕТ_НА_СКЛАД,
         self::STATE_НА_СКЛАДЕ,
+    ];
+
+    /**
+     * /services/notify-about-projects-outdated-by-custom-time
+     */
+    const НАБОР_ИСКЛЮЧЕНИЙ_ДЛЯ_ОПОВЕЩЕНИЯ_О_ПРОСРОЧЕННЫХ_ПРОЕКТАХ = [
+        self::STATE_ЗАВЕРШЕНО,
+        self::STATE_ОТКАЗ_КЛИЕНТА,
+        self::STATE_ОТЛОЖЕНО_КЛИЕНТОМ,
+        self::STATE_НЕВЕРНОЕ_ОФОРМЛЕНИЕ_ЗАЯВКИ,
+        self::STATE_ОЖИДАЕТ_ПРИСУТСТВИЕ_ФОТО_ВИДЕО,
+    ];
+
+    /**
+     * /reports/pbx-calls-has-tasks-assigned
+     */
+    const НАБОР_СТАТУСОВ_НЕЗАВЕРШЕННЫЕ_ПРОЕКТЫ = [
+        self::STATE_ЗАВЕРШЕНО,
+        self::STATE_ОТКАЗ_КЛИЕНТА,
+        self::STATE_ОТЛОЖЕНО_КЛИЕНТОМ,
+        self::STATE_НЕВЕРНОЕ_ОФОРМЛЕНИЕ_ЗАЯВКИ,
     ];
 
     /**

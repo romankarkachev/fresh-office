@@ -1,7 +1,7 @@
 <?php
 
 use yii\helpers\Html;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\AppealSourcesSearch */
@@ -17,7 +17,7 @@ $this->params['breadcrumbs'][] = 'Источники обращения';
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-        'layout' => '{items}{pager}',
+
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             'name',

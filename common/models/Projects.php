@@ -31,6 +31,11 @@ class Projects extends \yii\db\ActiveRecord
     public $ferrymanRep;
 
     /**
+     * @var string все города, куда ездил перевозчик, одной строкой
+     */
+    public $cityNames;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -74,6 +79,7 @@ class Projects extends \yii\db\ActiveRecord
             'ferrymanName' => 'Перевозчик',
             'ferrymanRep' => 'Перевозчик',
             'cityName' => 'Город',
+            'cityNames' => 'Города',
         ];
     }
 
@@ -108,7 +114,7 @@ class Projects extends \yii\db\ActiveRecord
      */
     public function getCityName()
     {
-        return $this->city != null ? $this->city : '';
+        return $this->city != null ? $this->city->name : '';
     }
 
     /**

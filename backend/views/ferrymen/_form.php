@@ -27,7 +27,7 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 
     <div class="row">
         <div class="col-md-3">
-            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование', 'readonly' => true]) ?>
+            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование', 'readonly' => true]) ?>
 
         </div>
         <div class="col-md-3">
@@ -138,6 +138,15 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
                     ],
                 ],
             ]) ?>
+
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-2">
+            <?= $form->field($model, 'ppdq')->widget(\yii\widgets\MaskedInput::className(), [
+                'mask' => '999999999',
+                'clientOptions' => ['placeholder' => ''],
+            ])->textInput(['placeholder' => 'Введите число']) ?>
 
         </div>
     </div>

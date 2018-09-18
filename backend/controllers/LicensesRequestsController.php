@@ -8,6 +8,7 @@ use common\models\LicensesRequestsSearch;
 use common\models\LicensesRequestsStates;
 use common\models\LicensesRequestsFkko;
 use common\models\LicensesRequestsFkkoSearch;
+use yii\helpers\ArrayHelper;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
@@ -29,7 +30,12 @@ class LicensesRequestsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['index', 'update'],
+                        'actions' => ['index'],
+                        'allow' => true,
+                        'roles' => ['root', 'sales_department_head', 'sales_department_manager'],
+                    ],
+                    [
+                        'actions' => ['update', 'wizard'],
                         'allow' => true,
                         'roles' => ['root', 'sales_department_head'],
                     ],
@@ -116,7 +122,12 @@ class LicensesRequestsController extends Controller
     public function actionIndex()
     {
         $searchModel = new LicensesRequestsSearch();
-        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+        $conditions = Yii::$app->request->queryParams;
+        if (!Yii::$app->user->can('root') && !Yii::$app->user->can('sales_department_head')) {
+            // для менеджеров отбор только по созданным ими запросам
+            $conditions[$searchModel->formName()]['created_by'] = Yii::$app->user->id;
+        }
+        $dataProvider = $searchModel->search($conditions);
 
         return $this->render('index', [
             'searchModel' => $searchModel,
@@ -157,7 +168,12 @@ class LicensesRequestsController extends Controller
                     $fkko->save();
                 }
 
-                return $this->redirect(['/licenses-requests']);
+                if (Yii::$app->user->can('root') || Yii::$app->user->can('sales_department_head'))
+                    return $this->redirect(['/licenses-requests']);
+                else {
+                    Yii::$app->session->setFlash('success', 'Запрос на лицензию был успешно сформирован.');
+                    return $this->redirect(['/licenses-requests/create']);
+                }
             }
         }
 
@@ -184,39 +200,54 @@ class LicensesRequestsController extends Controller
             }
             else if (Yii::$app->request->post('allow') !== null) {
                 $model->state_id = LicensesRequestsStates::LICENSE_STATE_ОДОБРЕН;
-                $body = 'Ваш запрос лицензии был одобрен, файл с необходимыми сканами находится во вложении.';
+                $body = 'Ваш запрос лицензии для компании <strong>' . $model->ca_name . '</strong> был одобрен, файл с необходимыми сканами находится во вложении.';
             }
 
             if ($model->save(true, ['state_id', 'comment'])) {
-                // формируем сам файл с вложенными в него сканами лицензий
-                $pdfFfp = $this->generatePdf($id);
-
                 $letter = Yii::$app->mailer->compose([
                     'html' => 'licenseRequest-html',
                 ], [
                     'body' => $body,
-                ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameSvetozar']]);
-
-                $letter->setTo($model->createdByEmail)
+                ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameSvetozar']])
+                    ->setTo($model->createdByEmail)
                     ->setSubject('Сканы лицензии по запросу № ' . $model->id . ' от ' . Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y H:i'));
 
-                $letter->attach($pdfFfp);
-
-                if ($letter->send()) {
-                    if (file_exists($pdfFfp)) unlink($pdfFfp);
-
-                    return $this->redirect(['/licenses-requests']);
+                $pdfFfp = '';
+                if ($model->state_id == LicensesRequestsStates::LICENSE_STATE_ОДОБРЕН) {
+                    // формируем сам файл с вложенными в него сканами лицензий
+                    $pdfFfp = $this->generatePdf($id);
+                    $letter->attach($pdfFfp);
                 }
-                if (file_exists($pdfFfp)) unlink($pdfFfp);
+
+                $letter->send();
+
+                // удаляем возможный временный файл
+                if (!empty($pdfFfp) && file_exists($pdfFfp)) unlink($pdfFfp);
+
+                if (Yii::$app->request->get('is_wizard')) {
+                    // если идет работа мастера, то возвращаем пользователя в режим обработки запросов через мастер
+                    Yii::$app->session->setFlash('success', 'Запрос лицензии №' . $model->id . ' для компании ' . $model->ca_name . ' обработан.');
+                    return $this->redirect(['/licenses-requests/wizard']);
+                }
+                else
+                    // иначе просто в список запросов лицензий
+                    return $this->redirect(['/licenses-requests']);
             }
-            else $model->state_id = $state;
+            else $model->state_id = $state; // возвращаем первоначальный статус запроса
         }
 
-        return $this->render('update', [
+        $params = [
             'model' => $model,
             // табличная часть запроса (коды ФККО)
             'dataProvider' => $this->fkkoDataProvider($id),
-        ]);
+        ];
+
+        // если редактирование запрашивалось из мастера, то дополним URL соответствующей пометкой
+        if (Yii::$app->request->get('is_wizard')) {
+            $params['is_wizard'] = true;
+        }
+
+        return $this->render('update', $params);
     }
 
     /**
@@ -246,5 +277,26 @@ class LicensesRequestsController extends Controller
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
+    }
+
+    /**
+     * Мастер обработки запросов лицензий.
+     * Вызывает редактирование необработанных запросов лицензий до тех пор, пока новая выборка не окажется пустой.
+     * @return string
+     */
+    public function actionWizard()
+    {
+        $model = LicensesRequests::find()
+            ->where(['state_id' => LicensesRequestsStates::LICENSE_STATE_НОВЫЙ])
+            ->orderBy('created_at')
+            ->one();
+        if ($model == null) return $this->render('wizard_empty_dataset');
+
+        return $this->render('update', [
+            'model' => $model,
+            'is_wizard' => true,
+            // табличная часть запроса (коды ФККО)
+            'dataProvider' => $this->fkkoDataProvider($model->id),
+        ]);
     }
 }

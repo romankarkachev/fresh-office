@@ -31,6 +31,10 @@ $packagesTypes = CorrespondencePackagesSearch::fetchFilterPackagesTypes();
     <div class="panel panel-info">
         <div class="panel-body">
             <div class="row">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'track_num')->textInput(['placeholder' => 'Введите номер'])?>
+
+                </div>
                 <div class="col-md-3">
                     <?= $form->field($model, 'fo_id_company')->widget(Select2::className(), [
                         'initValueText' => TransportRequests::getCustomerName($model->fo_id_company),

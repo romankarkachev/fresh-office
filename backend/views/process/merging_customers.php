@@ -1,9 +1,8 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var integer $field поле для поиска (наименование, номер телефона, E-mail) */

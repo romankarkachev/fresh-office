@@ -38,11 +38,12 @@ NavBar::begin([
     'innerContainerOptions' => ['class' => 'container-fluid'],
 ]);
 $items = [];
+// да, вот так реализовано меню. и что теперь?!
 if (Yii::$app->user->can('root'))
     $items = [
         // вернуть когда-нибудь может быть:
         //['label' => '<i class="fa fa-file-text-o fa-lg"></i>', 'url' => ['/documents'], 'linkOptions' => ['title' => 'Документы']],
-        ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i>', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
+        ['label' => '<i class="fa fa-headphones fa-lg text-primary"></i>', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
         [
             'label' => 'Справочники',
             'url' => '#',
@@ -59,6 +60,8 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-user-plus text-info"></i> Ответственные для новых', 'url' => ['/responsible-fornewca']],
                 ['label' => 'Ответственные по типам проектов', 'url' => ['/responsible-by-project-types']],
                 ['label' => 'Получатели корреспонденции от производства', 'url' => ['/responsible-for-production']],
+                ['label' => 'Получатели уведомлений по просроченным проектам', 'url' => ['/notifications-receivers-sncflt']],
+                ['label' => 'Получатели оповещений по проектам', 'url' => ['/notifications-receivers-sncbt']],
                 ['label' => 'Типы контента загружаемых файлов', 'url' => ['/uploading-files-meanings']],
                 '<li class="divider"></li>',
                 ['label' => '<i class="fa fa-users text-info"></i> Пользователи', 'url' => ['/users']],
@@ -69,11 +72,16 @@ if (Yii::$app->user->can('root'))
             'url' => '#',
             'items' => [
                 ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+                ['label' => 'Подбор перевозчиков', 'url' => ['/projects/ferrymen-casting']],
+                ['label' => 'Транспорт в пути', 'url' => ['/freights-on-the-way']],
+                ['label' => '<i class="fa fa-map-marker" aria-hidden="true"></i> Транспорт на карте', 'url' => ['/freights-on-the-way/geopos']],
+                ['label' => 'Проверка транспорта и водителей', 'url' => ['/ferrymen/missing-drivers-transport']],
+                '<li class="divider"></li>',
+                ['label' => '<i class="fa fa-money" aria-hidden="true"></i> Платежные ордеры', 'url' => ['/payment-orders']],
                 '<li class="divider"></li>',
                 ['label' => 'Перевозчики', 'url' => ['/ferrymen']],
                 ['label' => 'Водители', 'url' => ['/ferrymen-drivers']],
                 ['label' => 'Транспорт', 'url' => ['/ferrymen-transport']],
-                ['label' => '<i class="fa fa-money" aria-hidden="true"></i> Платежные ордеры', 'url' => ['/payment-orders']],
                 //'<li class="dropdown-header">Отчеты</li>',
                 '<li class="dropdown-header">Дополнительно</li>',
                 ['label' => 'Марки автомобилей', 'url' => ['/transport-brands']],
@@ -96,20 +104,28 @@ if (Yii::$app->user->can('root'))
                 ['label' => 'Файлы', 'url' => ['/storage']],
                 ['label' => 'Парсинг', 'url' => ['/storage/scan-directory']],
             ],
+            'visible' => false,
         ],
         [
             'label' => '<i class="fa fa-briefcase"></i>',
-            'title' => 'Проекты',
+            //'linkOptions' => ['title' => 'Подсказка'],
             'url' => '#',
             'items' => [
+                ['label' => '<i class="fa fa-envelope"></i> Пакеты корреспонденции', 'url' => ['/correspondence-packages']],
+                '<li class="dropdown-header">Проекты</li>',
                 ['label' => 'Проекты', 'url' => ['/projects']],
-                ['label' => 'Подбор перевозчиков', 'url' => ['/projects/ferrymen-casting']],
-                '<li class="dropdown-header">Производство</li>',
+                ['label' => 'Оценки проектов', 'url' => ['/projects/ratings']],
+                ['label' => 'Матрица статусов проектов', 'url' => ['/projects/states-matrix']],
+                '<li class="dropdown-header"><i class="fa fa-cog"></i> Производство</li>',
                 ['label' => 'Производство', 'url' => ['/production']],
                 ['label' => 'Файлы обратной связи', 'url' => ['/production-feedback-files']],
-                '<li class="dropdown-header">Лицензии</li>',
+                '<li class="dropdown-header"><i class="fa fa-file-text-o"></i> Лицензии</li>',
+                ['label' => '<i class="fa fa-magic text-primary"></i> Мастер обработки запросов лицензий', 'url' => ['/licenses-requests/wizard']],
                 ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
                 ['label' => 'Файлы сканов', 'url' => ['/licenses-files']],
+                '<li class="dropdown-header"><i class="fa fa-file-pdf-o"></i> Файловое хранилище</li>',
+                ['label' => 'Файлы', 'url' => ['/storage']],
+                ['label' => 'Парсинг', 'url' => ['/storage/scan-directory']],
                 '<li class="dropdown-header">Личный кабинет клиента</li>',
                 ['label' => 'Отправить приглашение', 'url' => ['/invite-customer']],
             ],
@@ -119,6 +135,23 @@ if (Yii::$app->user->can('root'))
             'url' => '#',
             'items' => [
                 ['label' => 'Пакеты корреспонденции', 'url' => ['/correspondence-packages']],
+            ],
+            'visible' => false,
+        ],
+        [
+            'label' => '<i class="fa fa-phone" aria-hidden="true"></i>',
+            'linkOptions' => ['title' => 'Телефония'],
+            'url' => '#',
+            'items' => [
+                ['label' => \backend\controllers\PbxCallsController::MAIN_MENU_LABEL, 'url' => \backend\controllers\PbxCallsController::ROOT_URL_AS_ARRAY],
+                '<li class="dropdown-header">Справочники мини-АТС</li>',
+                ['label' => \backend\controllers\PbxDepartmentsController::MAIN_MENU_LABEL, 'url' => \backend\controllers\PbxDepartmentsController::ROOT_URL_AS_ARRAY],
+                ['label' => \backend\controllers\PbxEmployeesController::MAIN_MENU_LABEL, 'url' => \backend\controllers\PbxEmployeesController::ROOT_URL_AS_ARRAY],
+                ['label' => \backend\controllers\PbxInternalPhoneNumbersController::MAIN_MENU_LABEL, 'url' => \backend\controllers\PbxInternalPhoneNumbersController::ROOT_URL_AS_ARRAY],
+                ['label' => \backend\controllers\PbxWebsitesController::MAIN_MENU_LABEL, 'url' => \backend\controllers\PbxWebsitesController::ROOT_URL_AS_ARRAY],
+                '<li class="dropdown-header"><i class="fa fa-pie-chart"></i> Отчеты</li>',
+                ['label' => 'Анализ телефонии', 'url' => ['/reports/pbx-analytics']],
+                ['label' => 'Наличие проектов и задач', 'url' => ['/reports/pbx-calls-has-tasks-assigned']],
             ],
         ],
         [
@@ -141,6 +174,7 @@ if (Yii::$app->user->can('root'))
                 ['label' => '<i class="fa fa-cogs"></i> Оплата рейсов', 'url' => ['/process/freights-payments']],
                 ['label' => '<i class="fa fa-cogs"></i> Замена видов упаковки', 'url' => ['/transport-requests/packing-type-mass-replace']],
                 ['label' => '<i class="fa fa-cogs"></i> Закрытие этапов', 'url' => ['/process/closing-milestones']],
+                ['label' => '<i class="fa fa-key"></i> Замена паролей', 'url' => ['/process/replace-passwords']],
             ],
         ],
         [
@@ -171,17 +205,19 @@ elseif (Yii::$app->user->can('accountant'))
 elseif (Yii::$app->user->can('sales_department_head'))
     $items = [
         ['label' => '<i class="fa fa-magic fa-lg text-success"></i> Мастер обработки обращений', 'url' => ['/appeals/wizard']],
-        ['label' => '<i class="fa fa-volume-control-phone fa-lg"></i> Обращения', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
-        ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
-        ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
-        ['label' => '<i class="fa fa-file-pdf-o"></i> Файловое хранилище', 'url' => ['/storage']],
+        ['label' => '<i class="fa fa-magic fa-lg text-primary"></i> Мастер обработки запросов лицензий', 'url' => ['/licenses-requests/wizard']],
+        ['label' => '<i class="fa fa-headphones fa-lg"></i>', 'url' => ['/appeals'], 'linkOptions' => ['title' => 'Обращения']],
+        ['label' => '<i class="fa fa-phone fa-lg"></i>', 'url' => \backend\controllers\PbxCallsController::ROOT_URL_AS_ARRAY, 'linkOptions' => ['title' => 'Звонки']],
+        ['label' => '<i class="fa fa-truck fa-lg"></i>', 'url' => ['/transport-requests'], 'linkOptions' => ['title' => 'Запросы на транспорт']],
+        ['label' => '<i class="fa fa-file-text-o"></i>', 'url' => ['/licenses-requests'], 'linkOptions' => ['title' => 'Запросы лицензий']],
+        ['label' => '<i class="fa fa-file-pdf-o"></i>', 'url' => ['/storage'], 'linkOptions' => ['title' => 'Файловое хранилище']],
         [
             'label' => 'Отчеты',
             'url' => '#',
             'items' => [
                 ['label' => '<i class="fa fa-pie-chart text-primary"></i> Анализ обращений', 'url' => ['/reports/analytics']],
                 '<li class="divider"></li>',
-                ['label' => '<i class="fa fa-pie-chart fa-lg text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
+                ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам', 'url' => ['/reports/turnover']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по дубликатам в контрагентах', 'url' => ['/reports/ca-duplicates']],
                 ['label' => '<i class="fa fa-pie-chart text-success"></i> Отчет по клиентам без оплаты транспорта', 'url' => ['/reports/no-transport-has-projects']],
             ],
@@ -190,7 +226,15 @@ elseif (Yii::$app->user->can('sales_department_head'))
 elseif (Yii::$app->user->can('sales_department_manager'))
     $items = [
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
-        ['label' => 'Запрос лицензии', 'url' => ['/licenses-requests/create']],
+        [
+            'label' => '<i class="fa fa-file-text-o"></i>',
+            'linkOptions' => ['title' => 'Запросы лицензий'],
+            'url' => '#',
+            'items' => [
+                ['label' => 'Создать запрос лицензии', 'url' => ['/licenses-requests/create']],
+                ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
+            ],
+        ],
         ['label' => '<i class="fa fa-envelope"></i> Пакеты корреспонденции', 'url' => ['/correspondence-packages']],
         ['label' => '<i class="fa fa-file-pdf-o"></i> Файловое хранилище', 'url' => ['/storage']],
     ];
@@ -220,7 +264,9 @@ elseif (Yii::$app->user->can('logist'))
     $items = [
         ['label' => '<i class="fa fa-briefcase"></i> Проекты', 'url' => ['/projects'], 'linkOptions' => ['title' => 'Проекты']],
         ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+        ['label' => 'Подбор перевозчиков', 'url' => ['/projects/ferrymen-casting']],
         ['label' => '<i class="fa fa-money" aria-hidden="true"></i> Платежные ордеры', 'url' => ['/payment-orders']],
+        ['label' => 'Транспорт в пути', 'url' => ['/freights-on-the-way']],
         [
             'label' => 'Справочники',
             'url' => '#',
@@ -250,6 +296,7 @@ elseif (Yii::$app->user->can('prod_department_head'))
     // Старший смены на производстве
     $items = [
         ['label' => 'Производство', 'url' => ['/production']],
+        ['label' => 'Транспорт в пути', 'url' => ['/freights-on-the-way']],
     ];
 elseif (Yii::$app->user->can('prod_feedback'))
     // Просмотр файлов обратной связи от производства
@@ -278,6 +325,11 @@ elseif (Yii::$app->user->can('licenses_upload'))
     // Загрузка файлов сканов лицензий
     $items = [
         ['label' => 'Файлы сканов', 'url' => ['/licenses-files']],
+    ];
+elseif (Yii::$app->user->can('pbx'))
+    // Телефония
+    $items = [
+        ['label' => '<i class="fa fa-phone fa-lg"></i> ' . \backend\controllers\PbxCallsController::MAIN_MENU_LABEL, 'url' => \backend\controllers\PbxCallsController::ROOT_URL_AS_ARRAY, 'linkOptions' => ['title' => 'Телефония']],
     ];
 
 $items[] = '<li>'

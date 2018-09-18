@@ -23,6 +23,16 @@ class PaymentOrdersSearch extends PaymentOrders
     const CLAUSE_STATES_GROUP_ROOT_LOGIST_ALL = 999911;
 
     /**
+     * @var string поле отбора, определяющее начало периода даты оплаты
+     */
+    public $searchPaymentDateStart;
+
+    /**
+     * @var string поле отбора, определяющее окончания периода даты оплаты
+     */
+    public $searchPaymentDateEnd;
+
+    /**
      * @var integer флаг для управления группами статусов при отборе
      */
     public $searchGroupStates;
@@ -34,7 +44,7 @@ class PaymentOrdersSearch extends PaymentOrders
     {
         return [
             [['id', 'created_at', 'created_by', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'searchGroupStates'], 'integer'],
-            [['projects', 'payment_date', 'comment'], 'safe'],
+            [['projects', 'payment_date', 'comment', 'searchPaymentDateStart', 'searchPaymentDateEnd'], 'safe'],
         ];
     }
 
@@ -44,6 +54,8 @@ class PaymentOrdersSearch extends PaymentOrders
     public function attributeLabels()
     {
         return ArrayHelper::merge(parent::attributeLabels(), [
+            'searchPaymentDateStart' => 'Начало периода',
+            'searchPaymentDateEnd' => 'Конец периода',
             'searchGroupStates' => 'Группы статусов',
         ]);
     }
@@ -100,20 +112,21 @@ class PaymentOrdersSearch extends PaymentOrders
      * Creates data provider instance with search query applied
      *
      * @param array $params
-     *
-     * @return ActiveDataProvider
+     * @param $route string маршрут для сортировки и постраничного перехода
+     * @param $calculateTotalAmount bool возвратить массив или один только ActiveDataProvider
+     * @return array|ActiveDataProvider
      */
-    public function search($params)
+    public function search($params, $route = 'payment-orders', $calculateTotalAmount = null)
     {
         $query = PaymentOrders::find();
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
-                'route' => 'payment-orders',
+                'route' => $route,
                 'pageSize' => 50,
             ],
             'sort' => [
-                'route' => 'payment-orders',
+                'route' => $route,
                 'defaultOrder' => ['created_at' => SORT_DESC],
                 'attributes' => [
                     'id',
@@ -122,6 +135,8 @@ class PaymentOrdersSearch extends PaymentOrders
                     'state_id',
                     'ferryman_id',
                     'projects',
+                    'cas',
+                    'vds',
                     'amount',
                     'pd_type',
                     'pd_id',
@@ -139,7 +154,7 @@ class PaymentOrdersSearch extends PaymentOrders
                         'asc' => ['ferrymen.name' => SORT_ASC],
                         'desc' => ['ferrymen.name' => SORT_DESC],
                     ],
-                ]
+                ],
             ]
         ]);
 
@@ -150,6 +165,20 @@ class PaymentOrdersSearch extends PaymentOrders
             // uncomment the following line if you do not want to return any records when validation fails
             // $query->where('0=1');
             return $dataProvider;
+        }
+
+        // дополним условием отбора за период по дате оплаты
+        if (!empty($this->searchPaymentDateStart) || !empty($this->searchPaymentDateEnd)) {
+            if (!empty($this->searchPaymentDateStart) && !empty($this->searchPaymentDateEnd)) {
+                // если указаны обе даты
+                $query->andFilterWhere(['between', 'payment_orders.payment_date', $this->searchPaymentDateStart . ' 00:00:00', $this->searchPaymentDateEnd . ' 23:59:59']);
+            } else if (!empty($this->searchPaymentDateStart) && empty($this->searchPaymentDateEnd)) {
+                // если указано только начало периода
+                $query->andFilterWhere(['>=', 'payment_orders.payment_date', $this->searchPaymentDateStart . ' 00:00:00']);
+            } else if (empty($this->searchPaymentDateStart) && !empty($this->searchPaymentDateEnd)) {
+                // если указан только конец периода
+                $query->andFilterWhere(['<=', 'payment_orders.payment_date', $this->searchPaymentDateEnd . ' 23:59:59']);
+            };
         }
 
         if ($this->searchGroupStates == null)
@@ -191,6 +220,13 @@ class PaymentOrdersSearch extends PaymentOrders
         $query->andFilterWhere(['like', 'projects', $this->projects])
             ->andFilterWhere(['like', 'payment_orders.comment', $this->comment]);
 
-        return $dataProvider;
+        $totalAmount = $query->sum('amount');
+        if ($calculateTotalAmount === true)
+            return [
+                $dataProvider,
+                $totalAmount,
+            ];
+        else
+            return $dataProvider;
     }
 }

@@ -2,9 +2,9 @@
 
 namespace backend\models;
 
-use common\models\FerrymenInvitations;
 use Yii;
 use yii\base\Model;
+use common\models\FerrymenInvitations;
 use common\models\Ferrymen;
 
 /**
@@ -86,6 +86,6 @@ class FerrymanInvitationForm extends Model
      */
     public function getFerrymen()
     {
-        return Ferrymen::findOne(['id' => 'ferryman_id']);
+        return Ferrymen::findOne($this->ferryman_id);
     }
 }

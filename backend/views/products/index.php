@@ -2,7 +2,7 @@
 
 use yii\helpers\Html;
 use yii\helpers\StringHelper;
-use yii\grid\GridView;
+use backend\components\grid\GridView;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\ProductsSearch */

@@ -12,7 +12,7 @@ use common\models\FerrymenBankDetails;
 use common\models\PaymentOrdersFiles;
 use common\models\PaymentOrdersFilesSearch;
 use common\models\PaymentOrdersStates;
-use yii\helpers\ArrayHelper;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -54,7 +54,7 @@ class PaymentOrdersController extends Controller
                         'roles' => ['root', 'logist', 'accountant'],
                     ],
                     [
-                        'actions' => ['import', 'delete'],
+                        'actions' => ['import', 'delete', 'drop-drafts'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -64,6 +64,7 @@ class PaymentOrdersController extends Controller
                 'class' => VerbFilter::className(),
                 'actions' => [
                     'delete' => ['POST'],
+                    'drop-drafts' => ['POST'],
                 ],
             ],
         ];
@@ -482,5 +483,17 @@ class PaymentOrdersController extends Controller
         return $this->render('import', [
             'model' => $model,
         ]);
+    }
+
+    /**
+     * Удаляет все черновики.
+     * @return mixed
+     */
+    public function actionDropDrafts()
+    {
+        Url::remember(Yii::$app->request->referrer);
+        $records = PaymentOrders::find()->where(['state_id' => PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК])->all();
+        foreach ($records as $record) $record->delete();
+        return $this->goBack();
     }
 }

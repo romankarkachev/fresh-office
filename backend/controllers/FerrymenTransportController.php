@@ -191,12 +191,14 @@ class FerrymenTransportController extends Controller
                 // обновим типы погрузок
                 TransportLoadTypes::deleteAll(['transport_id' => $model->id]);
 
-                foreach ($model->loadTypes as $key => $value) {
-                    $ltModel  = new TransportLoadTypes([
-                        'transport_id' => $model->id,
-                        'lt_id' => $value,
-                    ]);
-                    $ltModel ->save();
+                if (is_array($model->loadTypes) && count($model->loadTypes) > 0) {
+                    foreach ($model->loadTypes as $key => $value) {
+                        $ltModel  = new TransportLoadTypes([
+                            'transport_id' => $model->id,
+                            'lt_id' => $value,
+                        ]);
+                        $ltModel ->save();
+                    }
                 }
 
                 return $this->redirect(['/ferrymen-transport/update', 'id' => $model->id]);

@@ -17,6 +17,7 @@ use yii\db\ActiveRecord;
  * @property string $ca_name
  * @property integer $ca_id
  * @property integer $org_id
+ * @property string $receivers_email
  * @property string $comment
  * @property string $fkkosTextarea
  * @property array $tpFkkos
@@ -65,11 +66,11 @@ class LicensesRequests extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['state_id', 'ca_email', 'org_id'], 'required'],
+            [['state_id', 'ca_email', 'org_id', 'receivers_email'], 'required'],
             [['created_at', 'created_by', 'state_id', 'ca_id', 'org_id'], 'integer'],
             [['comment'], 'string'],
             [['comment'], 'default', 'value' => null],
-            [['ca_email', 'ca_name'], 'string', 'max' => 255],
+            [['ca_email', 'ca_name', 'receivers_email'], 'string', 'max' => 255],
             ['ca_email', 'trim'],
             ['ca_email', 'email'],
             [['fkkosTextarea', 'tpFkkos', 'fkkos'], 'safe'],
@@ -97,6 +98,7 @@ class LicensesRequests extends \yii\db\ActiveRecord
             'ca_name' => 'Контрагент',
             'ca_id' => 'Контрагент',
             'org_id' => 'Организация',
+            'receivers_email' => 'E-mail получателя сканов лицензий в случае одобрения',
             'comment' => 'Примечание',
             'fkkosTextarea' => 'Коды ФККО',
             'fkkos' => 'Коды ФККО',

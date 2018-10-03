@@ -22,6 +22,13 @@ class User extends BaseUser
     const FERRYMAN_LOGIN_PREFIX = 'ferryman';
 
     /**
+     * Признаки, определяющие способ отбора пользователей в зависимости от роли
+     */
+    const ARRAY_MAP_OF_USERS_BY_ALL_ROLES = 1; // все пользователи
+    const ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE = 2; // отбор по роли менеджера
+    const ARRAY_MAP_OF_USERS_BY_ECOLOGIST_ROLE = 3; // только экологи
+
+    /**
      * Имя.
      * @var string
      */
@@ -116,6 +123,9 @@ class User extends BaseUser
             // очищаем поля created_by и updated_by таблицы transport
             Transport::updateAll(['created_by' => null], ['created_by' => $this->id]);
             Transport::updateAll(['updated_by' => null], ['updated_by' => $this->id]);
+
+            // очищаем поле user_id таблицы drivers
+            Drivers::updateAll(['user_id' => null], ['user_id' => $this->id]);
 
             // делаем автором загрузки файлов встроенного пользователя
             DriversFiles::updateAll(['uploaded_by' => 1], ['uploaded_by' => $this->id]);
@@ -248,25 +258,32 @@ class User extends BaseUser
     /**
      * Делает выборку пользователей веб-приложения и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
-     * @param $managerRoleFilter bool признак, определяющий необходимость отбора только по роли "Менеджер"
+     * @param $roleFilter integer признак, определяющий необходимость отбора только по роли
      * @return array
      */
-    public static function arrayMapForSelect2($managerRoleFilter = true)
+    public static function arrayMapForSelect2($roleFilter = self::ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE)
     {
-        if ($managerRoleFilter) {
-            $result = ArrayHelper::merge([
-                1 => 'Алексей Бугров',
-            ], ArrayHelper::map(self::find()->select(self::tableName() . '.*')
-                ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`=' . self::tableName().'.`id`')
-                ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
-                ->where(['`auth_assignment`.`item_name`' => 'sales_department_manager'])->orderBy('profile.name')->all(), 'id', 'profile.name'));
-        }
-        else {
-            $result = ArrayHelper::map(self::find()->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
-                ->orderBy('profile.name')->all(), 'id', 'profile.name');
+        $roleName = 'sales_department_manager';
+
+        switch ($roleFilter) {
+            case self::ARRAY_MAP_OF_USERS_BY_ALL_ROLES:
+                return ArrayHelper::map(self::find()->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
+                    ->orderBy('profile.name')->all(), 'id', 'profile.name');
+                break;
+            case self::ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE:
+                // default case
+                break;
+            case self::ARRAY_MAP_OF_USERS_BY_ECOLOGIST_ROLE:
+                $roleName = 'ecologist';
+                break;
         }
 
-        return $result;
+        return ArrayHelper::merge([
+            1 => 'Алексей Бугров',
+        ], ArrayHelper::map(self::find()->select(self::tableName() . '.*')
+            ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`=' . self::tableName().'.`id`')
+            ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
+            ->where(['`auth_assignment`.`item_name`' => $roleName])->orderBy('profile.name')->all(), 'id', 'profile.name'));
     }
 
     /**

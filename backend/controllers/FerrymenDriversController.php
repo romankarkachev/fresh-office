@@ -8,6 +8,8 @@ use common\models\DriversSearch;
 use common\models\DriversFiles;
 use common\models\DriversFilesSearch;
 use common\models\UploadingFilesMeanings;
+use common\models\User;
+use dektrium\user\helpers\Password;
 use yii\helpers\Html;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -39,6 +41,7 @@ class FerrymenDriversController extends Controller
                         'actions' => [
                             'index', 'create', 'update', 'delete',
                             'upload-files', 'download-file', 'preview-file', 'delete-file',
+                            'create-user',
                         ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'head_assist'],
@@ -49,6 +52,7 @@ class FerrymenDriversController extends Controller
                 'class' => VerbFilter::className(),
                 'actions' => [
                     'delete' => ['POST'],
+                    'create-user' => ['POST'],
                 ],
             ],
         ];
@@ -314,5 +318,63 @@ class FerrymenDriversController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Выполняет создание учетной записи пользователя с ролью "Водитель перевозчика" и привязывает ее к водителю,
+     * переданному в параметрах, в случае успеха.
+     * @param $driver_id integer водитель, на основании которого создается пользователь
+     */
+    public function actionCreateUser($driver_id)
+    {
+        /** @var $user User */
+        $driver = Drivers::findOne($driver_id);
+        if ($driver) {
+            if (empty($driver->user_id)) {
+                $transaction = Yii::$app->db->beginTransaction();
+                try {
+                    $success = false;
+                    $user = \Yii::createObject(['class' => User::className()]);
+                    $user->username = Drivers::FOREIGN_DRIVER_LOGIN_PREFIX . $driver->id;
+                    $user->confirmed_at = time();
+                    $user->email = $user->username . '@gmail.com';
+                    $user->password = Password::generate(8);
+                    if ($user->save()) {
+                        // обновим профиль, ФИО водителя послужит для заполнения
+                        // mb_convert_case(<ФИО>, MB_CASE_TITLE) преобразует все в нижний регистр, а потом у каждого слова повышает регистр первого символа
+                        $user->profile->name = mb_convert_case(trim(implode(' ', [
+                            trim(trim(trim($driver->surname, ', '), ',')),
+                            trim(trim(trim($driver->name, ', '), ',')),
+                            trim(trim(trim($driver->patronymic, ', '), ',')),
+                        ])), MB_CASE_TITLE);
+                        if ($user->profile->save()) {
+                            // привязываем роль
+                            $role = Yii::$app->authManager->getRole(Drivers::FOREIGN_DRIVER_ROLE_NAME);
+                            Yii::$app->authManager->assign($role, $user->id);
+
+                            // привязываем новую учетную запись к водителю
+                            $success = $driver->updateAttributes([
+                                    'user_id' => $user->id
+                                ]) > 0;
+                        } else $transaction->rollback();
+                    } else $transaction->rollback();
+
+                    if ($success) {
+                        $transaction->commit();
+                        $a = Html::a('здесь', ['users/update', 'id' => $user->id], ['target' => '_blank', 'title' => 'Открыть созданный аккаунт пользователя в новом окне']);
+                        Yii::$app->session->setFlash('success', 'Пользователь успешно создан и активирован. Теперь он может авторизоваться под именем &laquo;' . $user->username . '&raquo; и паролем &laquo;' . $user->password . '&raquo;. <strong>Внимание!</strong> После обновления этой страницы пароль исчезнет, скопируйте и передайте его водителю прямо сейчас иначе придется назначать новый через управление аккаунтом этого пользователя ' . $a . '!');
+                    } else {
+                        Yii::$app->session->setFlash('error', 'Не удалось создать пользователя.');
+                    }
+                } catch (\Exception $e) {
+                    Yii::$app->session->setFlash('error', 'Создание пользователя на основании водителя завершилсь с ошибкой: ' . $e->getMessage());
+                    $transaction->rollback();
+                }
+            }
+            else Yii::$app->session->setFlash('error', 'Водитель уже привязан к пользователю.');
+        }
+        else Yii::$app->session->setFlash('error', 'Не обнаружен водитель.');
+
+        $this->redirect(['/ferrymen-drivers/update', 'id' => $driver->id]);
     }
 }

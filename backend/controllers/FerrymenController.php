@@ -63,7 +63,7 @@ class FerrymenController extends Controller
                             'upload-files', 'download-file', 'preview-file', 'delete-file',
                             'drivers-instructings', 'create-instructing', 'delete-instructing',
                             'transports-inspections', 'create-inspection', 'delete-inspection',
-                            'list-of-packing-ferrymen-for-typeahead', 'validate-ati-code',
+                            'list-of-ferrymen-for-typeahead', 'validate-ati-code',
                             'invite-ferryman-form', 'validate-invitation', 'send-invitation',
                         ],
                         'allow' => true,
@@ -829,6 +829,10 @@ class FerrymenController extends Controller
             ->andFilterWhere([
                 'or',
                 ['like', 'name', $q],
+                ['like', 'inn', $q],
+                ['like', 'contact_person', $q],
+                ['like', 'phone', $q],
+                ['like', 'email', $q],
                 ['like', 'ferrymanDrivers.details', $q],
                 ['like', 'ferrymanTransport.details', $q],
             ])->orderBy('name');

@@ -45,6 +45,12 @@ class foProjectsSearch extends foProjects
     public $searchId;
 
     /**
+     * Перевозчик, по которому производится отбор.
+     * @var string
+     */
+    public $searchFerrymanId;
+
+    /**
      * Период создания с ... по.
      * @var string
      */
@@ -90,7 +96,7 @@ class foProjectsSearch extends foProjects
     {
         return [
             [['type_name', 'ca_name', 'manager_name', 'state_name', 'perevoz', 'proizodstvo', 'oplata', 'adres', 'dannie', 'ttn', 'weight'], 'string'],
-            [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchForFerryman', 'searchForCustomerByState', 'searchPerPage'], 'integer'],
+            [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchFerrymanId', 'searchForFerryman', 'searchForCustomerByState', 'searchPerPage'], 'integer'],
             [['amount', 'cost'], 'number'],
             [['vivozdate', 'date_start', 'date_end', 'searchExcludeIds', 'searchId', 'searchGroupProjectTypes', 'searchCreatedFrom', 'searchCreatedTo', 'searchVivozDateFrom', 'searchVivozDateTo'], 'safe'],
         ];
@@ -106,6 +112,7 @@ class foProjectsSearch extends foProjects
             'ca_id' => 'Контрагент',
             'state_id' => 'Статус',
             // для отбора
+            'searchFerrymanId' => 'Перевозчик',
             'searchExcludeIds' => 'Исключаемые проекты',
             'searchGroupProjectTypes' => 'Типы проектов',
             'searchCreatedFrom' => 'Период с',
@@ -425,6 +432,16 @@ class foProjectsSearch extends foProjects
             $query->andFilterWhere([
                 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => explode(',', $this->searchId),
             ]);
+
+        // дополним условием отбора по перевозчику
+        if (!empty($this->searchFerrymanId)) {
+            $ferryman = Ferrymen::findOne($this->searchFerrymanId);
+            if ($ferryman) {
+                $query->andFilterWhere([
+                    'LIST_PROJECT_COMPANY.ADD_perevoz' => $ferryman->name_crm,
+                ]);
+            }
+        }
 
         $query->andFilterWhere([
             'LIST_PROJECT_COMPANY.ID_COMPANY' => $this->ca_id,

@@ -14,7 +14,7 @@ class m180914_083816_create_mobile_app_geopos_table extends Migration
     {
         $tableOptions = null;
         if ($this->db->driverName === 'mysql') {
-            $tableOptions = 'CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE=InnoDB COMMENT "Рейтинги проектов"';
+            $tableOptions = 'CHARACTER SET utf8 COLLATE utf8_unicode_ci ENGINE=InnoDB COMMENT "Местоположение транспорта сторонних перевозчиков"';
         };
 
         $this->createTable('mobile_app_geopos', [

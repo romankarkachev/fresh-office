@@ -2,12 +2,11 @@
 
 namespace backend\controllers;
 
-use common\models\pbxExternalPhoneNumber;
-use common\models\pbxExternalPhoneNumberSearch;
-use phpDocumentor\Reflection\Types\Self_;
 use Yii;
 use common\models\pbxWebsites;
 use common\models\pbxWebsitesSearch;
+use common\models\pbxExternalPhoneNumber;
+use common\models\pbxExternalPhoneNumberSearch;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
@@ -193,7 +192,7 @@ class PbxWebsitesController extends Controller
 
         $model->delete();
 
-        return $this->redirect(['index']);
+        return $this->redirect(self::ROOT_URL_AS_ARRAY);
     }
 
     /**

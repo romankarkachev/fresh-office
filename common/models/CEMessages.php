@@ -130,6 +130,30 @@ class CEMessages extends \yii\db\ActiveRecord
     }
 
     /**
+     * @inheritdoc
+     */
+    public function beforeDelete()
+    {
+        if (parent::beforeDelete()) {
+            // Удаление связанных объектов перед удалением объекта
+
+            // удаляем информацию о приаттаченных файлах
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $records = CEAttachedFiles::find()->where(['message_id' => $this->id])->all();
+            foreach ($records as $record) $record->delete();
+
+            // удаляем адреса
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $records = CEAddresses::find()->where(['message_id' => $this->id])->all();
+            foreach ($records as $record) $record->delete();
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Получение заголовка письма.
      */
     public static function getHeaderRaw($mbox, $uid)

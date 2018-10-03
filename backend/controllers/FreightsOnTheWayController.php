@@ -166,11 +166,15 @@ class FreightsOnTheWayController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
         $timeLimit = time() - 15 * 60; // только свежие координаты, полученные не позднее 15 минут назад
         $result = MobileAppGeopos::find()->select([
+            MobileAppGeopos::tableName() . '.user_id',
             'userProfileName' => 'profile.name',
+            'markerTitle' => 'CONCAT(`profile`.`name`, \' \', FROM_UNIXTIME(`arrived_at`, \'%d.%m.%Y в %H:%i:%s\'))',
             'coord_lat',
             'coord_long',
-        ])->joinWith(['userProfile'], false)
-            //->where('arrived_at > ' . $timeLimit)
+        ])
+            ->distinct()
+            ->joinWith(['userProfile'], false)
+            ->where('arrived_at > ' . $timeLimit)
             ->asArray()->all();
 
         return $result;

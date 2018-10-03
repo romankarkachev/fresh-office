@@ -8,7 +8,7 @@ use common\models\LicensesRequestsSearch;
 use common\models\LicensesRequestsStates;
 use common\models\LicensesRequestsFkko;
 use common\models\LicensesRequestsFkkoSearch;
-use yii\helpers\ArrayHelper;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
@@ -72,7 +72,7 @@ class LicensesRequestsController extends Controller
             $searchModel->formName() => [
                 'lr_id' => $id,
             ],
-        ]);
+        ], $id);
     }
 
     /**
@@ -168,6 +168,14 @@ class LicensesRequestsController extends Controller
                     $fkko->save();
                 }
 
+                // сохраним E-mail, который ввел менеджер в его профиле
+                if (!empty(Yii::$app->user->identity->profile)) {
+                    if (empty(Yii::$app->user->identity->profile->public_email) || Yii::$app->user->identity->profile->public_email != $model->receivers_email) {
+                        Yii::$app->user->identity->profile->public_email = $model->receivers_email;
+                        Yii::$app->user->identity->profile->save();
+                    }
+                }
+
                 if (Yii::$app->user->can('root') || Yii::$app->user->can('sales_department_head'))
                     return $this->redirect(['/licenses-requests']);
                 else {
@@ -175,6 +183,14 @@ class LicensesRequestsController extends Controller
                     return $this->redirect(['/licenses-requests/create']);
                 }
             }
+        }
+        else {
+            // будем использовать E-mail из профиля пользователя либо из учетной записи, если в профиле нет
+            $email = Yii::$app->user->identity->email;
+            if (!empty(Yii::$app->user->identity->profile) && !empty(Yii::$app->user->identity->profile->public_email)) {
+                $email = Yii::$app->user->identity->profile->public_email;
+            }
+            $model->receivers_email = $email;
         }
 
         return $this->render('create', [
@@ -209,7 +225,9 @@ class LicensesRequestsController extends Controller
                 ], [
                     'body' => $body,
                 ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameSvetozar']])
-                    ->setTo($model->createdByEmail)
+                    // ранее была отправка на E-mail автора, теперь отправка идет на E-mail, указанный менеджером вручную
+                    //->setTo($model->createdByEmail)
+                    ->setTo($model->receivers_email)
                     ->setSubject('Сканы лицензии по запросу № ' . $model->id . ' от ' . Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y H:i'));
 
                 $pdfFfp = '';

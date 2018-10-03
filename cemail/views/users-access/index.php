@@ -26,7 +26,7 @@ $formName = $model->formName();
             <div class="row">
                 <div class="col-md-3">
                     <?= $form->field($model, 'user_id')->widget(Select2::className(), [
-                        'data' => User::arrayMapForSelect2(false),
+                        'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_ALL_ROLES),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                         'pluginEvents' => [

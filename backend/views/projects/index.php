@@ -46,8 +46,12 @@ $this->params['breadcrumbs'][] = 'Проекты';
                 //'headerOptions' => ['class' => 'text-center'],
                 //'contentOptions' => ['class' => 'text-center'],
             ],
-            'date_start:datetime',
-            'date_end:datetime',
+            [
+                'attribute' => 'vivozdate',
+                'format' =>  ['date', 'dd.MM.YYYY'],
+            ],
+            //'date_start:datetime',
+            //'date_end:datetime',
             'ca_name',
             'manager_name',
             [
@@ -65,6 +69,10 @@ $this->params['breadcrumbs'][] = 'Проекты';
                 'contentOptions' => ['class' => 'text-center'],
             ],
             'perevoz',
+            [
+                'attribute' => 'oplata',
+                'format' =>  ['date', 'dd.MM.YYYY'],
+            ],
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

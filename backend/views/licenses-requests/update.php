@@ -22,6 +22,10 @@ if (isset($is_wizard) && $is_wizard === true) {
 $action = Url::to($url);
 ?>
 <div class="licenses-requests-update">
+    <p>
+        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Запросы лицензий', ['/licenses-requests'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
+
+    </p>
     <?= DetailView::widget([
         'model' => $model,
         'attributes' => [
@@ -66,20 +70,18 @@ $action = Url::to($url);
     <?php ActiveForm::end(); ?>
 
     <?php else: ?>
-    <p>
-        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Запросы лицензий', ['/licenses-requests'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
-
         <?php if (Yii::$app->user->can('root')): ?>
+        <p>
         <?= Html::a('<i class="fa fa-trash-o"></i> Удалить', ['delete', 'id' => $model->id], [
             'class' => 'btn btn-danger btn-lg',
             'data' => [
-                'confirm' => 'Are you sure you want to delete this item?',
+                'confirm' => 'Вы действительно хотите удалить этот запрос лицензий?',
                 'method' => 'post',
             ],
             'title' => 'Удалить запрос лицензии',
         ]) ?>
 
         <?php endif; ?>
-    </p>
+        </p>
     <?php endif; ?>
 </div>

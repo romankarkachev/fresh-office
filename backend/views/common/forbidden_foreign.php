@@ -6,7 +6,7 @@ use yii\helpers\Html;
 /* @var $details array */
 
 $this->title = 'Ошибка доступа | '.Yii::$app->name;
-$this->params['breadcrumbs'][] = $details['breadcrumbs'];
+$this->params['breadcrumbs'] = $details['breadcrumbs'];
 
 if (isset($details['modelRep'])) $modelRep = ' &laquo' . $details['modelRep'] . '&raquo;';
 ?>

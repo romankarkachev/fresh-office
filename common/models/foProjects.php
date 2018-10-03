@@ -171,9 +171,11 @@ class foProjects extends \yii\db\ActiveRecord
      * первом параметре до значения во втором параметре.
      * @param $startPeriod integer начало периода в формате TIMESTAMP
      * @param $endPeriod integer конец периода в формате TIMESTAMP
+     * @param $onlyDays bool признак, позволяющий возвращать только количество дней
+     *
      * @return string
      */
-    public static function downcounter($startPeriod, $endPeriod=false) {
+    public static function downcounter($startPeriod, $endPeriod=false, $onlyDays=false) {
         $startPeriod = intval($startPeriod);
         $check_time = $startPeriod;
         if ($endPeriod !== false) {
@@ -192,9 +194,9 @@ class foProjects extends \yii\db\ActiveRecord
 
         $str = '';
         if ($days > 0) $str .= self::declension($days, ['день','дня','дней']) . ' ';
-        if ($hours > 0) $str .= self::declension($hours, ['час','часа','часов']) . ' ';
-        if ($minutes > 0) $str .= self::declension($minutes, ['минута','минуты','минут']) . ' ';
-        if ($seconds > 0) $str .= self::declension($seconds, ['секунда','секунды','секунд']);
+        if ($hours > 0 && !$onlyDays) $str .= self::declension($hours, ['час','часа','часов']) . ' ';
+        if ($minutes > 0 && !$onlyDays) $str .= self::declension($minutes, ['минута','минуты','минут']) . ' ';
+        if ($seconds > 0 && !$onlyDays) $str .= self::declension($seconds, ['секунда','секунды','секунд']);
 
         return $str;
     }

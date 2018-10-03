@@ -31,7 +31,8 @@ function initMap() {
                 marker = new google.maps.Marker({
                     position: position,
                     map: map,
-                    title: markers[index].userProfileName
+                    title: markers[index].markerTitle,
+                    label: markers[index].userProfileName
                 });
             });
         }

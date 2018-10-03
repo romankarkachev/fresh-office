@@ -39,6 +39,10 @@ $this->params['breadcrumbs'][] = 'Новый *';
             ]) ?>
 
         </div>
+        <div class="col-md-3">
+            <?= $form->field($model, 'receivers_email')->textInput(['placeholder' => 'E-mail получателя', 'title' => 'E-mail получателя сканов лицензий, куда они будут отправлены в случае одобрения запроса']) ?>
+
+        </div>
     </div>
     <div class="form-group">
         <?php if (Yii::$app->user->can('root')): ?>

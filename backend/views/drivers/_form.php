@@ -356,6 +356,18 @@ if (isset($files)) {
         <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
         <?php else: ?>
         <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
+
+        <?php if (empty($model->user_id)): ?>
+        <?= Html::a('<i class="fa fa-user-plus"></i> Создать учетную запись', ['create-user', 'driver_id' => $model->id], [
+            'class' => 'btn btn-success btn-lg',
+            'data' => [
+                'confirm' => 'Водителю будет предоставлен доступ в систему через мобильное приложение, учетная запись ' . \common\models\Drivers::FOREIGN_DRIVER_LOGIN_PREFIX . $model->id . '. Продолжить?',
+                'method' => 'post',
+            ],
+            'title' => 'Создать пользователя этому водителю для доступа в систему',
+        ]) ?>
+
+        <?php endif; ?>
         <?php endif; ?>
 
     </div>

@@ -112,6 +112,11 @@ header.navbar .navbar-brand {
     color: #3e515b !important;
 }
 
+/* при развернутом полностью подменю в теме заложен вывод только 1000px, так сделаем же этот вывод неограниченным! */
+.sidebar .nav .nav-item.nav-dropdown.open > ul, .sidebar .nav .nav-item.nav-dropdown.open > ol {
+    max-height: 100% !important;
+}
+
 /**************************************************/
 .email-app{
     display:-ms-flexbox;

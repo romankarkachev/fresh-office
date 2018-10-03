@@ -8,6 +8,7 @@ use yii\web\JsExpression;
 use kartik\select2\Select2;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjectsSearch;
+use common\models\Ferrymen;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\foProjectsSearch */
@@ -55,6 +56,15 @@ use common\models\foProjectsSearch;
                             'templateResult' => new JsExpression('function(result) { return result.text; }'),
                             'templateSelection' => new JsExpression('function (result) { return result.text; }'),
                         ],
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchFerrymanId')->widget(Select2::className(), [
+                        'data' => Ferrymen::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
                     ]) ?>
 
                 </div>

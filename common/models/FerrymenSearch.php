@@ -13,13 +13,29 @@ use common\models\Ferrymen;
 class FerrymenSearch extends Ferrymen
 {
     /**
+     * Универсальная переменная для поиска по всем полям.
+     * @var string
+     */
+    public $searchEntire;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
             [['id', 'ft_id', 'pc_id'], 'integer'],
-            [['name', 'phone', 'email', 'contact_person'], 'safe'],
+            [['name', 'phone', 'email', 'contact_person', 'searchEntire'], 'safe'],
+        ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function attributeLabels()
+    {
+        return [
+            'searchEntire' => 'Универсальный поиск',
         ];
     }
 
@@ -122,10 +138,20 @@ class FerrymenSearch extends Ferrymen
             'pc_id' => $this->pc_id,
         ]);
 
-        $query->andFilterWhere(['like', 'ferrymen.name', $this->name])
-            ->andFilterWhere(['like', 'ferrymen.phone', $this->phone])
-            ->andFilterWhere(['like', 'ferrymen.email', $this->email])
-            ->andFilterWhere(['like', 'contact_person', $this->contact_person]);
+        if ($this->searchEntire != null && $this->searchEntire != '')
+            $query->andFilterWhere([
+                'or',
+                ['like', 'ferrymen.name', $this->searchEntire],
+                ['like', 'ferrymen.phone', $this->searchEntire],
+                ['like', 'ferrymen.email', $this->searchEntire],
+                ['like', 'contact_person', $this->searchEntire],
+                ['like', 'inn', $this->searchEntire],
+            ]);
+        else
+            $query->andFilterWhere(['like', 'ferrymen.name', $this->name])
+                ->andFilterWhere(['like', 'ferrymen.phone', $this->phone])
+                ->andFilterWhere(['like', 'ferrymen.email', $this->email])
+                ->andFilterWhere(['like', 'contact_person', $this->contact_person]);
 
         return $dataProvider;
     }

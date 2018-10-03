@@ -25,7 +25,7 @@ $template = '<div><h5><strong>{{value}}</strong></h5>' . '<em class="text-muted"
     <div class="panel panel-info">
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
-            <?= $form->field($model, 'name')->widget(Typeahead::className(), [
+            <?= $form->field($model, 'searchEntire')->widget(Typeahead::className(), [
                 'container' => ['id' => 'frmFerrymanSearchEntire'],
                 'options' => ['placeholder' => 'Введите значение поиска'],
                 'scrollable' => true,

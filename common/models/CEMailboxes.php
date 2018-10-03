@@ -113,12 +113,34 @@ class CEMailboxes extends \yii\db\ActiveRecord
     }
 
     /**
+     * @inheritdoc
+     */
+    public function beforeDelete()
+    {
+        if (parent::beforeDelete()) {
+            // Удаление связанных объектов перед удалением объекта
+
+            // удаляем письма из ящика
+            // deleteAll не вызывает beforeDelete, поэтому делаем перебор
+            $records = CEMessages::find()->where(['mailbox_id' => $this->id])->all();
+            foreach ($records as $record) $record->delete();
+
+            // удаляем доступы к ящику
+            CEUsersAccess::deleteAll(['mailbox_id' => $this->id]);
+
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Выполняет проверку, используется ли запись в других элементах.
      * @return bool
      */
     public function checkIfUsed()
     {
-        if ($this->getMessagesCount() > 0) return true;
+        //if ($this->getMessagesCount() > 0) return true;
 
         return false;
     }

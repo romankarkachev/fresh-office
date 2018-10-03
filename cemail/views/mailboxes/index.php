@@ -25,11 +25,12 @@ $urlToggleActivity = Url::to(['/mailboxes/toggle-activity']);
                 'columns' => [
                     [
                         'attribute' => 'name',
+                        'format' => 'raw',
                         'value' => function($model, $key, $index, $column) {
                             /* @var $model \common\models\CEMailboxes */
                             /* @var $column \yii\grid\DataColumn */
 
-                            return $model->{$column->attribute};
+                            return $model->{$column->attribute} . ($model->is_primary_done === -1 ? ' <i class="fa fa-exclamation-triangle text-danger" aria-hidden="true" title="Первичный сбор писем по этому ящику провалился с треском"></i>' : '');
                         }
                     ],
                     'typeName',

@@ -122,7 +122,7 @@ class Ferrymen extends \yii\db\ActiveRecord
             [['phone', 'contact_person', 'phone_dir', 'contact_person_dir'], 'string', 'max' => 50],
             [['post', 'post_dir'], 'string', 'max' => 100],
             [['ati_code'], 'string', 'max' => 9],
-            [['user_id'], 'unique'],
+            [['inn', 'user_id'], 'unique'],
             [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['user_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],

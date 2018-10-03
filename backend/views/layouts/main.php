@@ -119,6 +119,12 @@ if (Yii::$app->user->can('root'))
                 '<li class="dropdown-header"><i class="fa fa-cog"></i> Производство</li>',
                 ['label' => 'Производство', 'url' => ['/production']],
                 ['label' => 'Файлы обратной связи', 'url' => ['/production-feedback-files']],
+                /*
+                '<li class="dropdown-header"><i class="fa fa-leaf"></i> Экология</li>',
+                ['label' => \backend\controllers\EcoProjectsController::MAIN_MENU_LABEL, 'url' => \backend\controllers\EcoProjectsController::ROOT_URL_AS_ARRAY],
+                ['label' => \backend\controllers\EcoMilestonesController::MAIN_MENU_LABEL, 'url' => \backend\controllers\EcoMilestonesController::ROOT_URL_AS_ARRAY],
+                ['label' => \backend\controllers\EcoTypesController::MAIN_MENU_LABEL, 'url' => \backend\controllers\EcoTypesController::ROOT_URL_AS_ARRAY],
+                */
                 '<li class="dropdown-header"><i class="fa fa-file-text-o"></i> Лицензии</li>',
                 ['label' => '<i class="fa fa-magic text-primary"></i> Мастер обработки запросов лицензий', 'url' => ['/licenses-requests/wizard']],
                 ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']],
@@ -267,6 +273,7 @@ elseif (Yii::$app->user->can('logist'))
         ['label' => 'Подбор перевозчиков', 'url' => ['/projects/ferrymen-casting']],
         ['label' => '<i class="fa fa-money" aria-hidden="true"></i> Платежные ордеры', 'url' => ['/payment-orders']],
         ['label' => 'Транспорт в пути', 'url' => ['/freights-on-the-way']],
+        ['label' => '<i class="fa fa-map-marker" aria-hidden="true"></i> Транспорт на карте', 'url' => ['/freights-on-the-way/geopos']],
         [
             'label' => 'Справочники',
             'url' => '#',
@@ -330,6 +337,16 @@ elseif (Yii::$app->user->can('pbx'))
     // Телефония
     $items = [
         ['label' => '<i class="fa fa-phone fa-lg"></i> ' . \backend\controllers\PbxCallsController::MAIN_MENU_LABEL, 'url' => \backend\controllers\PbxCallsController::ROOT_URL_AS_ARRAY, 'linkOptions' => ['title' => 'Телефония']],
+    ];
+elseif (Yii::$app->user->can('ecologist_head'))
+    // начальник отдела экологии
+    $items = [
+        ['label' => '<i class="fa fa-leaf fa-lg"></i> ' . \backend\controllers\EcoProjectsController::MAIN_MENU_LABEL, 'url' => \backend\controllers\EcoProjectsController::ROOT_URL_AS_ARRAY, 'linkOptions' => ['title' => 'Проекты по экологии']],
+    ];
+elseif (Yii::$app->user->can('ecologist'))
+    // эколог
+    $items = [
+        ['label' => '<i class="fa fa-leaf fa-lg"></i> ' . \backend\controllers\EcoProjectsController::MAIN_MENU_LABEL, 'url' => \backend\controllers\EcoProjectsController::ROOT_URL_AS_ARRAY, 'linkOptions' => ['title' => 'Проекты по экологии']],
     ];
 
 $items[] = '<li>'

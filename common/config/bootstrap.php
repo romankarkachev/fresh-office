@@ -21,6 +21,7 @@ Yii::setAlias('@uploads-payment-orders-fs', '@backend/../uploads/payment-orders'
 Yii::setAlias('@uploads-correspondence-packages-fs', '@backend/../uploads/correspondence-packages'); // файлы пакетов корреспонденции
 Yii::setAlias('@uploads-transport-requests-fs', '@backend/../uploads/transport-requests'); // файлы к запросам на транспорт, полный путь
 Yii::setAlias('@uploads-mail-extractions-fs', '@backend/../uploads/mail-extractions'); // файлы с выгрузкой корпоративной почты, полный путь
+Yii::setAlias('@uploads-eco-projects-fs', '@backend/../uploads/eco-projects'); // файлы к этапам проектов по экологии, полный путь
 
 Yii::setAlias('uploads-appeals', '/uploads/appeals/'); // файлы к обращениям, относительный путь
 Yii::setAlias('uploads-ferrymen-drivers', '/uploads/ferrymen-drivers/'); // файлы к автомобилям перевозчиков, относительный путь
@@ -29,3 +30,4 @@ Yii::setAlias('uploads-ferrymen', '/uploads/ferrymen/'); // файлы к пер
 Yii::setAlias('uploads-payment-orders', '/uploads/payment-orders/'); // файлы к перевозчикам, относительный путь
 Yii::setAlias('uploads-transport-requests', '/uploads/transport-requests/'); // файлы к запросам на транспорт, относительный путь
 Yii::setAlias('uploads-correspondence-packages', '/uploads/correspondence-packages/'); // файлы пакетов корреспонденции, относительный путь
+Yii::setAlias('uploads-eco-projects', '/uploads/eco-projects/'); // файлы к этапам проектов по экологии, относительный путь

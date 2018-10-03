@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\ProductionFeedbackFiles;
 use Yii;
 use yii\web\Controller;
 use yii\web\UploadedFile;
@@ -65,9 +66,10 @@ class ProductionController extends Controller
         if ($project_id > 0) {
             $project = DirectMSSQLQueries::fetchProjectsData($project_id);
             if (count($project) > 0) {
-                // проверим, соответствует ли тип проекта разрешенным
+                // проверим, соответствует ли тип проекта разрешенным и не добавлялся ли этот проект ранее
                 if (!in_array($project['type_id'], ProjectsTypes::НАБОР_ДОПУСТИМЫХ_ТИПОВ_ПРОИЗВОДСТВО) ||
-                    !in_array($project['state_id'], ProjectsStates::НАБОР_ДОПУСТИМЫХ_СТАТУСОВ_ПРОИЗВОДСТВО)) {
+                    !in_array($project['state_id'], ProjectsStates::НАБОР_ДОПУСТИМЫХ_СТАТУСОВ_ПРОИЗВОДСТВО) ||
+                    ProductionFeedbackFiles::findOne(['project_id' => $project_id])) {
                     return $this->renderPartial('_not_found');
                 }
 

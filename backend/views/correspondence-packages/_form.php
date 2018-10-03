@@ -64,10 +64,21 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
                     <?= $form->field($model, 'customer_name')->textInput(['disabled' => true]) ?>
 
                 </div>
+                <?php if ($model->cps_id == CorrespondencePackagesStates::STATE_ЧЕРНОВИК || $model->cps_id == CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ): ?>
+                <div class="col-md-3">
+                    <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
+                        'data' => \common\models\User::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                    ]) ?>
+
+                </div>
+                <?php else: ?>
                 <div class="col-md-6">
                     <?= $form->field($model, 'managerProfileName')->textInput(['disabled' => true]) ?>
 
                 </div>
+                <?php endif; ?>
             </div>
             <div class="row">
                 <?php if (!Yii::$app->user->can('sales_department_manager')): ?>

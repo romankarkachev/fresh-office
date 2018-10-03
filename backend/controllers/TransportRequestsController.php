@@ -237,7 +237,7 @@ class TransportRequestsController extends Controller
             if ($model->created_by != Yii::$app->user->id) {
                 return $this->render('/common/forbidden_foreign', [
                     'details' => [
-                        'breadcrumbs' => ['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']],
+                        'breadcrumbs' => [['label' => 'Запросы на транспорт', 'url' => ['/transport-requests']]],
                         'modelRep' => $model->representation,
                         'buttonCaption' => 'Запросы на транспорт',
                         'buttonUrl' => ['/transport-requests'],

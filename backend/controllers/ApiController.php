@@ -263,13 +263,23 @@ WHERE COMPANY.ID_COMPANY IN (' . implode(',', $ca_ids) . ')';
             $user = User::findOne(['auth_key' => $token, 'blocked_at' => null]); // пользователь не должен быть заблокирован
             if ($user) {
                 // координаты пришли от пользователя, который зарегистрирован в нашей системе
+
+                // временно включен трек пользователя, то есть все точки
+                // после отладки убрать вот это и раскомментировать ниже:
+                /*
+                $model = new MobileAppGeopos([
+                    'user_id' => $user->id,
+                ]);
+                */
+
                 $model = MobileAppGeopos::findOne(['user_id' => $user->id]);
                 if ($model) {
                     $model->arrived_at = time();
                 }
                 else {
-                    $model = new MobileAppGeopos();
-                    $model->user_id = $user->id;
+                    $model = new MobileAppGeopos([
+                        'user_id' => $user->id,
+                    ]);
                 }
 
                 if ($model->load(Yii::$app->request->post())) {

@@ -194,7 +194,6 @@ class DefaultController extends Controller
     }
 
     /**
-     * НЕ ИСПОЛЬЗУЕТСЯ
      * Загружает заголовки писем, которые отсутствуют в нашей системе.
      * @return mixed
      */
@@ -236,7 +235,7 @@ class DefaultController extends Controller
                             }
                             print '<p>Обработка пабки ' . $folderName . ' (' . $folderTech . ')</p>';
 
-                            $lastId = CEMessages::find()->select('MAX(id)')->where(['mailbox_id' => $mailbox->id, 'folder_tech' => $folderTech])->scalar();
+                            $lastId = CEMessages::find()->select('MAX(uid)')->where(['mailbox_id' => $mailbox->id, 'folder_tech' => $folderTech])->scalar();
                             if (empty($lastId)) $lastId = 0; else $lastId++;
 
                             $uid_from = $lastId;
@@ -288,6 +287,7 @@ class DefaultController extends Controller
 
     /**
      * Закачивает сообщения из очереди.
+     * obtain-incomplete-messages
      */
     public function actionObtainIncompleteMessages()
     {

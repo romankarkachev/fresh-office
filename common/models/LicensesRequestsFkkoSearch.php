@@ -35,19 +35,27 @@ class LicensesRequestsFkkoSearch extends LicensesRequestsFkko
      * Creates data provider instance with search query applied
      *
      * @param array $params
-     *
+     * @param $id integer
      * @return ActiveDataProvider
      */
-    public function search($params)
+    public function search($params, $id = null)
     {
+        $route = '/licenses-requests/fkko-list';
         $query = LicensesRequestsFkko::find();
+
+        // для мастера обработки лицензий ссылки для пагинации другие
+        $pagination = [
+            'route' => $route,
+        ];
+        if (!empty($id)) {
+            $pagination['params'] = array_merge($_GET, ['id' => $id]);
+        }
+
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
-            'pagination' => [
-                'route' => '/licenses-requests/fkko-list',
-            ],
+            'pagination' => $pagination,
             'sort' => [
-                'route' => '/licenses-requests/fkko-list',
+                'route' => $route,
                 'defaultOrder' => ['fkkoRep' => SORT_ASC],
                 'attributes' => [
                     'id',

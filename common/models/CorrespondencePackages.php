@@ -86,7 +86,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             // для создания пакета корреспонденции вручную необходимо обязательно выбрать контрагента
             [['fo_id_company', 'manager_id'], 'required', 'on' => 'manual_creating'],
             // для одобрения менеджером обязательно нужно выбрать способ и адрес доставки
-            [['pd_id', 'address_id'], 'required', 'on' => 'manager_approving'],
+            [['pd_id', 'address_id', 'fo_contact_id'], 'required', 'on' => 'manager_approving'],
             [['created_at', 'is_manual', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'pochta_ru_order_id', 'address_id', 'manager_id', 'fo_contact_id', 'rejects_count'], 'integer'],
             [['pad', 'other', 'comment'], 'string'],
             [['customer_name'], 'string', 'max' => 255],

@@ -35,6 +35,11 @@ return [
                             Yii::$app->response->redirect(['/transport-requests'])->send();
                             Yii::$app->end();
                         }
+                        if (Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head')) {
+                            // пользователя с правами эколога сразу переводим на страницу проектов по экологии
+                            Yii::$app->response->redirect(['/eco-projects'])->send();
+                            Yii::$app->end();
+                        }
                     }
                 ],
             ],

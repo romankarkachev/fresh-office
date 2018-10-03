@@ -11,6 +11,9 @@ body {
 .text-bold {
     font-weight: bold;
 }
+.text-normal {
+    font-weight: normal;
+}
 .not-set {
     color: #c55;
     font-style: italic;

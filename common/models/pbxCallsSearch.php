@@ -362,7 +362,7 @@ class pbxCallsSearch extends pbxCalls
             $query->andFilterWhere([
                 'or',
                 ['like', 'src', $this->searchEntire],
-                ['like', 'dst', $this->searchEntire],
+                //['like', 'dst', $this->searchEntire],
             ]);
         }
         else {

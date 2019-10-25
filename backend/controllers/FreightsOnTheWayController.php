@@ -2,14 +2,13 @@
 
 namespace backend\controllers;
 
+use Yii;
+use common\models\foProjectsSearch;
 use common\models\Ferrymen;
 use common\models\foProjects;
 use common\models\foProjectsHistory;
-use common\models\foProjectsStates;
 use common\models\MobileAppGeopos;
 use common\models\ProjectsStates;
-use Yii;
-use common\models\foProjectsSearch;
 use yii\httpclient\Client;
 use yii\web\Controller;
 use yii\filters\AccessControl;
@@ -21,6 +20,12 @@ use yii\web\Response;
  */
 class FreightsOnTheWayController extends Controller
 {
+    /**
+     * Время в течение которого координаты пользователей мобильного приложения считаются свежими.
+     * Задается в минутах.
+     */
+    const TIME_WHEN_GEOPOS_IS_FRESH = 15;
+
     /**
      * @inheritdoc
      */
@@ -47,6 +52,23 @@ class FreightsOnTheWayController extends Controller
     }
 
     /**
+     * Делает выборку устаревших местоположений пользователей.
+     * @return yii\data\ActiveDataProvider
+     */
+    private function fetchOutdatedGeopositions()
+    {
+        return new \yii\data\ActiveDataProvider([
+            'query' => MobileAppGeopos::find()
+                ->distinct()
+                ->joinWith(['userProfile'], false)
+                ->where('arrived_at <= ' . (time() - self::TIME_WHEN_GEOPOS_IS_FRESH * 60))
+                ->orderBy('arrived_at DESC'),
+            'pagination' => false,
+            'sort' => false,
+        ]);
+    }
+
+    /**
      * Отображает электронную очередь автомобилей, следующих к производственной площадке.
      * @return mixed
      */
@@ -70,7 +92,10 @@ class FreightsOnTheWayController extends Controller
      */
     public function actionGeopos()
     {
-        return $this->render('geopos');
+        return $this->render('geopos', [
+            'urlGetGeopositions' => \yii\helpers\Url::to(['/freights-on-the-way/get-mobile-apps-geopositions']),
+            'dpOutdated' => $this->fetchOutdatedGeopositions(),
+        ]);
     }
 
     /**
@@ -164,7 +189,7 @@ class FreightsOnTheWayController extends Controller
     public function actionGetMobileAppsGeopositions()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
-        $timeLimit = time() - 15 * 60; // только свежие координаты, полученные не позднее 15 минут назад
+        $timeLimit = time() - self::TIME_WHEN_GEOPOS_IS_FRESH * 60; // только свежие координаты, полученные не позднее 15 минут назад
         $result = MobileAppGeopos::find()->select([
             MobileAppGeopos::tableName() . '.user_id',
             'userProfileName' => 'profile.name',

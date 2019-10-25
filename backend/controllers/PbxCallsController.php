@@ -7,11 +7,14 @@ use common\models\pbxCalls;
 use common\models\pbxCallsSearch;
 use common\models\pbxInternalPhoneNumber;
 use common\models\pbxInternalPhoneNumberSearch;
+use common\models\pbxCallsComments;
 use common\models\pbxCallsCommentsSearch;
+use backend\models\pbxIdentifyCounteragentForm;
+use common\models\YandexSpeechKitRecognitionQueue;
+use common\models\YandexSpeechKitRecognitionQueueSearch;
 use common\models\foListPhones;
 use common\models\foCompany;
-use common\models\pbxCallsComments;
-use backend\models\pbxIdentifyCounteragentForm;
+use common\models\YandexServices;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
@@ -49,6 +52,18 @@ class PbxCallsController extends Controller
     const ROOT_BREADCRUMB = ['label' => self::ROOT_LABEL, 'url' => self::ROOT_URL_AS_ARRAY];
 
     /**
+     * URL для постановки в очередь на распознание выделенных пользователем звуковых дорожек
+     */
+    const URL_TRANSCRIBE_SELECTED_FILES = 'transcribe-selected-files';
+    const URL_TRANSCRIBE_SELECTED_FILES_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_TRANSCRIBE_SELECTED_FILES];
+
+    /**
+     * URL для вывода списка заданий на распознавание, находящихся в очереди
+     */
+    const URL_RECOGNITION_QUEUE = 'recognition-queue';
+    const URL_RECOGNITION_QUEUE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_RECOGNITION_QUEUE];
+
+    /**
      * Наименование параметра, сохраняемого в сессии при привязке внутреннего номера телефона
      */
     const SESSION_PARAM_NAME_CREATE_INTERNAL_NUMBER = 'pbx_calls_phone_number_';
@@ -71,10 +86,11 @@ class PbxCallsController extends Controller
                             'index',
                             'create-internal-number', 'toggle-new', 'preview-file', 'show-comments', 'get-counteragents-name',
                             'identify-counteragent-form', 'validate-identification', 'apply-identification',
-                            'render-comments-list', 'validate-comment',
+                            'render-comments-list', 'validate-comment', 'temp',
+                            self::URL_TRANSCRIBE_SELECTED_FILES, self::URL_RECOGNITION_QUEUE,
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'pbx', 'sales_department_head'],
+                        'roles' => ['root', 'pbx', 'sales_department_head', 'operator_head'],
                     ],
                     [
                         'actions' => [
@@ -464,5 +480,92 @@ class PbxCallsController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Отправляет файлы выделенных пользователем записей разговоров на сервер Яндекс (помещает их в бакет). Ставит в
+     * очередь на распознание каждый отправленный файл, сохраняя идентификатор ответа для того, чтобы потом проверять
+     * готовность распознания.
+     * transcribe-selected-files
+     * @return mixed
+     */
+    public function actionTranscribeSelectedFiles()
+    {
+        return true;
+    }
+
+    /**
+     * Выводит список заданий, находящихся на распознавании в Яндексе.
+     * recognition-queue
+     * @return mixed
+     */
+    public function actionRecognitionQueue()
+    {
+        $searchModel = new YandexSpeechKitRecognitionQueueSearch();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        return $this->render('/recognition-queue/index', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+            'predefinedPeriods' => pbxCallsSearch::fetchPredefinedPeriods(),
+            'callsDirections' => pbxCallsSearch::fetchFilterCallDirection(),
+            'isNewVariations' => pbxCallsSearch::fetchFilterIsNew(),
+        ]);
+    }
+
+    public function actionTemp()
+    {
+        $client = new \yii\httpclient\Client([
+            'baseUrl' => YandexServices::URL_SPEECHKIT_RECOGNITION_RESULTS,
+            'transport' => 'yii\httpclient\CurlTransport'
+        ]);
+        $response = $client->createRequest()
+            ->setUrl('e03tn9vrnoojvud7at2l')
+            ->setMethod('GET')
+            ->setHeaders([
+                'Authorization' => 'Api-Key AQVNyyn6FCwYKpNIYEkg6UFq-wYn_L5ocLKzp7F6',
+            ])->send();
+
+        if ($response->isOk) {
+            var_dump($response->data);
+        }
+        else {
+            var_dump($response->statusCode, $response->content);
+        }
+        return;
+
+        //$model = pbxCalls::findOne(675388);
+        //if ($model) {
+            $client = new \yii\httpclient\Client([
+                'baseUrl' => YandexServices::URL_SPEECHKIT_RECOGNITION_RUN_LONG,
+                'transport' => 'yii\httpclient\CurlTransport'
+            ]);
+            $response = $client->createRequest()
+                ->setMethod('POST')
+                ->setFormat(\yii\httpclient\Client::FORMAT_JSON)
+                ->setData([
+                    'config' => [
+                        'specification' => [
+                            'languageCode' => 'ru-RU',
+                            'audioEncoding' => 'LINEAR16_PCM',
+                            'sampleRateHertz' => 8000,
+                            'audioChannelCount' => 1,
+                        ],
+                    ],
+                    'audio' => [
+                        'uri' => 'https://storage.yandexcloud.net/1nok/263.wav',
+                    ],
+                ])
+                ->setHeaders([
+                    'Authorization' => 'Api-Key AQVNyyn6FCwYKpNIYEkg6UFq-wYn_L5ocLKzp7F6',
+                ])->send();
+
+            if ($response->isOk) {
+                var_dump($response->data);
+            }
+            else {
+                var_dump($response->statusCode, $response->content);
+            }
+        //}
     }
 }

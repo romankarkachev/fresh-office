@@ -70,7 +70,7 @@ $currentMilestone = null;
                     /* @var $model \common\models\EcoProjects */
                     /* @var $column \yii\grid\DataColumn */
 
-                    return \common\models\EcoProjects::milestonesListTerminColumn($model, $key, $index, $column);
+                    return \common\models\EcoProjects::milestonesListTerminColumn($model, false, $key, $index, $column);
                 },
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => function ($model, $key, $index, $grid) {

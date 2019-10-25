@@ -61,16 +61,22 @@ class EcoProjectsAccess extends \yii\db\ActiveRecord
      * @param $project_id integer проект, необходим для исключения пользователей, которые уже имеют доступ
      * @return array
      */
-    public static function arrayMapForSelect2($project_id)
+    public static function arrayMapForSelect2($project_id=null)
     {
         $tableName = User::tableName();
-        return ArrayHelper::map(User::find()->select($tableName . '.*')
+        $query = User::find()->select($tableName . '.*')
             ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`=' . $tableName . '.`id`')
             ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
-            ->where(['`auth_assignment`.`item_name`' => 'ecologist'])
-            ->andWhere(['not in', 'id', EcoProjectsAccess::find()->select('user_id')->where(['project_id' => $project_id])])
-            ->orderBy('profile.name')->all(),
-        'id', 'profile.name');
+            ->where([
+                'or',
+                ['`auth_assignment`.`item_name`' => 'ecologist'],
+                ['`auth_assignment`.`item_name`' => 'ecologist_head'],
+            ])
+            ->orderBy('profile.name');
+
+        if (!empty($project_id)) $query->andWhere(['not in', 'id', EcoProjectsAccess::find()->select('user_id')->where(['project_id' => $project_id])]);
+
+        return ArrayHelper::map($query->all(), 'id', 'profile.name');
     }
 
     /**

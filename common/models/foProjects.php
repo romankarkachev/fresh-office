@@ -9,6 +9,7 @@ use Yii;
  *
  * @property integer $id [ID_LIST_PROJECT_COMPANY]
  * @property integer $created_at [DATE_CREATE_PROGECT]
+ * @property integer [ID_CONTACT_MAN] контактное лицо
  * @property integer $type_id поле [ID_LIST_SPR_PROJECT], таблица [LIST_SPR_PROJECT]
  * @property integer $ca_id [ID_COMPANY]
  * @property integer $manager_id [ID_MANAGER]
@@ -30,8 +31,24 @@ use Yii;
  * @property string $date_start
  * @property string $date_end
  * @property string [PRIM_PROJECT_COMPANY]
+ * @property float $ADD_vol_ttn
+ * @property float $ADD_weight_true
+ * @property float $ADD_vol_fact
+ * @property float $ADD_ttn
  *
- * @property string $customerName
+ * @property string $customerName вычисляется безобразно, но эффективно
+ * @property string $companyName вычисляется при помощи relation
+ * @property string $companyInn ИНН контрагента
+ * @property string $companyManagerId ответственный за контрагента
+ * @property string $companyManagerName ответственный за контрагента
+ * @property string $companyManagerCreatorEmailValue E-mail ответственного за контрагента
+ * @property string $contactPersonName имя контактного лица
+ * @property string $paramAddressValue
+ *
+ * @property foCompany $company
+ * @property foManagers $companyManager
+ * @property foCompanyContactPersons $contactPerson
+ * @property foProjectsParameters $paramAddress
  */
 class foProjects extends \yii\db\ActiveRecord
 {
@@ -252,6 +269,109 @@ class foProjects extends \yii\db\ActiveRecord
     }
 
     /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCompany()
+    {
+        return $this->hasOne(foCompany::className(), ['ID_COMPANY' => 'ID_COMPANY']);
+    }
+
+    /**
+     * Возвращает наименование контрагента.
+     * @return string
+     */
+    public function getCompanyName()
+    {
+        return !empty($this->company) ? $this->company->COMPANY_NAME : '';
+    }
+
+    /**
+     * Возвращает ИНН контрагента.
+     * @return string
+     */
+    public function getCompanyInn()
+    {
+        return !empty($this->company) ? $this->company->INN : '';
+    }
+
+    /**
+     * @return yii\db\ActiveQuery
+     */
+    public function getCompanyManager()
+    {
+        return $this->hasOne(foManagers::class, ['ID_MANAGER' => 'ID_MANAGER'])->via('company');
+    }
+
+    /**
+     * Возвращает идентификатор ответственного за контрагента.
+     * @return string
+     */
+    public function getCompanyManagerId()
+    {
+        return !empty($this->company) ? $this->company->ID_MANAGER : '';
+    }
+
+    /**
+     * Возвращает имя ответственного за контрагента.
+     * @return string
+     */
+    public function getCompanyManagerName()
+    {
+        return !empty($this->companyManager) ? $this->companyManager->MANAGER_NAME : '';
+    }
+
+    /**
+     * @return yii\db\ActiveQuery
+     */
+    public function getCompanyManagerCreator()
+    {
+        return $this->hasOne(foManagers::class, ['ID_MANAGER' => 'ID_MANAGER_CREATOR']);
+    }
+
+    /**
+     * Возвращает E-mail ответственного за контрагента.
+     * @return string
+     */
+    public function getCompanyManagerCreatorEmailValue()
+    {
+        return !empty($this->companyManagerCreator) ? $this->companyManagerCreator->e_mail : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getContactPerson()
+    {
+        return $this->hasOne(foCompanyContactPersons::className(), ['ID_CONTACT_MAN' => 'ID_CONTACT_MAN']);
+    }
+
+    /**
+     * Возвращает имя контактного лица.
+     * @return string
+     */
+    public function getContactPersonName()
+    {
+        return !empty($this->contactPerson) ? $this->contactPerson->CONTACT_MAN_NAME : '';
+    }
+
+    /**
+     * @return yii\db\ActiveQuery
+     */
+    public function getContactPersonEmail()
+    {
+        return $this->hasOne(foListEmailClient::class, ['ID_COMPANY' => 'ID_COMPANY', 'ID_CONTACT_MAN' => 'ID_CONTACT_MAN']);
+    }
+
+    /**
+     * Возвращает E-mail контактного лица.
+     * @return string
+     */
+    public function getContactPersonEmailValue()
+    {
+        return !empty($this->contactPersonEmail) ? $this->contactPersonEmail->email : '';
+    }
+
+    /**
      * Делает запрос с целью установления наименования контрагента по имеющемуся идентификатору.
      * @return string
      */
@@ -262,5 +382,22 @@ class foProjects extends \yii\db\ActiveRecord
         $ca = DirectMSSQLQueries::fetchCounteragent($this->ca_id);
         if (is_array($ca)) if (count($ca) > 0) return $ca[0]['caName'];
         return '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getParamAddress()
+    {
+        return $this->hasOne(foProjectsParameters::className(), ['ID_LIST_PROJECT_COMPANY' => 'ID_LIST_PROJECT_COMPANY'])->andWhere(['PROPERTIES_PROGECT' => 'Адрес']);
+    }
+
+    /**
+     * Возвращает значение адреса из параметров проекта.
+     * @return string
+     */
+    public function getParamAddressValue()
+    {
+        return !empty($this->paramAddress) ? $this->paramAddress->VALUES_PROPERTIES_PROGECT : '';
     }
 }

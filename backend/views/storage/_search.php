@@ -41,11 +41,7 @@ use common\models\UploadingFilesMeanings;
                             ],
                             'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
                             'templateResult' => new JsExpression('function(result) { return result.text; }'),
-                            'templateSelection' => new JsExpression('function (result) {
-    if (!result.id) {return result.text;}
-    $("#' . $formName . '-ca_name" ).val(result.text);
-    return result.text;
-}'),
+                            'templateSelection' => new JsExpression('function (result) { return result.text; }'),
                         ],
                         'pluginEvents' => [
                             'select2:select' => new JsExpression('function() { $("#frmSearch").submit() }'),
@@ -53,6 +49,7 @@ use common\models\UploadingFilesMeanings;
                     ]) ?>
 
                 </div>
+                <?php if (!Yii::$app->user->can('logist')): ?>
                 <div class="col-md-2">
                     <?= $form->field($model, 'type_id')->widget(Select2::className(), [
                         'data' => UploadingFilesMeanings::arrayMapForSelect2(),
@@ -61,6 +58,11 @@ use common\models\UploadingFilesMeanings;
                         'pluginOptions' => ['allowClear' => true],
                         'hideSearch' => true,
                     ]) ?>
+
+                </div>
+                <?php endif; ?>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'ofn')->textInput(['placeholder' => 'Введите имя файла'])->label('Имя файла') ?>
 
                 </div>
             </div>

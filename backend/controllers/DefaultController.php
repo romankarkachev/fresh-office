@@ -21,7 +21,7 @@ class DefaultController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['login', 'error'],
+                        'actions' => ['login', 'error', 'phpinfo'],
                         'allow' => true,
                     ],
                     [
@@ -74,5 +74,14 @@ class DefaultController extends Controller
     public function actionIndex()
     {
         return $this->render('index');
+    }
+
+    /**
+     * Отображает страницу с информацией о веб-сервере.
+     * @return string
+     */
+    public function actionPhpinfo()
+    {
+        return $this->render('phpinfo');
     }
 }

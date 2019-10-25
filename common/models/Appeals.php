@@ -32,6 +32,7 @@ use yii\helpers\ArrayHelper;
  * @property string $createdByProfileName
  * @property string $appealStateName
  * @property string $caStateName
+ * @property string $appealSourceName
  *
  * @property User $createdBy
  * @property User $createdByProfile
@@ -101,6 +102,8 @@ class Appeals extends \yii\db\ActiveRecord
             ['form_phone', 'validatePhone', 'on' => 'create_manual'],
             ['form_email', 'email', 'on' => 'create_manual'],
             [['files'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 10],
+            [['form_company', 'form_username', 'form_region', 'form_email', 'form_message'], 'trim'],
+            [['form_company', 'form_username', 'form_region', 'form_email', 'form_message'], 'default', 'value' => null],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['as_id'], 'exist', 'skipOnError' => true, 'targetClass' => AppealSources::className(), 'targetAttribute' => ['as_id' => 'id']],
         ];
@@ -710,23 +713,48 @@ ORDER BY COMPANY_NAME';
     public static function foapi_createNewCounteragent($appeal, $responsible_id)
     {
         $contacts = [
+            'name' => $appeal->form_username,
+            /*
+            // в качестве эксперимента, с 30.08.19 вводится заполнение только поля "ФИО", без заполнения отдельно имени
+            // и фамилии ввиду того, что поле "ФИО" в таком случае заполняется дважды одним и тем же, например:
+            // Дюжев Алексей Анатольевич Дюжев Алексей Анатольевич
             'first_name' => $appeal->form_username,
             'last_name' => $appeal->form_username,
+            */
             'post' => 'Представитель',
             'status_id' => FreshOfficeAPI::CONTACT_PERSON_STATE_РАБОТАЕТ,
         ];
 
         // дополним контакты номером телефона, если он задан
-        if ($appeal->form_phone != null && $appeal->form_phone != '')
+        if (!empty($appeal->form_phone)) {
+            $form_phone = $appeal->form_phone;
+            if (substr($form_phone, 0, 1) == '7') {
+                // если номер начинается на цифру семь, то удаляем ее
+                $form_phone = substr($form_phone, 1);
+            }
+            if (substr($form_phone, 0, 2) == '+7') {
+                // если номер начинается с кода страны, удаляем его
+                $form_phone = substr($form_phone, 2);
+            }
+            // оставляем в номере только цифры, никаких скобок и минусов
+            $form_phone = preg_replace("/[^0-9]/", '', $form_phone);
             $contacts['phones'][] = [
-                'phone' => '8' . $appeal->form_phone,
+                'phone' => $form_phone,
             ];
+            unset($form_phone);
+        }
 
         // дополним контакты электронным ящиком, если он задан
         if ($appeal->form_email != null && $appeal->form_email != '')
             $contacts['emails'][] = [
                 'email' => $appeal->form_email,
             ];
+
+        $appealSourceName = $appeal->appealSourceName;
+        if (false === stripos($appealSourceName, '.ru')) {
+            // если это адрес сайта, то так и вставляем, а если нет, то:
+            $appealSourceName = 'Электронная заявка';
+        }
 
         $params = [
             'name' => $appeal->form_company,
@@ -738,6 +766,7 @@ ORDER BY COMPANY_NAME';
             'created' => date('Y-m-d\TH:i:s.u', time()),
             'created_by' => 'Веб-приложение',
             //'info_source' => 'Создан из мастера обработки обращений веб-приложения',
+            'info_source' => $appealSourceName,
         ];
         $params['requisites_legal'][] = [
             'short_name' => $appeal->form_company,
@@ -755,9 +784,7 @@ ORDER BY COMPANY_NAME';
             'note' => $appeal->form_message,
         ];
 
-        //var_dump(json_encode($params));
         $response = FreshOfficeAPI::makePostRequestToApi('companies', $params);
-        //var_dump($response);
         // проанализируем результат, который возвращает API Fresh Office
         $decoded_response = json_decode($response, true);
         if (isset($decoded_response['error'])) {
@@ -877,6 +904,25 @@ ORDER BY COMPANY_NAME';
         // если ошибок нет, изменим статус обращения на "Ожидает оплаты"
         $appeal->state_id = self::APPEAL_STATE_PAYMENT;
         if (!$appeal->save()) return ['Не удалось изменить статус обращения!'];
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        // ИЗМЕНЕНИЕ ИСТОЧНИКА В КАРТОЧКЕ КОНТРАГЕНТА
+        ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        if ($appeal->ca_state_id == self::CA_STATE_REPEATED) {
+            // если статус обращения - "Повторно", то обновим источник в карточке контрагента
+            $company = foCompany::findOne($ca_id);
+            if ($company) {
+                $appealSourceName = $appeal->appealSourceName;
+                if (false === stripos($appealSourceName, '.ru')) {
+                    // если это адрес сайта, то так и вставляем, а если нет, то:
+                    $appealSourceName = 'Электронная заявка';
+                }
+
+                $company->updateAttributes([
+                    'INFORM_IN_COMPANY' => $appealSourceName,
+                ]);
+            }
+        }
 
         // если абсолютно все действия выполнены, возвращаем успех
         return true;

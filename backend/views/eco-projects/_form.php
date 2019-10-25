@@ -7,7 +7,6 @@ use yii\web\JsExpression;
 use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
 use common\models\EcoTypes;
-use common\models\User;
 use backend\controllers\EcoProjectsController;
 
 /* @var $this yii\web\View */
@@ -40,6 +39,23 @@ $formNameId = strtolower($formName);
 
         </div>
         <div class="col-md-2">
+            <?= $form->field($model, 'date_finish_contract')->widget(DateControl::className(), [
+                'value' => $model->date_finish_contract,
+                'type' => DateControl::FORMAT_DATE,
+                'displayFormat' => 'php:d.m.Y',
+                'saveFormat' => 'php:Y-m-d',
+                'widgetOptions' => [
+                    'layout' => '{input}{picker}',
+                    'options' => ['placeholder' => '- выберите дату -'],
+                    'pluginOptions' => [
+                        'weekStart' => 1,
+                        'autoclose' => true,
+                    ],
+                ],
+            ]) ?>
+
+        </div>
+        <div class="col-md-2">
             <?= $form->field($model, 'type_id')->widget(Select2::className(), [
                 'data' => EcoTypes::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
@@ -54,7 +70,9 @@ $formNameId = strtolower($formName);
             ]) ?>
 
         </div>
-        <div class="col-md-3">
+        <?= $this->render('_contract_amount_field', ['model' => $model, 'form' => $form]); ?>
+
+        <div class="col-md-2">
             <?= $form->field($model, 'ca_id')->widget(Select2::className(), [
                 'initValueText' => \common\models\TransportRequests::getCustomerName($model->ca_id),
                 'theme' => Select2::THEME_BOOTSTRAP,
@@ -79,8 +97,8 @@ $formNameId = strtolower($formName);
         </div>
         <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head')): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'created_by')->widget(Select2::className(), [
-                'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_ECOLOGIST_ROLE),
+            <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
+                'data' => \common\models\EcoProjectsAccess::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
             ]) ?>

@@ -5,6 +5,7 @@ use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use kartik\datecontrol\DateControl;
+use yii\web\View;
 use yii\widgets\MaskedInput;
 use common\models\Ferrymen;
 use common\models\FerrymenTypes;
@@ -25,6 +26,21 @@ $labelAtiCode = $model->attributeLabels()['ati_code'];
 <div class="ferrymen-form">
     <?php $form = ActiveForm::begin(); ?>
 
+    <div class="panel panel-info">
+        <div class="panel-heading">Информация о контрагенте</div>
+        <div class="panel-body">
+            <div class="form-group">
+                <?= Html::input('text', $model->formName() . '[dadataCasting]', null, [
+                    'id' => 'dadataCasting',
+                    'class' => 'form-control',
+                    'placeholder' => 'Мастер подбора контрагентов',
+                    'title' => 'Универсальный подбор и автозаполнение реквизитов контрагентов',
+                    'autofocus' => true,
+                ]) ?>
+
+            </div>
+        </div>
+    </div>
     <div class="row">
         <div class="col-md-3">
             <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование', 'readonly' => true]) ?>
@@ -240,12 +256,48 @@ $urlCheckAtiCode = Url::to(['/ferrymen/validate-ati-code']);
 $urlFerrymanInvitationForm = Url::to(['/ferrymen/invite-ferryman-form']);
 $urlSendInvitation = Url::to(['/ferrymen/send-invitation']);
 
+$token = \common\models\DadataAPI::API_TOKEN;
+
 $opfhPhys = Opfh::OPFH_ФИЗЛИЦО;
 $opfhIp = Opfh::OPFH_ИП;
 $opfhOOO = Opfh::OPFH_ООО;
 
+$this->registerCssFile('https://cdn.jsdelivr.net/npm/suggestions-jquery@19.4.2/dist/css/suggestions.min.css');
+
+$this->registerJsFile('https://cdn.jsdelivr.net/npm/suggestions-jquery@19.4.2/dist/js/jquery.suggestions.min.js', ['depends' => 'yii\web\JqueryAsset', 'position' => View::POS_END]);
+
 $this->registerJs(<<<JS
 $("input").iCheck({checkboxClass: "icheckbox_square-green"});
+
+$("#dadataCasting").suggestions({
+    token: "$token",
+    type: "PARTY",
+    onSelect: function(suggestion) {
+        $("#$formName-inn").val("");
+        $("#$formName-kpp").val("");
+        $("#$formName-ogrn").val("");
+        $("#$formName-name").val("");
+        $("#$formName-name_full").val("");
+        $("#$formName-name_short").val("");
+        $("#$formName-address_j").val("");
+
+        if (suggestion.data.state.liquidation_date != null)  {
+            if (!confirm("Предприятие ликвидировано! Вы действительно хотите продолжить?")) {
+                return true;
+            }
+        }
+
+        if (suggestion.data.inn) $("#$formName-inn").val(suggestion.data.inn);
+        if (suggestion.data.kpp) $("#$formName-kpp").val(suggestion.data.kpp);
+        if (suggestion.data.ogrn) $("#$formName-ogrn").val(suggestion.data.ogrn);
+        if (suggestion.data.name.full) $("#$formName-name").val(suggestion.data.name.full);
+        if (suggestion.data.name.full_with_opf) $("#$formName-name_full").val(suggestion.data.name.full_with_opf);
+        if (suggestion.data.name.short_with_opf) $("#$formName-name_short").val(suggestion.data.name.short_with_opf);
+        if (suggestion.data.address.value) $("#$formName-address_j").val(suggestion.data.address.value);
+
+        return true;
+    }
+});
 
 // Заполняет реквизиты данными, полученными через механизм API.
 //
@@ -387,5 +439,5 @@ $(document).on("change", "#$formName-ati_code", atiCodeOnChange);
 $(document).on("click", "#btnInviteFerryman", btnInviteFerrymanOnClick);
 $(document).on("click", "#btnSendInvitation", btnSendInvitationOnClick);
 JS
-, \yii\web\View::POS_READY);
+, View::POS_READY);
 ?>

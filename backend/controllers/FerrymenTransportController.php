@@ -2,13 +2,13 @@
 
 namespace backend\controllers;
 
-use common\models\TransportLoadTypes;
 use Yii;
 use common\models\Transport;
 use common\models\TransportSearch;
 use common\models\TransportFiles;
 use common\models\TransportFilesSearch;
 use common\models\UploadingFilesMeanings;
+use common\models\TransportLoadTypes;
 use yii\helpers\Html;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -39,7 +39,7 @@ class FerrymenTransportController extends Controller
                     [
                         'actions' => [
                             'index', 'create', 'update', 'delete',
-                            'upload-files', 'download-file', 'preview-file', 'delete-file',
+                            'upload-files', 'download-file', 'preview-file', 'delete-file', 'temp',
                         ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'head_assist'],
@@ -281,7 +281,7 @@ class FerrymenTransportController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $obj_id = Yii::$app->request->post('obj_id');
-        $upload_path = TransportFiles::getUploadsFilepath();
+        $upload_path = TransportFiles::getUploadsFilepath($obj_id);
         if ($upload_path === false) return 'Невозможно создать папку для хранения загруженных файлов!';
 
         // массив загружаемых файлов
@@ -362,5 +362,14 @@ class FerrymenTransportController extends Controller
         }
 
         return false;
+    }
+
+    public function actionTemp()
+    {
+        /*
+        $client = new Client(['baseUrl' => 'https://data.av100.ru/']);
+        $tsResponse = $client->get('api.ashx', ['key' => '23b12c25-fb0b-44ff-b0e7-82d320a12548', 'gosnomer' => 'С060ЕО777'])->send();
+        var_dump($tsResponse->data);
+        */
     }
 }

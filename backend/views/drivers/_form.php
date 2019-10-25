@@ -355,6 +355,11 @@ if (isset($files)) {
         <?php if ($model->isNewRecord): ?>
         <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']) ?>
         <?php else: ?>
+        <?= Html::a('Перевести к другому перевозчику', '#', [
+            'class' => 'btn btn-default btn-lg',
+            'id' => 'btnReplaceFerrymanForm',
+        ]) ?>
+
         <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
 
         <?php if (empty($model->user_id)): ?>
@@ -391,17 +396,18 @@ if (isset($files)) {
 </div>
 <?php
 $urlPreview = Url::to(['/ferrymen-drivers/preview-file']);
+$urlFerrymanReplacingForm = Url::to(['/ferrymen-drivers/replace-ferryman-form']);
+$urlReplaceFerryman = Url::to(['/ferrymen-drivers/replace-ferryman']);
 
 $this->registerJs(<<<JS
-$("input").iCheck({
-    checkboxClass: "icheckbox_square-green"
-});
+$("input").iCheck({checkboxClass: "icheckbox_square-green"});
 
 // Обработчик щелчка по ссылкам в колонке "Наименование" в таблице файлов.
 //
 function previewFileOnClick() {
     id = $(this).attr("data-id");
     if (id != "") {
+        $("#modal_title").text("Предпросмотр файла");
         $("#modal_body_preview").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
         $("#mwPreview").modal();
         $("#modal_body_preview").load("$urlPreview?id=" + id);
@@ -410,7 +416,34 @@ function previewFileOnClick() {
     return false;
 } // previewFileOnClick()
 
+// Обработчик щелчка по кнопке "Перевести к другому перевозчику".
+// Отображает форму отправки приглашения.
+//
+function btnReplaceFerrymanFormOnClick() {
+    $("#modal_title").text("Перевод к другому перевозчику");
+    $("#modal_body_preview").html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+    $("#mwPreview").modal();
+    $("#modal_body_preview").load("$urlFerrymanReplacingForm?id=$model->id");
+
+    return false;
+} // btnReplaceFerrymanFormOnClick()
+
+// Обработчик щелчка по кнопке "Выполнить перевод".
+//
+function btnReplaceFerrymanOnClick() {
+    $.post("$urlReplaceFerryman", $("#frmReplaceFerryman").serialize(), function(result) {
+        if (result == true) {
+            alert("Водитель был успешно переведен к другому перевозчику.");
+            $("#mwPreview").modal("hide");
+        }
+    });
+
+    return false;
+} // btnReplaceFerrymanOnClick()
+
 $(document).on("click", "a[id ^= 'previewFile']", previewFileOnClick);
+$(document).on("click", "#btnReplaceFerrymanForm", btnReplaceFerrymanFormOnClick);
+$(document).on("click", "#btnReplaceFerryman", btnReplaceFerrymanOnClick);
 JS
 , yii\web\View::POS_READY);
 ?>

@@ -212,10 +212,29 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
      */
     public function search($params)
     {
-        $query = CorrespondencePackages::find();
+        $tableName = CorrespondencePackages::tableName();
+        $query = CorrespondencePackages::find()->select([
+            '*',
+            'id' => $tableName . '.id',
+            'created_at' => $tableName . '.created_at',
+            'state_id' => $tableName . '.state_id',
+        ]);
+
+        if (Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head')) {
+            // для начала проверяем наличие отделов у данного пользователя
+            // если он не включен ни в один отдел, то будет произведен отбор только его собственных документов
+            $departments = UsersDepartments::find()->select('department_id')->where(['user_id' => Yii::$app->user->id])->column();
+            if (empty($departments)) {
+                $query->orWhere([$tableName . '.manager_id' => Yii::$app->user->id]);
+            } else {
+                $query->orWhere([$tableName . '.manager_id' => UsersDepartments::find()->select('user_id')->distinct('user_id')->where(['department_id' => $departments])]);
+            }
+        }
+
         if (Yii::$app->user->can('sales_department_manager')) {
-            $query->where([
-                'manager_id' => Yii::$app->user->id,
+            $query->andWhere([
+                // выполнен переход на отбор по отделу, данное условие утратило смысл:
+                //$tableName . '.manager_id' => Yii::$app->user->id,
                 'is_manual' => true,
                 'cps_id' => [
                     CorrespondencePackagesStates::STATE_ЧЕРНОВИК,
@@ -224,6 +243,28 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                     CorrespondencePackagesStates::STATE_ОТКАЗ,
                 ]
             ]);
+        }
+
+        if (Yii::$app->user->can('dpc_head')) {
+            $query->andWhere([
+                'is_manual' => false,
+            ]);
+        }
+
+        if (Yii::$app->user->can('ecologist_head') || Yii::$app->user->can('ecologist')) {
+            $query->andWhere([
+                // выполнен переход на отбор по отделу, данное условие утратило смысл:
+                //$tableName . '.manager_id' => Yii::$app->user->id,
+                'is_manual' => true,
+            ]);
+            if (Yii::$app->user->can('ecologist_head')) {
+                // для начальника экологии отбор тех пакетов, где менеджером указан пользователь с ролью эколога
+                $query->joinWith(['managerRole']);
+                $query->orWhere([
+                    'item_name' => 'ecologist',
+                    'is_manual' => true,
+                ]);
+            }
         }
 
         $dataProvider = new ActiveDataProvider([
@@ -237,13 +278,19 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                 'defaultOrder' => ['created_at' => SORT_DESC],
                 'attributes' => [
                     'id',
-                    'created_at',
+                    'created_at' => [
+                        'asc' => [$tableName . '.created_at' => SORT_ASC],
+                        'desc' => [$tableName . '.created_at' => SORT_DESC],
+                    ],
                     'ready_at',
                     'sent_at',
                     'delivered_at',
                     'fo_project_id',
                     'customer_name',
-                    'state_id',
+                    'state_id' => [
+                        'asc' => ['correspondence_packages.state_id' => SORT_ASC],
+                        'desc' => ['correspondence_packages.state_id' => SORT_DESC],
+                    ],
                     'type_id',
                     'pad',
                     'pd_id',
@@ -269,14 +316,18 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                         'asc' => ['post_delivery_kinds.name' => SORT_ASC],
                         'desc' => ['post_delivery_kinds.name' => SORT_DESC],
                     ],
+                    'managerProfileName' => [
+                        'asc' => ['managerProfile.name' => SORT_ASC],
+                        'desc' => ['managerProfile.name' => SORT_DESC],
+                    ],
                 ]
             ]
         ]);
 
         $this->load($params);
-        $query->joinWith(['cps', 'state', 'type', 'pd']);
+        $query->joinWith(['cps', 'state', 'type', 'pd', 'managerProfile', 'edf']);
 
-        // по-умолчанию все видят пакеты документов только в статусах "Формирование документов на отправку" и "Ожидает отправки"
+        // по умолчанию все видят пакеты документов только в статусах "Формирование документов на отправку" и "Ожидает отправки"
         if ($this->searchGroupProjectStates == null) {
             if (Yii::$app->user->can('sales_department_manager'))
                 // для менеджеров значение по-умолчанию - Все
@@ -293,25 +344,25 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
         // дополним условием отбора по статусам
         switch ($this->searchGroupProjectStates) {
             case self::CLAUSE_STATE_DEFAULT:
-                $query->andWhere(['in', 'state_id', [ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ, ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ]]);
+                $query->andWhere(['in', $tableName . '.state_id', [ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ, ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ]]);
                 break;
             case self::CLAUSE_STATE_PROCESS:
-                $query->andWhere(['not in', 'state_id', [ProjectsStates::STATE_ДОСТАВЛЕНО, ProjectsStates::STATE_ЗАВЕРШЕНО]]);
+                $query->andWhere(['not in', $tableName . '.state_id', [ProjectsStates::STATE_ДОСТАВЛЕНО, ProjectsStates::STATE_ЗАВЕРШЕНО]]);
                 break;
             case self::CLAUSE_STATE_SENT:
-                $query->andWhere(['state_id' => ProjectsStates::STATE_ОТПРАВЛЕНО]);
+                $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_ОТПРАВЛЕНО]);
                 break;
             case self::CLAUSE_STATE_JUST_CREATED:
-                $query->andWhere(['state_id' => ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ]);
+                $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ]);
                 break;
             case self::CLAUSE_STATE_READY:
-                $query->andWhere(['state_id' => ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ]);
+                $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ]);
                 break;
             case self::CLAUSE_STATE_DELIVERED:
-                $query->andWhere(['state_id' => ProjectsStates::STATE_ДОСТАВЛЕНО]);
+                $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_ДОСТАВЛЕНО]);
                 break;
             case self::CLAUSE_STATE_FINISHED:
-                $query->andWhere(['state_id' => ProjectsStates::STATE_ЗАВЕРШЕНО]);
+                $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_ЗАВЕРШЕНО]);
                 break;
         }
 
@@ -333,8 +384,8 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
 
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
-            'created_at' => $this->created_at,
+            $tableName . '.id' => $this->id,
+            $tableName . '.created_at' => $this->created_at,
             'is_manual' => $this->is_manual,
             'cps_id' => $this->cps_id,
             'ready_at' => $this->ready_at,
@@ -343,11 +394,11 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
             'paid_at' => $this->paid_at,
             'fo_project_id' => $this->fo_project_id,
             'fo_id_company' => $this->fo_id_company,
-            'state_id' => $this->state_id,
+            'correspondence_packages.state_id' => $this->state_id,
             'type_id' => $this->type_id,
             'pd_id' => $this->pd_id,
             'address_id' => $this->address_id,
-            'manager_id' => $this->manager_id,
+            $tableName . '.manager_id' => $this->manager_id,
             'fo_contact_id' => $this->fo_contact_id,
             'rejects_count' => $this->rejects_count,
         ]);

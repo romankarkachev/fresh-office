@@ -6,6 +6,7 @@ use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
 use yii\web\JsExpression;
 use kartik\select2\Select2;
+use kartik\datecontrol\DateControl;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjectsSearch;
 use common\models\Ferrymen;
@@ -78,6 +79,56 @@ use common\models\Ferrymen;
                     ]) ?>
 
                 </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchVivozDateFrom')->widget(DateControl::className(), [
+                        'value' => $model->searchVivozDateFrom,
+                        'type' => DateControl::FORMAT_DATE,
+                        'language' => 'ru',
+                        'displayFormat' => 'php:d.m.Y',
+                        'saveFormat' => 'php:Y-m-d',
+                        'widgetOptions' => [
+                            'options' => ['placeholder' => 'Начало периода', 'autocomplete' => 'off'],
+                            'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                            'layout' => '<div class="input-group">{input}{picker}</div>',
+                            'pluginOptions' => [
+                                'todayHighlight' => true,
+                                'weekStart' => 1,
+                                'autoclose' => true,
+                            ],
+                            'pluginEvents' => [
+                                'changeDate' => 'function(e) {
+anyDateOnChange();
+                                }',
+                            ],
+                        ],
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchVivozDateTo')->widget(DateControl::className(), [
+                        'value' => $model->searchVivozDateTo,
+                        'type' => DateControl::FORMAT_DATE,
+                        'language' => 'ru',
+                        'displayFormat' => 'php:d.m.Y',
+                        'saveFormat' => 'php:Y-m-d',
+                        'widgetOptions' => [
+                            'options' => ['placeholder' => 'Конец периода', 'autocomplete' => 'off'],
+                            'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
+                            'layout' => '<div class="input-group">{input}{picker}</div>',
+                            'pluginOptions' => [
+                                'todayHighlight' => true,
+                                'weekStart' => 1,
+                                'autoclose' => true,
+                            ],
+                            'pluginEvents' => [
+                                'changeDate' => 'function(e) {
+anyDateOnChange();
+                                }',
+                            ],
+                        ],
+                    ]) ?>
+
+                </div>
                 <div class="col-md-6">
                     <?= $form->field($model, 'searchGroupProjectTypes', [
                         'inline' => true,
@@ -90,6 +141,16 @@ use common\models\Ferrymen;
                                 Html::radio($name, $checked, ['value' => $value, 'class' => 'types-btn']) . $label . '</label>';
                         },
                     ]) ?>
+
+                </div>
+                <div class="col-md-2" title="Выводить только те проекты, которые еще не были поданы в оплату">
+                    <label for="<?= strtolower($model->formName() . '-searchHasNotBeenPaid') ?>" class="control-label"><?= $model->attributeLabels()['searchHasNotBeenPaid'] ?></label>
+                    <?= $form->field($model, 'searchHasNotBeenPaid')->checkbox()->label(false) ?>
+
+                </div>
+                <div class="col-md-2" title="Включить в выборку завершенные проекты (иначе они будут исключены)">
+                    <label for="<?= strtolower($model->formName() . '-searchFinished') ?>" class="control-label"><?= $model->attributeLabels()['searchFinished'] ?></label>
+                    <?= $form->field($model, 'searchFinished')->checkbox()->label(false) ?>
 
                 </div>
             </div>

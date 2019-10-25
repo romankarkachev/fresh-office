@@ -4,6 +4,8 @@ use yii\helpers\Html;
 use yii\helpers\HtmlPurifier;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
+use kartik\select2\Select2;
+use kartik\datecontrol\DateControl;
 use backend\controllers\EcoProjectsController;
 
 /* @var $this yii\web\View */
@@ -25,11 +27,46 @@ $iconSuccess = '<i class=\"fa fa-check-circle text-success\" aria-hidden=\"true\
 
     <?= $this->render('_project_details', ['model' => $model]) ?>
 
+    <div class="row">
+        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head')): ?>
+        <div class="col-md-2">
+            <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
+                'data' => \common\models\EcoProjectsAccess::arrayMapForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+            ]) ?>
+
+        </div>
+        <?php endif; ?>
+        <div class="col-md-2">
+            <?= $form->field($model, 'date_finish_contract')->widget(DateControl::className(), [
+                'value' => $model->date_finish_contract,
+                'type' => DateControl::FORMAT_DATE,
+                'displayFormat' => 'php:d.m.Y',
+                'saveFormat' => 'php:Y-m-d',
+                'widgetOptions' => [
+                    'layout' => '{input}{picker}',
+                    'options' => ['placeholder' => '- выберите дату -'],
+                    'pluginOptions' => [
+                        'weekStart' => 1,
+                        'autoclose' => true,
+                    ],
+                ],
+            ]) ?>
+
+        </div>
+        <?= $this->render('_contract_amount_field', ['model' => $model, 'form' => $form]); ?>
+
+    </div>
     <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите произвольный комментарий']) ?>
 
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> ' . EcoProjectsController::ROOT_LABEL, EcoProjectsController::ROOT_URL_AS_ARRAY, ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
+        <?php if ($model->getEcoProjectsMilestonesPendingCount() > 0): ?>
+        <?= Html::submitButton('<i class="fa fa-flag-checkered" aria-hidden="true"></i> Завершить досрочно', ['class' => 'btn btn-default btn-lg', 'name' => 'ahead_of_time', 'title' => 'Проект и все его открытые этапы будут завершены досрочно, текущим днем']) ?>
+
+        <?php endif; ?>
         <?= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']) ?>
 
     </div>
@@ -60,7 +97,7 @@ $this->registerJs(<<<JS
 function dateClosePlanOnChange(e, id, new_date) {
     \$block = $("#blockTermin" + id);
     \$html = \$block.html();
-    $.post("$urlCloseDate?id=" + id + "&new_date=" + new_date).success(function(response) {
+    $.post("$urlCloseDate?id=" + id + "&new_date=" + new_date, function(response) {
         if (response.result == true) {
             \$block.replaceWith(response.terminColumnHtml);
         }
@@ -98,7 +135,7 @@ function closeMilestoneOnClick() {
             \$nextBlockTool = $("#blockTool" + next_id);
         }
 
-        $.post("$urlCloseMilestone?id=" + id + nextId).success(function(response) {
+        $.post("$urlCloseMilestone?id=" + id + nextId, function(response) {
             if (response.result == true) {
                 // этап успешно закрыт
                 // в графе с плановой датой завершения этапа выводим новый текст в соответствии с правилами

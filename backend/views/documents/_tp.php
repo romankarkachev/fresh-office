@@ -1,9 +1,10 @@
 <?php
 
 use yii\helpers\Html;
-use yii\helpers\Url;
-use yii\web\JsExpression;
 use kartik\select2\Select2;
+use common\models\Units;
+use common\models\DangerClasses;
+use common\models\HandlingKinds;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\DocumentsTp */
@@ -16,87 +17,117 @@ if ($model->isNewRecord) $delete_options = ['id' => 'btn-delete-row-'.$counter, 
 else $delete_options = ['id' => 'btn-delete-row-'.$counter, 'class' => 'btn btn-danger btn-xs', 'data-counter' => $counter, 'data-id' => $model->id, 'title' => 'Удалить эту строку'];
 
 if (!isset($count)) $count = 0;
+
+$parentFormName = (new \common\models\Documents())->formName();
+$formName = strtolower($model->formName());
 ?>
 
     <div class="row" id="dtp-row-<?= $counter ?>">
         <div class="col-md-6">
-            <div class="form-group field-documents-product_id required">
-                <label class="control-label" for="documents-product_id"><?= $model->attributeLabels()['product_id'] ?></label>
-                <?= Select2::widget([
-                    'model' => $model,
-                    'name' => 'Documents[tp]['.$counter.'][product_id]',
-                    'value' => $model->product_id,
-                    'initValueText' => $model->productName,
-                    'theme' => Select2::THEME_BOOTSTRAP,
-                    'size' => Select2::SMALL,
-                    'language' => 'ru',
-                    'options' => [
-                        'id' => 'documentstp-product_id-'.$counter,
-                        'data-counter' => $counter,
-                        'placeholder' => 'Введите наименование'
-                    ],
-                    'pluginOptions' => [
-                        'minimumInputLength' => 1,
+            <div class="col-md-9">
+                <div class="form-group field-documentstp-name required">
+                    <label class="control-label" for="documentstp-name"><?= $model->attributeLabels()['name'] ?></label>
+                    <?= Html::input('text', $parentFormName . '[tp][' . $counter . '][name]', $model->name, ['class' => 'form-control input-sm', 'id' => 'documentstp-name-' . $counter, 'placeholder' => 'Введите наименование товара (услуги)']) ?>
+
+                    <p class="help-block help-block-error"></p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="form-group field-documents-fkko">
+                    <label class="control-label" for="documents-fkko">ФККО</label>
+                    <?= Html::input('text', $parentFormName . '[tp][' . $counter . '][fkko]', $model->fkkoName, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-fkko-'.$counter]) ?>
+
+                    <p class="help-block help-block-error"></p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="col-md-2">
+                <div class="form-group field-<?= $formName ?>-unit_id required">
+                    <label class="control-label" for="<?= $formName ?>-unit_id">Ед. изм.</label>
+                    <?= Select2::widget([
+                        'model' => $model,
+                        'name' => $parentFormName . '[tp][' . $counter . '][unit_id]',
+                        'value' => $model->unit_id,
+                        'initValueText' => $model->unitName,
+                        'data' => Units::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'size' => Select2::SMALL,
+                        'hideSearch' => true,
                         'language' => 'ru',
-                        'ajax' => [
-                            'url' => Url::to(['products/list-nf']),
-                            'delay' => 250,
-                            'dataType' => 'json',
-                            'data' => new JsExpression('function(params) { return {q:params.term, counter: $(this).attr("data-counter")}; }')
+                        'options' => [
+                            'id' => $formName . '-unit_id-' . $counter,
+                            'data-counter' => $counter,
+                            'placeholder' => '- выберите -',
+                            'title' => !empty($model->src_unit) ? 'Единица измерения из источника: ' . $model->src_unit : '',
                         ],
-                        'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
-                        'templateResult' => new JsExpression('function(result) { return result.text; }'),
-                        'templateSelection' => new JsExpression('function (result) {
-if (!result.id) {return result.text;}
-if (result.fkko != "") $("#documentstp-fkko-" + result.counter).val(result.fkko);
-if (result.unit != "") $("#documentstp-unit-" + result.counter).val(result.unit);
-if (result.dc != "") $("#documentstp-dc-" + result.counter).val(result.dc);
+                    ]) ?>
 
-return result.text;
-}'),
-                    ],
-                ]) ?>
-
-                <p class="help-block help-block-error"></p>
+                    <p class="help-block help-block-error"></p>
+                </div>
             </div>
-        </div>
-        <div class="col-md-2">
-            <div class="form-group field-documents-fkko">
-                <label class="control-label" for="documents-fkko">ФККО</label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][fkko]', $model->product != null ? $model->product->fkko : null, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-fkko-'.$counter]) ?>
+            <div class="col-md-3">
+                <div class="form-group field-<?= $formName ?>-dc_id required">
+                    <label class="control-label" for="<?= $formName ?>-dc_id">Кл. опасн.</label>
+                    <?= Select2::widget([
+                        'model' => $model,
+                        'name' => $parentFormName . '[tp][' . $counter . '][dc_id]',
+                        'value' => $model->dc_id,
+                        'initValueText' => $model->dcName,
+                        'data' => DangerClasses::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'size' => Select2::SMALL,
+                        'hideSearch' => true,
+                        'language' => 'ru',
+                        'options' => [
+                            'id' => $formName . '-dc_id-' . $counter,
+                            'data-counter' => $counter,
+                            'placeholder' => '- выберите -',
+                            'title' => !empty($model->src_dc) ? 'Класс опасности из источника: ' . $model->src_dc : '',
+                        ],
+                    ]) ?>
 
-                <p class="help-block help-block-error"></p>
+                    <p class="help-block help-block-error"></p>
+                </div>
             </div>
-        </div>
-        <div class="col-md-1">
-            <div class="form-group field-documents-unit">
-                <label class="control-label" for="documents-unit">Ед. изм.</label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][unit]', $model->product ? $model->product->unit : null, ['class' => 'form-control input-sm', 'readonly' => true, 'id' => 'documentstp-unit-'.$counter]) ?>
+            <div class="col-md-4">
+                <div class="form-group field-<?= $formName ?>-hk_id required">
+                    <label class="control-label" for="<?= $formName ?>-hk_id">Вид обращ.</label>
+                    <?= Select2::widget([
+                        'model' => $model,
+                        'name' => $parentFormName . '[tp][' . $counter . '][hk_id]',
+                        'value' => $model->hk_id,
+                        'initValueText' => $model->hkName,
+                        'data' => HandlingKinds::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'size' => Select2::SMALL,
+                        'hideSearch' => true,
+                        'language' => 'ru',
+                        'options' => [
+                            'id' => $formName . '-hk_id-' . $counter,
+                            'data-counter' => $counter,
+                            'placeholder' => '- выберите -',
+                            'title' => !empty($model->src_uw) ? 'Вид обращения из источника: ' . $model->src_uw : '',
+                        ],
+                    ]) ?>
 
-                <p class="help-block help-block-error"></p>
+                    <p class="help-block help-block-error"></p>
+                </div>
             </div>
-        </div>
-        <div class="col-md-1">
-            <div class="form-group field-documents-dc">
-                <label class="control-label" for="documents-dc">Класс опасн.</label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][dc]', $model->dc, ['class' => 'form-control input-sm', 'id' => 'documentstp-dc-'.$counter]) ?>
+            <div class="col-md-2">
+                <div class="form-group field-documents-quantity required">
+                    <label class="control-label" for="documents-quantity"><?= $model->attributeLabels()['quantity'] ?></label>
+                    <?= Html::input('text', $parentFormName . '[tp][' . $counter . '][quantity]', $model->quantity, ['class' => 'form-control input-sm', 'placeholder' => 'Введите']) ?>
 
-                <p class="help-block help-block-error"></p>
+                    <p class="help-block help-block-error"></p>
+                </div>
             </div>
-        </div>
-        <div class="col-md-1">
-            <div class="form-group field-documents-quantity required">
-                <label class="control-label" for="documents-quantity"><?= $model->attributeLabels()['quantity'] ?></label>
-                <?= Html::input('text', 'Documents[tp]['.$counter.'][quantity]', $model->quantity, ['class' => 'form-control input-sm']) ?>
+            <div class="col-md-1">
+                <label class="control-label" for="<?= 'btn-delete-row-' . $counter ?>">&nbsp;</label>
+                <div class="form-group">
+                    <?= Html::a('<i class="fa fa-minus" aria-hidden="true"></i>', '#', $delete_options) ?>
 
-                <p class="help-block help-block-error"></p>
-            </div>
-        </div>
-        <div class="col-md-1">
-            <label class="control-label" for="<?= 'btn-delete-row-'.$counter ?>">&nbsp;</label>
-            <div class="form-group">
-                <?= Html::a('<i class="fa fa-minus" aria-hidden="true"></i>', '#', $delete_options) ?>
-
+                </div>
             </div>
         </div>
     </div>

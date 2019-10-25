@@ -6,7 +6,6 @@ use yii\bootstrap\ActiveForm;
 use yii\web\JsExpression;
 use backend\controllers\EcoProjectsController;
 use kartik\select2\Select2;
-use common\models\User;
 use common\models\EcoTypes;
 
 /* @var $this yii\web\View */
@@ -20,7 +19,8 @@ use common\models\EcoTypes;
     <?php $form = ActiveForm::begin([
         'action' => EcoProjectsController::ROOT_URL_AS_ARRAY,
         'method' => 'get',
-        'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
+        //'options' => ['id' => 'frm-search', 'class' => ($searchApplied ? 'collapse in' : 'collapse')],
+        'options' => ['id' => 'frm-search'],
     ]); ?>
 
     <div class="panel panel-info">
@@ -29,8 +29,8 @@ use common\models\EcoTypes;
             <div class="row">
                 <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head')): ?>
                 <div class="col-md-2">
-                    <?= $form->field($model, 'created_by')->widget(Select2::className(), [
-                        'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_ECOLOGIST_ROLE),
+                    <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
+                        'data' => \common\models\EcoProjectsAccess::arrayMapForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                         'pluginOptions' => ['allowClear' => true],
@@ -71,7 +71,7 @@ use common\models\EcoTypes;
                     ]) ?>
 
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <?= $form->field($model, 'searchProgress', [
                         'inline' => true,
                     ])->radioList(ArrayHelper::map($searchProgresses, 'id', 'name'), [
@@ -81,7 +81,7 @@ use common\models\EcoTypes;
                         'item' => function ($index, $label, $name, $checked, $value) use ($searchProgresses) {
                             $hint = '';
                             $key = array_search($value, array_column($searchProgresses, 'id'));
-                            if ($key !== false && isset($groups[$key]['hint'])) $hint = ' title="' . $searchProgresses[$key]['hint'] . '"';
+                            if ($key !== false && isset($searchProgresses[$key]['hint'])) $hint = ' title="' . $searchProgresses[$key]['hint'] . '"';
 
                             return '<label class="btn btn-default' . ($checked ? ' active' : '') . '"' . $hint . '>' .
                                 Html::radio($name, $checked, ['value' => $value, 'class' => 'types-btn']) . $label . '</label>';

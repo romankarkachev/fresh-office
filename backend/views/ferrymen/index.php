@@ -62,20 +62,25 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
             [
                 'attribute' => 'transportCount',
                 'format' => 'raw',
-                'value' => function($model, $key, $index, $column) {
+                'value' => function($model, $key, $index, $column) use ($searchModel) {
                     /* @var $model \common\models\Ferrymen */
                     /* @var $column \yii\grid\DataColumn */
 
-                    return Html::a($model->{$column->attribute}, [
+                    $sttCount = '';
+                    if (!empty($searchModel->searchTransportType) && $model->sttCount != $model->{$column->attribute}) {
+                        $sttCount = $model->sttCount . ' / ';
+                    }
+
+                    return Html::a($sttCount . $model->{$column->attribute}, [
                         '/ferrymen-transport', 'TransportSearch' => ['ferryman_id' => $model->id]
                     ], [
-                        'title' => 'Показать транспорт этого перевозчика',
+                        'title' => 'Показать транспорт этого перевозчика' . (!empty($sttCount) ? ' (первая цифра - количество транспортных средств выбранного в отборе типа, вторая - общее количество транспортных средств этого перевозчика)' : ''),
                     ]);
                 },
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
-            'ftName',
+            //'ftName',
             'pcName',
             'stateName',
             [

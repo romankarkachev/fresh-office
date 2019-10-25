@@ -83,6 +83,16 @@ class foProjectsSearch extends foProjects
     public $searchForCustomerByState;
 
     /**
+     * @var bool признак отбора только тех проектов, которые еще не были отданы в оплату
+     */
+    public $searchHasNotBeenPaid;
+
+    /**
+     * @var bool признак отбора только тех проектов, которые завершены
+     */
+    public $searchFinished;
+
+    /**
      * Количество записей на странице.
      * По-умолчанию - false.
      * @var integer
@@ -98,7 +108,7 @@ class foProjectsSearch extends foProjects
             [['type_name', 'ca_name', 'manager_name', 'state_name', 'perevoz', 'proizodstvo', 'oplata', 'adres', 'dannie', 'ttn', 'weight'], 'string'],
             [['id', 'created_at', 'type_id', 'ca_id', 'manager_id', 'state_id', 'searchFerrymanId', 'searchForFerryman', 'searchForCustomerByState', 'searchPerPage'], 'integer'],
             [['amount', 'cost'], 'number'],
-            [['vivozdate', 'date_start', 'date_end', 'searchExcludeIds', 'searchId', 'searchGroupProjectTypes', 'searchCreatedFrom', 'searchCreatedTo', 'searchVivozDateFrom', 'searchVivozDateTo'], 'safe'],
+            [['vivozdate', 'date_start', 'date_end', 'searchExcludeIds', 'searchId', 'searchGroupProjectTypes', 'searchCreatedFrom', 'searchCreatedTo', 'searchVivozDateFrom', 'searchVivozDateTo', 'searchHasNotBeenPaid', 'searchFinished'], 'safe'],
         ];
     }
 
@@ -121,6 +131,8 @@ class foProjectsSearch extends foProjects
             'searchVivozDateTo' => 'Дата вывоза по',
             'searchForFerryman' => 'Прочие условия',
             'searchForCustomerByState' => 'Прочие условия',
+            'searchHasNotBeenPaid' => 'Неоплаченные',
+            'searchFinished' => 'Завершенные',
             'searchPerPage' => 'Записей', // на странице
         ];
     }
@@ -279,6 +291,7 @@ class foProjectsSearch extends foProjects
     }
 
     /**
+     * Удаляет из всех элементов поле, предназначенное для сортировки.
      * @param $array
      * @param $key
      * @return bool
@@ -443,19 +456,56 @@ class foProjectsSearch extends foProjects
             }
         }
 
+        // возможный отбор только тех проектов, которые еще не были поданы в оплату
+        // делаем выборку платежных ордеров, извлекаем из них проекты, которые помещаем в массив
+        // из результирующей выборки исключаем массив этих проектов
+        if (!empty($this->searchHasNotBeenPaid)) {
+            $pendingPay = [];
+            foreach (PaymentOrders::find()->select(['projects'])->where(['state_id' => [PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ,PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН]])->column() as $row) {
+                $projects = explode(',', $row);
+                if (is_array($projects) && count($projects) > 0) {
+                    foreach ($projects as $project) {
+                        if (!in_array($project, $pendingPay)) {
+                            $pendingPay[] = $project;
+                        }
+                    }
+                }
+            };
+            $query->andFilterWhere(['not in', 'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY', $pendingPay]);
+        }
+
         $query->andFilterWhere([
             'LIST_PROJECT_COMPANY.ID_COMPANY' => $this->ca_id,
-            'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $this->state_id,
             'LIST_PROJECT_COMPANY.ADD_perevoz' => $this->perevoz,
             'LIST_PROJECT_COMPANY.ADD_oplata' => $this->oplata,
         ]);
 
-        if ($this->searchGroupProjectTypes === null && $this->state_id === null) {
-            if (!Yii::$app->user->can('ferryman') && !Yii::$app->user->can('customer')) $query->andFilterWhere([
-                'and',
-                ['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', explode(',', DirectMSSQLQueries::PROJECTS_STATES_LOGIST_LIMIT)],
-                ['in', 'LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT', explode(',', DirectMSSQLQueries::PROJECTS_TYPES_LOGIST_LIMIT)],
+        // отбор по статусам в любом случае, иначе выборка получается слишком уж большой
+        if (empty($this->state_id)) {
+            $states = DirectMSSQLQueries::PROJECTS_STATES_LOGIST_LIMIT;
+            $states = explode(',', $states);
+            if (!empty($this->searchFinished)) {
+                $states[] = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                $query->andFilterWhere(['LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $states]);
+            }
+            else {
+                $query->andFilterWhere([
+                    'and',
+                    ['in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', $states],
+                    ['not in', 'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT', ProjectsStates::STATE_ЗАВЕРШЕНО],
+                ]);
+            }
+        }
+        else {
+            $query->andFilterWhere([
+                'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $this->state_id,
             ]);
+        }
+
+        if ($this->searchGroupProjectTypes === null && $this->state_id === null) {
+            if (!Yii::$app->user->can('ferryman') && !Yii::$app->user->can('customer')) {
+                $query->andFilterWhere(['LIST_PROJECT_COMPANY.ID_LIST_SPR_PROJECT' => explode(',', DirectMSSQLQueries::PROJECTS_TYPES_LOGIST_LIMIT)]);
+            }
         }
         else {
             // проверим параметры отбора, которые может применять пользователь
@@ -468,6 +518,7 @@ class foProjectsSearch extends foProjects
                 }
             }
         }
+        unset($states);
 
         // дополним условие отбора возможным значением, заданным перевозчиком
         if ($this->searchForFerryman != null)

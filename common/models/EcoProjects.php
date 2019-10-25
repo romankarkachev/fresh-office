@@ -9,17 +9,21 @@ use yii\helpers\Html;
 /**
  * This is the model class for table "eco_projects".
  *
- * @property integer $id
- * @property integer $created_at
- * @property integer $created_by
- * @property integer $type_id
- * @property integer $ca_id
- * @property string $date_start
- * @property string $date_close_plan
- * @property integer $closed_at
- * @property string $comment
+ * @property int $id
+ * @property int $created_at Дата и время создания
+ * @property int $created_by Автор создания
+ * @property int $responsible_id Ответственный
+ * @property int $type_id Тип проекта
+ * @property int $ca_id Заказчик
+ * @property string $contract_amount Сумма
+ * @property string $date_start Дата запуска проекта в работу
+ * @property string $date_finish_contract Дата завершения проекта по договору
+ * @property string $date_close_plan Планируемая дата завершения проекта
+ * @property int $closed_at Фактическая дата завершения проекта
+ * @property string $comment Примечание
  *
  * @property string $createdByProfileName
+ * @property string $responsibleProfileName
  * @property string $typeName
  * @property string $customerName
  * @property integer $ecoProjectsMilestonesPendingCount
@@ -28,7 +32,9 @@ use yii\helpers\Html;
  * @property EcoTypes $type
  * @property foCompany $customer
  * @property User $createdBy
+ * @property User $responsible
  * @property Profile $createdByProfile
+ * @property Profile $responsibleProfile
  * @property EcoProjectsMilestones $lastMilestone
  * @property EcoProjectsMilestones $currentMilestone
  * @property EcoProjectsAccess[] $ecoProjectsAccesses
@@ -40,6 +46,11 @@ class EcoProjects extends \yii\db\ActiveRecord
      * @var string наименование текущего этапа проекта (виртуальное вычисляемое поле)
      */
     public $currentMilestoneName;
+
+    /**
+     * @var string планируемый срок выполнения текущего этапа проекта (виртуальное вычисляемое поле)
+     */
+    public $currentMilestoneDatePlan;
 
     /**
      * @var integer количество уже выполненных этапов
@@ -66,9 +77,11 @@ class EcoProjects extends \yii\db\ActiveRecord
     {
         return [
             [['type_id', 'ca_id', 'date_start'], 'required'],
-            [['created_at', 'created_by', 'type_id', 'ca_id', 'closed_at'], 'integer'],
-            [['date_start', 'date_close_plan'], 'safe'],
+            [['created_at', 'created_by', 'responsible_id', 'type_id', 'ca_id', 'closed_at'], 'integer'],
+            [['contract_amount'], 'number'],
+            [['date_start', 'date_finish_contract', 'date_close_plan'], 'safe'],
             [['comment'], 'string'],
+            [['responsible_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['responsible_id' => 'id']],
             [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => EcoTypes::className(), 'targetAttribute' => ['type_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
         ];
@@ -82,15 +95,19 @@ class EcoProjects extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'created_at' => 'Дата и время создания',
-            'created_by' => 'Ответственный',
+            'created_by' => 'Автор создания',
+            'responsible_id' => 'Ответственный',
             'type_id' => 'Тип проекта',
             'ca_id' => 'Заказчик',
+            'contract_amount' => 'Сумма',
             'date_start' => 'Дата запуска проекта в работу',
+            'date_finish_contract' => 'Дата завершения проекта по договору',
             'date_close_plan' => 'Планируемая дата завершения проекта',
             'closed_at' => 'Фактическая дата завершения проекта',
             'comment' => 'Примечание',
             // вычисляемые поля
-            'createdByProfileName' => 'Ответственный',
+            'createdByProfileName' => 'Автор создания',
+            'responsibleProfileName' => 'Ответственный',
             'typeName' => 'Тип проекта',
             'customerName' => 'Заказчик',
             'currentMilestoneName' => 'Текущий этап',
@@ -114,7 +131,7 @@ class EcoProjects extends \yii\db\ActiveRecord
             'blameable' => [
                 'class' => 'yii\behaviors\BlameableBehavior',
                 'attributes' => [
-                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by', 'responsible_id'],
                 ],
                 'preserveNonEmptyValues' => true,
             ],
@@ -135,7 +152,7 @@ class EcoProjects extends \yii\db\ActiveRecord
              */
             $dateMilestoneClose = strtotime($this->date_start . ' 00:00:00');
             $batch = [];
-            foreach (EcoTypesMilestones::find()->where(['type_id' => $this->type_id])->all() as $milestone) {
+            foreach (EcoTypesMilestones::find()->where(['type_id' => $this->type_id])->orderBy('order_no')->all() as $milestone) {
                 /* @var $milestone EcoTypesMilestones */
 
                 $dateMilestoneClose = $dateMilestoneClose + ($milestone['time_to_complete_required'] * 24 *3600);
@@ -164,11 +181,11 @@ class EcoProjects extends \yii\db\ActiveRecord
 
             /**
              * Доступ к проекту
-             * По-умолчанию, доступ имеет автор записи.
+             * По-умолчанию, доступ имеет ответственный по проекту.
              */
             (new EcoProjectsAccess([
                 'project_id' => $this->id,
-                'user_id' => $this->created_by,
+                'user_id' => $this->responsible_id,
             ]))->save();
         }
     }
@@ -244,12 +261,13 @@ class EcoProjects extends \yii\db\ActiveRecord
     /**
      * Формирует значение для вывода в колонке "Срок" таблицы с этапами проекта.
      * @param $model
+     * @param $canChangeDate bool
      * @param null $key
      * @param null $index
      * @param null $column
      * @return string
      */
-    public static function milestonesListTerminColumn($model, $key=null, $index=null, $column=null)
+    public static function milestonesListTerminColumn($model, $canChangeDate = true, $key=null, $index=null, $column=null)
     {
         /* @var $model \common\models\EcoProjectsMilestones */
         /* @var $column \yii\grid\DataColumn */
@@ -280,12 +298,18 @@ class EcoProjects extends \yii\db\ActiveRecord
             // если этап еще не закрыт, помещаем значение этой колонки в контейнер, чтобы можно было интерактивно изменить
             $prepend = '<div id="blockTermin' . $model->id . '">';
             $append = '</div>';
-            $result = Html::a(Yii::$app->formatter->asDate(strtotime($model->date_close_plan . ' 00:00:00'), 'php:d F Y г.'), '#', [
-                'class' => 'link-ajax',
-                'id' => 'changeMilestoneCloseDate' . $model->id,
-                'data-id' => $model->id,
-                'title' => 'Щелкните, чтобы изменить планируемую дату завершения проекта',
-            ]);
+            $value = Yii::$app->formatter->asDate(strtotime($model->date_close_plan . ' 00:00:00'), 'php:d F Y г.');
+            if ($canChangeDate === true) {
+                $result = Html::a($value, '#', [
+                    'class' => 'link-ajax',
+                    'id' => 'changeMilestoneCloseDate' . $model->id,
+                    'data-id' => $model->id,
+                    'title' => 'Щелкните, чтобы изменить планируемую дату завершения проекта',
+                ]);
+            }
+            else {
+                $result = $value;
+            }
         }
 
         return $prepend . $result . $append;
@@ -403,16 +427,41 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'created_by']);
+        return $this->hasOne(Profile::className(), ['user_id' => 'created_by'])->from(['createdByProfile' => 'profile']);
     }
 
     /**
-     * Возвращает имя ответственного (создателя проекта по экологии).
+     * Возвращает имя создателя проекта по экологии.
      * @return string
      */
     public function getCreatedByProfileName()
     {
         return !empty($this->createdByProfile) ? $this->createdByProfile->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getResponsible()
+    {
+        return $this->hasOne(User::className(), ['id' => 'responsible_id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getResponsibleProfile()
+    {
+        return $this->hasOne(Profile::className(), ['user_id' => 'responsible_id'])->from(['responsibleProfile' => 'profile']);
+    }
+
+    /**
+     * Возвращает имя ответственного.
+     * @return string
+     */
+    public function getResponsibleProfileName()
+    {
+        return !empty($this->responsibleProfile)? $this->responsibleProfile->name : '';
     }
 
     /**

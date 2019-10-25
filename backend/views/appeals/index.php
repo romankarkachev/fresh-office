@@ -20,14 +20,13 @@ $this->params['breadcrumbs'][] = 'Обращения';
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
         <?php endif; ?>
-        <!--<?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>-->
+        <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
 
         <?= Html::a('<i class="fa fa-magic" aria-hidden="true"></i> Мастер обработки обращений', ['/appeals/wizard'], ['class' => 'btn btn-default']) ?>
 
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'rowOptions' => function ($model, $key, $index, $grid) {
             /* @var $model \common\models\Appeals */
@@ -44,6 +43,10 @@ $this->params['breadcrumbs'][] = 'Обращения';
             }
         },
         'columns' => [
+            [
+                'attribute' => 'id',
+                'options' => ['width' => '30'],
+            ],
             [
                 'attribute' => 'created_at',
                 'label' => 'Создано',

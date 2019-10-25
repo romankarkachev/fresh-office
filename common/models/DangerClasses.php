@@ -43,6 +43,33 @@ class DangerClasses extends \yii\db\ActiveRecord
     }
 
     /**
+     * Переводит цифру в параметрах в римскую (до семи).
+     * @param integer $class
+     * @return string
+     */
+    public static function dangerClassRome($class)
+    {
+        if (!is_numeric($class)) return $class;
+
+        switch ($class) {
+            case 1:
+                return 'I';
+            case 2:
+                return 'II';
+            case 3:
+                return 'III';
+            case 4:
+                return 'IV';
+            case 5:
+                return 'V';
+            case 6:
+                return 'VI';
+        }
+
+        return '';
+    }
+
+    /**
      * Делает выборку классов опасности и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @return array

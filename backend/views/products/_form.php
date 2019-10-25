@@ -1,7 +1,10 @@
 <?php
 
+use common\models\PoEi;
+use kartik\select2\Select2;
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
+use yii\web\JsExpression;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Products */
@@ -18,15 +21,33 @@ use yii\bootstrap\ActiveForm;
 
     <?= $form->field($model, 'is_deleted')->textInput() ?>
 
-    <?= $form->field($model, 'author_id')->textInput() ?>
+    <?= $form->field($model, 'created_by')->textInput() ?>
 
     <?= $form->field($model, 'type')->textInput() ?>
 
-    <?= $form->field($model, 'unit')->textInput(['maxlength' => true]) ?>
+    <?= $form->field($model, 'src_unit')->textInput(['maxlength' => true]) ?>
 
-    <?= $form->field($model, 'uw')->textInput(['maxlength' => true]) ?>
+    <?= $form->field($model, 'src_uw')->textInput(['maxlength' => true]) ?>
 
-    <?= $form->field($model, 'dc')->textInput(['maxlength' => true]) ?>
+    <?= $form->field($model, 'src_dc')->textInput(['maxlength' => true]) ?>
+
+    <?= $form->field($model, 'unit_id')->widget(Select2::class, [
+        'data' => \common\models\Units::arrayMapForSelect2(),
+        'theme' => Select2::THEME_BOOTSTRAP,
+        'options' => ['placeholder' => '- выберите -'],
+    ]) ?>
+
+    <?= $form->field($model, 'hk_id')->widget(Select2::class, [
+        'data' => \common\models\HandlingKinds::arrayMapForSelect2(),
+        'theme' => Select2::THEME_BOOTSTRAP,
+        'options' => ['placeholder' => '- выберите -'],
+    ]) ?>
+
+    <?= $form->field($model, 'dc_id')->widget(Select2::class, [
+        'data' => \common\models\DangerClasses::arrayMapForSelect2(),
+        'theme' => Select2::THEME_BOOTSTRAP,
+        'options' => ['placeholder' => '- выберите -'],
+    ]) ?>
 
     <?= $form->field($model, 'fkko')->textInput() ?>
 
@@ -37,8 +58,6 @@ use yii\bootstrap\ActiveForm;
     <?= $form->field($model, 'fo_name')->textarea(['rows' => 6]) ?>
 
     <?= $form->field($model, 'fo_fkko')->textInput(['maxlength' => true]) ?>
-
-    <?= $form->field($model, 'author_id')->hiddenInput()->label(false) ?>
 
     <div class="form-group">
         <?= Html::submitButton($model->isNewRecord ? 'Create' : 'Update', ['class' => $model->isNewRecord ? 'btn btn-success' : 'btn btn-primary']) ?>

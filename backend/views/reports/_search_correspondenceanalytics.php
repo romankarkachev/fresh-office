@@ -29,7 +29,7 @@ use kartik\datecontrol\DateControl;
                         'displayFormat' => 'php:d.m.Y',
                         'saveFormat' => 'php:Y-m-d',
                         'widgetOptions' => [
-                            'options' => ['placeholder' => 'начало'],
+                            'options' => ['placeholder' => 'начало', 'autocomplete' => 'off'],
                             'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
                             'layout' => '{input}{picker}{remove}',
                             'pluginOptions' => [
@@ -54,7 +54,7 @@ anyDateOnChange();
                         'displayFormat' => 'php:d.m.Y',
                         'saveFormat' => 'php:Y-m-d',
                         'widgetOptions' => [
-                            'options' => ['placeholder' => 'конец'],
+                            'options' => ['placeholder' => 'конец', 'autocomplete' => 'off'],
                             'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
                             'layout' => '{input}{picker}{remove}',
                             'pluginOptions' => [

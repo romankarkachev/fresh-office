@@ -8,13 +8,15 @@ use yii\db\ActiveRecord;
 /**
  * This is the model class for table "projects_ratings".
  *
- * @property integer $id
- * @property integer $rated_at
- * @property integer $rated_by
- * @property integer $ca_id
- * @property integer $project_id
- * @property string $rate
- * @property string $comment
+ * @property int $id
+ * @property int $rated_at Дата и время оценки
+ * @property int $rated_by Кто оценил
+ * @property int $ca_id Контрагент
+ * @property int $project_id Проект
+ * @property string $rate Оценка
+ * @property string $comment Замечания для не самой наивысшей оценки
+ * @property string $token Токен для голосования неавторизованными пользователями
+ * @property string $email E-mail контактного лица, которому отправляется приглашение поставить оценку
  *
  * @property string $caName
  * @property string $ratedByProfileName
@@ -43,10 +45,14 @@ class ProjectsRatings extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['project_id', 'rate'], 'required'],
+            [['project_id'], 'required'],
             [['rated_at', 'rated_by', 'ca_id', 'project_id'], 'integer'],
             [['rate'], 'number'],
             [['comment'], 'string'],
+            [['token'], 'string', 'max' => 32],
+            [['email'], 'string', 'max' => 255],
+            [['token', 'email'], 'default', 'value' => null],
+            ['email', 'email'],
             [['rated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['rated_by' => 'id']],
         ];
     }
@@ -64,6 +70,9 @@ class ProjectsRatings extends \yii\db\ActiveRecord
             'project_id' => 'Проект',
             'rate' => 'Оценка',
             'comment' => 'Замечания для не самой наивысшей оценки',
+            'token' => 'Токен для голосования неавторизованными пользователями',
+            'email' => 'E-mail', // контактного лица, которому отправляется приглашение поставить оценку
+            // виртуальные поля
             'ratesCount' => 'Всего оценок',
             // вычисляемые поля
             'caName' => 'Контрагент',

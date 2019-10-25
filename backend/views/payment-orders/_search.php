@@ -105,6 +105,16 @@ anyDateOnChange();
 
                 </div>
             </div>
+            <div class="row">
+                <div class="col-md-3">
+                    <?= $form->field($model, 'created_by')->widget(Select2::className(), [
+                        'data' => \common\models\User::arrayMapForSelect2(\common\models\User::ARRAY_MAP_OF_USERS_BY_LOGIST_ROLE),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                    ]) ?>
+
+                </div>
+            </div>
             <div class="form-group">
                 <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info', 'id' => 'btnSearch']) ?>
 

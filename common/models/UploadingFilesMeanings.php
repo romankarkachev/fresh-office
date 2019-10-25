@@ -27,6 +27,9 @@ class UploadingFilesMeanings extends \yii\db\ActiveRecord
     /**
      * Разновидности документов транспортных средств
      */
+    const ТИП_КОНТЕНТА_ДОГОВОР = 1;
+    const ТИП_КОНТЕНТА_ТТН = 2;
+    const ТИП_КОНТЕНТА_ДОПСОГЛАШЕНИЕ = 4;
     const ТИП_КОНТЕНТА_ОСАГО = 14;
     const ТИП_КОНТЕНТА_ПТС_ЛИЦЕВАЯ = 15;
     const ТИП_КОНТЕНТА_ПТС_ОБОРОТ = 16;
@@ -106,7 +109,7 @@ class UploadingFilesMeanings extends \yii\db\ActiveRecord
      */
     public static function arrayMapForSelect2()
     {
-        return ArrayHelper::map(self::find()->where(['not', ['keywords' => null]])->all(), 'id', 'name');
+        return ArrayHelper::map(self::find()->where(['not', ['keywords' => null]])->orderBy('name')->all(), 'id', 'name');
     }
 
     /**

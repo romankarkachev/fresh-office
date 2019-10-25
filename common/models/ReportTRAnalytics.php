@@ -271,7 +271,7 @@ class ReportTRAnalytics extends Model
             'transport_requests.region_id',
             'regionName' => 'region.name',
             'responsible_id' => 'created_by',
-            'responsibleName' => 'profile.name',
+            'responsibleName' => 'createdProfile.name',
             'periodicity_id',
             'periodicityName' => 'periodicity_kinds.name',
         ]);

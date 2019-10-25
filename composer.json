@@ -29,7 +29,16 @@
         "kartik-v/yii2-money": "*",
         "keltstr/yii2-simplehtmldom": "dev-master",
         "kartik-v/yii2-widget-fileinput": "@dev",
-        "kartik-v/yii2-widget-typeahead": "*"
+        "kartik-v/yii2-widget-typeahead": "*",
+        "newerton/yii2-fancybox": "dev-master",
+        "xj/yii2-jplayer-widget": "*",
+        "2amigos/yii2-switchery-widget": "^1.0",
+        "romankarkachev/yii2-coreui-admin": "*",
+        "yiisoft/yii2-imagine": "^2.1",
+        "mpdf/mpdf": "@dev",
+        "kartik-v/yii2-mpdf": "dev-master",
+        "kartik-v/yii2-widget-rating": "*",
+        "kartik-v/yii2-widget-datetimepicker": "*"
     },
     "require-dev": {
         "yiisoft/yii2-debug": "~2.0.0",

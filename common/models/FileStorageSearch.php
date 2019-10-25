@@ -83,12 +83,22 @@ class FileStorageSearch extends FileStorage
         }
 
         // grid filtering conditions
+        if (Yii::$app->user->can('logist')) {
+            $query->andFilterWhere([
+                'type_id' => UploadingFilesMeanings::ТИП_КОНТЕНТА_ТТН,
+            ]);
+        }
+        else {
+            $query->andFilterWhere([
+                'type_id' => $this->type_id,
+            ]);
+        }
+
         $query->andFilterWhere([
             'id' => $this->id,
             'uploaded_at' => $this->uploaded_at,
             'uploaded_by' => $this->uploaded_by,
             'ca_id' => $this->ca_id,
-            'type_id' => $this->type_id,
             'size' => $this->size,
         ]);
 

@@ -118,7 +118,10 @@ class PaymentOrdersSearch extends PaymentOrders
      */
     public function search($params, $route = 'payment-orders', $calculateTotalAmount = null)
     {
-        $query = PaymentOrders::find();
+        $query = PaymentOrders::find()->select([
+            '{{payment_orders}}.*',
+            'paymentOrdersFilesCount' => 'COUNT({{payment_orders_files}}.id)',
+        ]);
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [
@@ -159,7 +162,7 @@ class PaymentOrdersSearch extends PaymentOrders
         ]);
 
         $this->load($params);
-        $query->joinWith(['createdByProfile', 'state', 'ferryman']);
+        $query->joinWith(['createdByProfile', 'state', 'ferryman', 'paymentOrdersFiles'])->groupBy('{{payment_orders}}.id');
 
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails
@@ -182,20 +185,32 @@ class PaymentOrdersSearch extends PaymentOrders
         }
 
         if ($this->searchGroupStates == null)
-            if (Yii::$app->user->can('accountant'))
+            if (Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b'))
                 $this->searchGroupStates = self::CLAUSE_STATES_GROUP_ACCOUNTANT_DEFAULT;
             elseif (Yii::$app->user->can('logist') || Yii::$app->user->can('root'))
                 $this->searchGroupStates = self::CLAUSE_STATES_GROUP_ROOT_LOGIST_ALL;
 
         if ($this->searchGroupStates != null) switch ($this->searchGroupStates) {
             case self::CLAUSE_STATES_GROUP_ACCOUNTANT_DEFAULT:
-                $query->andWhere(['in', 'payment_orders.state_id', PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_DEFAULT]);
+                $states = PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_DEFAULT;
+                if (Yii::$app->user->can('accountant')) {
+                    $states = ArrayHelper::merge($states, [PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК]);
+                }
+                $query->andWhere(['in', 'payment_orders.state_id', $states]);
+                unset($states);
+
                 break;
             case self::CLAUSE_STATES_GROUP_ACCOUNTANT_PAID:
                 $query->andWhere(['in', 'payment_orders.state_id', PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_PAID]);
                 break;
             case self::CLAUSE_STATES_GROUP_ACCOUNTANT_ALL:
-                $query->andWhere(['in', 'payment_orders.state_id', PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_ALL]);
+                $states = PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_ALL;
+                if (Yii::$app->user->can('accountant')) {
+                    $states = ArrayHelper::merge($states, [PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК]);
+                }
+                $query->andWhere(['in', 'payment_orders.state_id', $states]);
+                unset($states);
+
                 break;
             case self::CLAUSE_STATES_GROUP_ROOT_LOGIST_ALL:
                 // нет условия, все записи (без отбора по этому полю)

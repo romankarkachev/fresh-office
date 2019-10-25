@@ -15,9 +15,12 @@ use yii\db\ActiveRecord;
  * @property double $coord_long
  *
  * @property string $userProfileName
+ * @property string $ferrymanName
  *
  * @property User $user
  * @property Profile $userProfile
+ * @property Drivers $driver
+ * @property Ferrymen $ferryman
  */
 class MobileAppGeopos extends \yii\db\ActiveRecord
 {
@@ -55,6 +58,7 @@ class MobileAppGeopos extends \yii\db\ActiveRecord
             'coord_long' => 'Долгота',
             // вычисляемые поля
             'userProfileName' => 'Имя пользователя',
+            'ferrymanName' => 'Перевозчик',
         ];
     }
 
@@ -96,5 +100,30 @@ class MobileAppGeopos extends \yii\db\ActiveRecord
     public function getUserProfileName()
     {
         return $this->userProfile != null ? ($this->userProfile->name != null ? $this->userProfile->name : $this->user->username) : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDriver()
+    {
+        return $this->hasOne(Drivers::className(), ['user_id' => 'user_id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFerryman()
+    {
+        return $this->hasOne(Ferrymen::className(), ['id' => 'ferryman_id'])->via('driver');
+    }
+
+    /**
+     * Возвращает наименование перевозчика.
+     * @return string
+     */
+    public function getFerrymanName()
+    {
+        return !empty($this->ferryman) ? $this->ferryman->name : '';
     }
 }

@@ -15,7 +15,7 @@ use common\models\PaymentOrders;
 /* @var $model common\models\PaymentOrders */
 /* @var $form yii\bootstrap\ActiveForm */
 
-$formName = strtolower($model->formName());
+$formNameId = strtolower($model->formName());
 $pd = PaymentOrders::fetchPaymentDestinations();
 
 $dataSet = null;
@@ -52,7 +52,13 @@ switch ($model->pd_type) {
             <?= $form->field($model, 'amount', [
                 'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
             ])->widget(MaskedInput::className(), [
-                'clientOptions' => ['alias' =>  'numeric'],
+                'clientOptions' => [
+                    'alias' =>  'numeric',
+                    'groupSeparator' => ' ',
+                    'autoUnmask' => true,
+                    'autoGroup' => true,
+                    'removeMaskOnSubmit' => true,
+                ],
             ])->textInput([
                 'maxlength' => true,
                 'placeholder' => '0',
@@ -78,26 +84,25 @@ switch ($model->pd_type) {
 
         </div>
     </div>
+    <?php if ($model->isNewRecord): ?>
     <div class="form-group">
         <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите комментарий']) ?>
 
     </div>
-    <div class="row">
-        <div id="block-pd" class="col-md-3">
-            <?php if ($dataSet != null): ?>
-            <?= $this->render('_block_pd', [
-                'model' => $model,
-                'form' => $form,
-                'dataSet' => $dataSet,
-            ]); ?>
+    <?php endif; ?>
+    <div id="block-pd">
+        <?php if (!empty($dataSet) || (!empty($model->ferryman) && !empty($model->ferryman->ati_code))): ?>
+        <?= $this->render('_block_pd', [
+            'model' => $model,
+            'form' => $form,
+            'dataSet' => $dataSet,
+        ]); ?>
 
-            <?php endif; ?>
-        </div>
+        <?php endif; ?>
     </div>
     <?php if ($model->isNewRecord): ?>
     <p class="text-muted">Добавление файлов будет возможно после сохранения заявки. Нажмите &laquo;Создать&raquo;, система проверит веденные данные, если они будут корректны, то заявка будет сохранена, и Вы сможете добавить файлы.</p>
-    <?php endif; ?>
-    <?php if (!$model->isNewRecord && Yii::$app->user->can('root')): ?>
+    <?php elseif (Yii::$app->user->can('root')): ?>
     <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите причину отказа']) ?>
 
     <?php endif; ?>
@@ -124,9 +129,26 @@ $this->registerJs(<<<JS
 // Обработчик изменения перевозчика или способа расчетов с перевозчиком.
 //
 function composeFerrymanPaymentDestination() {
-    ferryman_id = $("#$formName-ferryman_id").val();
+    url = "$url";
+    ferryman_id = $("#$formNameId-ferryman_id").val();
     pd = $("input[name='PaymentOrders[pd_type]']:checked").val();
-    $("#block-pd").load("$url?ferryman_id=" + ferryman_id + "&pd=" + pd);
+    if (ferryman_id || pd) {
+        if (ferryman_id) {
+            url += "?ferryman_id=" + ferryman_id;
+        }
+        if (pd) {
+            if (ferryman_id) {
+                url += "&";
+            }
+            else {
+                url += "?";
+            }
+            url += "pd=" + pd;
+        }
+    }
+    \$block = $("#block-pd");
+    \$block.html('<p class="text-center"><i class="fa fa-spinner fa-pulse fa-fw text-primary text-muted"></i><span class="sr-only">Подождите...</span></p>');
+    \$block.load(url);
 } // composeFerrymanPaymentDestination()
 JS
 , yii\web\View::POS_BEGIN);

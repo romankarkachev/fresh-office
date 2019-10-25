@@ -26,14 +26,19 @@ class ProductionFeedbackFilesController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['list', 'delete'],
+                        'actions' => ['list'],
                         'allow' => true,
-                        'roles' => ['root'],
+                        'roles' => ['root', 'logist'],
                     ],
                     [
                         'actions' => ['index', 'download-file'],
                         'allow' => true,
-                        'roles' => ['root', 'prod_feedback', 'head_assist'],
+                        'roles' => ['root', 'prod_feedback', 'head_assist', 'logist'],
+                    ],
+                    [
+                        'actions' => ['delete', 'delete-project-files'],
+                        'allow' => true,
+                        'roles' => ['root'],
                     ],
                 ],
             ],
@@ -212,5 +217,34 @@ class ProductionFeedbackFilesController extends Controller
             else
                 throw new NotFoundHttpException('Файл не обнаружен.');
         };
+    }
+
+    /**
+     * Выполняет удаление всех файлов проекта.
+     * delete-project-files
+     * @return \yii\web\Response
+     * @throws \Throwable
+     * @throws \yii\db\StaleObjectException
+     */
+    public function actionDeleteProjectFiles()
+    {
+        $success = true;
+        $model = new ProductionFeedbackFilesSearch();
+        if ($model->load(Yii::$app->request->queryParams)) {
+            if (!empty($model->project_id)) {
+                foreach (ProductionFeedbackFiles::find()->where(['project_id' => $model->project_id])->all() as $file) {
+                    $file->delete() ? null : $success = false;
+                }
+            }
+        }
+
+        if ($success) {
+            Yii::$app->session->setFlash('success', 'Удаление файлов успешно завершено.');
+        }
+        else {
+            Yii::$app->session->setFlash('error', 'Удаление файлов с треском провалилось!');
+        }
+
+        return $this->redirect(['/production-feedback-files']);
     }
 }

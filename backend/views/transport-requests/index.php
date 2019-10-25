@@ -48,7 +48,7 @@ $favorite = '/images/favorite16.png';
                         $newPrivateMessages = '<p>' . Html::a('<i class="fa fa-comments text-warning" aria-hidden="true"></i>', ['update', 'id' => $model->id, '#' => 'privatemessages'], ['title' => 'Новые приватные сообщения: ' . $model->unreadPrivateMessagesCount]) . '</p>';
 
                     if ($model->state_id == TransportRequestsStates::STATE_ЗАКРЫТ)
-                        return '<i class="fa fa-check-square-o text-success" aria-hidden="true"></i>' . $returnToProcess . $newMessages . $newPrivateMessages;
+                        return '<i class="fa fa-check-square-o text-success" aria-hidden="true" title="Запрос закрыт' . (!empty($model->finishedByProfileName) ? ' пользователем ' . $model->finishedByProfileName : '') . ' ' . Yii::$app->formatter->asDate($model->finished_at, 'php:d.m.Y в H:i') . '"></i>' . $returnToProcess . $newMessages . $newPrivateMessages;
 
                     if ($model->state_id == TransportRequestsStates::STATE_НОВЫЙ)
                         return '<strong>' . $model->{$column->attribute} . '</strong>' . $newMessages . $newPrivateMessages;
@@ -167,9 +167,7 @@ JS
 , \yii\web\View::POS_BEGIN);
 
 $this->registerJs(<<<JS
-$("input").iCheck({
-    checkboxClass: 'icheckbox_square-green',
-});
+$("input[type='checkbox']").iCheck({checkboxClass: 'icheckbox_square-green'});
 
 // Обработчик щелчка по кнопке "Избранный". Выполняет переключение этого признака.
 //

@@ -9,39 +9,39 @@ use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "ferrymen".
  *
- * @property integer $id
- * @property integer $created_at
- * @property integer $created_by
- * @property integer $updated_at
- * @property integer $updated_by
- * @property integer $fo_id
- * @property string $name
- * @property string $name_crm
- * @property string $name_full
- * @property string $name_short
- * @property string $inn
- * @property string $kpp
- * @property string $ogrn
- * @property string $address_j
- * @property string $address_f
- * @property integer $opfh_id
- * @property integer $tax_kind
- * @property integer $ft_id
- * @property integer $pc_id
- * @property integer $state_id
- * @property string $phone
- * @property string $email
- * @property string $contact_person
- * @property string $post
- * @property string $phone_dir
- * @property string $email_dir
- * @property string $contact_person_dir
- * @property string $post_dir
- * @property string $ati_code
- * @property string $contract_expires_at
- * @property integer $notify_when_payment_orders_created
- * @property integer $user_id
- * @property integer $ppdq количество дней постоплаты
+ * @property int $id
+ * @property int $created_at Дата и время создания
+ * @property int $created_by Автор создания
+ * @property int $updated_at Дата и время изменения
+ * @property int $updated_by Автор изменений
+ * @property int $fo_id Идентификатор в Fresh Office
+ * @property string $name Наименование
+ * @property string $name_crm Наименование в CRM
+ * @property string $name_full Полное наименование
+ * @property string $name_short Сокращенное наименование наименование
+ * @property string $inn ИНН
+ * @property string $kpp КПП
+ * @property string $ogrn ОГРН(ИП)
+ * @property string $address_j Адрес юридический
+ * @property string $address_f Адрес фактический
+ * @property int $opfh_id ОПФХ
+ * @property int $tax_kind Плательщик НДС (0 - нет, 1 - да)
+ * @property int $ft_id Тип
+ * @property int $pc_id Условия оплаты
+ * @property int $state_id Статус (1 - нареканий нет, 2 - есть замечания, 3 - черный список)
+ * @property string $phone Телефоны
+ * @property string $email E-mail
+ * @property string $contact_person Контактное лицо
+ * @property string $post Должность
+ * @property string $phone_dir Телефоны
+ * @property string $email_dir E-mail
+ * @property string $contact_person_dir Контактное лицо
+ * @property string $post_dir Должность
+ * @property string $ati_code Код АТИ
+ * @property string $contract_expires_at Срок действия договора
+ * @property int $notify_when_payment_orders_created Необходимость отправлять уведомление перевозчику при импорте платежного ордера на него
+ * @property int $user_id Пользователь системы
+ * @property int $ppdq Количество дней постоплаты
  *
  * @property User $createdBy
  * @property User $updatedBy
@@ -84,6 +84,8 @@ class Ferrymen extends \yii\db\ActiveRecord
      */
     public $transportDetails;
 
+    public $sttCount;
+
     /**
      * Статусы перевозчиков, водителей, транспорта
      */
@@ -123,6 +125,10 @@ class Ferrymen extends \yii\db\ActiveRecord
             [['post', 'post_dir'], 'string', 'max' => 100],
             [['ati_code'], 'string', 'max' => 9],
             [['inn', 'user_id'], 'unique'],
+            [[
+                'name', 'name_crm', 'name_full', 'name_short', 'inn', 'kpp', 'ogrn', 'address_j', 'address_f',
+                'contact_person', 'post', 'phone_dir', 'email_dir', 'contact_person_dir', 'post_dir', 'ati_code', 'contract_expires_at',
+            ], 'default', 'value' => null],
             [['updated_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['updated_by' => 'id']],
             [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['user_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
@@ -409,11 +415,15 @@ class Ferrymen extends \yii\db\ActiveRecord
     /**
      * Делает выборку перевозчиков и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
+     * @param $excludeId integer идентификатор перевозчика, который исключается из выборки
      * @return array
      */
-    public static function arrayMapForSelect2()
+    public static function arrayMapForSelect2($excludeId=null)
     {
-        return ArrayHelper::map(self::find()->orderBy('name')->all(), 'id', 'name');
+        $query = self::find()->orderBy('name');
+        if (!empty($excludeId)) $query->where('id <> ' . intval($excludeId));
+
+        return ArrayHelper::map($query->all(), 'id', 'name');
     }
 
     /**
@@ -615,5 +625,27 @@ class Ferrymen extends \yii\db\ActiveRecord
     public function getPaymentOrders()
     {
         return $this->hasMany(PaymentOrders::className(), ['ferryman_id' => 'id']);
+    }
+
+    /**
+     * Выполняет идентификацию транспортного средства по значению переданного параметра.
+     * @param $data
+     * @return string
+     */
+    public function tryToIdentifyTransport($data)
+    {
+        $result = '';
+        foreach ($this->transport as $transport) {
+            if (false !== stripos($data, $transport->rn_index)) {
+                // транспорт такой найден, зафиксируем это
+                $result = $transport->ttName . ' ' . $transport->brandName;
+                if (!empty($transport->rn)) $result .= ' г/н ' . $transport->rn;
+                if (!empty($transport->trailer_rn)) $result .= ' прицеп ' . $transport->trailer_rn;
+
+                break;
+            }
+        }
+
+        return $result;
     }
 }

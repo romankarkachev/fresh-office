@@ -1,10 +1,12 @@
 <?php
 
+use common\models\PoEi;
 use yii\helpers\Url;
 use yii\web\JsExpression;
 use kartik\select2\Select2;
 use common\models\AuthItem;
 use common\models\User;
+use common\models\Departments;
 
 /* @var yii\widgets\ActiveForm $form */
 /* @var \common\models\User $user */
@@ -47,6 +49,18 @@ $formName = strtolower($user->formName());
     'theme' => Select2::THEME_BOOTSTRAP,
     'options' => ['placeholder' => '- выберите роль -'],
     'hideSearch' => true,
+]); ?>
+
+<?= $form->field($user, 'departments')->widget(Select2::class, [
+    'data' => Departments::arrayMapForSelect2(),
+    'theme' => Select2::THEME_BOOTSTRAP,
+    'options' => ['placeholder' => '- выберите отдел -', 'multiple' => 'true'],
+]); ?>
+
+<?= $form->field($user, 'poEis')->widget(Select2::class, [
+    'data' => PoEi::arrayMapByGroupsForSelect2(),
+    'theme' => Select2::THEME_BOOTSTRAP,
+    'options' => ['placeholder' => '- выберите статьи -', 'multiple' => 'true'],
 ]); ?>
 
 <?= $form->field($user, 'password')->passwordInput(['placeholder' => 'Минимум 6 символов']) ?>

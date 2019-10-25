@@ -58,10 +58,10 @@ $packagesTypes = CorrespondencePackagesSearch::fetchFilterPackagesTypes();
                     ]) ?>
 
                 </div>
-                <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')): ?>
+                <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head') || Yii::$app->user->can('sales_department_manager')): ?>
                 <div class="col-md-3">
                     <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
-                        'data' => User::arrayMapForSelect2(),
+                        'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                         'pluginOptions' => ['allowClear' => true],

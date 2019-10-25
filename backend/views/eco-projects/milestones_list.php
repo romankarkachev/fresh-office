@@ -78,7 +78,7 @@ $prevMilestoneClosedAt = strtotime($model->date_start . ' 00:00:00');
                     /* @var $model \common\models\EcoProjectsMilestones */
                     /* @var $column \yii\grid\DataColumn */
 
-                    return EcoProjects::milestonesListTerminColumn($model, $key, $index, $column);
+                    return EcoProjects::milestonesListTerminColumn($model, true, $key, $index, $column);
                 },
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => function ($model, $key, $index, $grid) {
@@ -123,6 +123,6 @@ $prevMilestoneClosedAt = strtotime($model->date_start . ' 00:00:00');
     ]); ?>
 
     <p class="text-justify">
-        Полностью серая строка не принимает участия в расчетах сроков завершения проекта.
+        Строка, шрифт которой выводится полностью серым цветом, не принимает участия в расчетах сроков завершения проекта.
     </p>
 </div>

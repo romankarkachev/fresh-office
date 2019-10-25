@@ -27,6 +27,17 @@ use moonland\phpexcel\Excel;
 class PaymentOrdersController extends Controller
 {
     /**
+     * URL, применяемый для сортировки и постраничного перехода
+     */
+    const ROOT_URL_FOR_SORT_PAGING = 'payment-orders';
+
+    /**
+     * URL для изменения значения поля на "Дата и время предоставления Акта выполненных работ" на лету
+     */
+    const URL_SET_CCP_ON_THE_FLY = 'set-ccp-on-the-fly';
+    const URL_SET_CCP_ON_THE_FLY_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_SET_CCP_ON_THE_FLY];
+
+    /**
      * @inheritdoc
      */
     public function behaviors()
@@ -43,15 +54,15 @@ class PaymentOrdersController extends Controller
                     [
                         'actions' => [
                             'index', 'compose-pd-field', 'change-state-on-the-fly', 'upload-files', 'preview-file',
-                            'delete-file'
+                            'delete-file', self::URL_SET_CCP_ON_THE_FLY,
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'logist', 'accountant'],
+                        'roles' => ['root', 'logist', 'accountant', 'accountant_b'],
                     ],
                     [
                         'actions' => ['create', 'update'],
                         'allow' => true,
-                        'roles' => ['root', 'logist', 'accountant'],
+                        'roles' => ['root', 'logist', 'accountant', 'accountant_b'],
                     ],
                     [
                         'actions' => ['import', 'delete', 'drop-drafts'],
@@ -127,27 +138,44 @@ class PaymentOrdersController extends Controller
         $state = $model->state_id;
 
         if ($model->load(Yii::$app->request->post())) {
-            if (trim($model->comment) == '') $model->comment = null;
-
-            if ($model->validate()) {
-                // если нажата кнопка "Отправить на согласование"
-                if (Yii::$app->request->post('order_ready') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ;
-
-                // если нажата кнопка "Согласовать"
-                elseif (Yii::$app->request->post('order_approve') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН;
-
-                // если нажата кнопка "Отказать"
-                elseif (Yii::$app->request->post('order_reject') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ;
-
-                // если нажата кнопка "Подать повторно"
-                elseif (Yii::$app->request->post('order_repeat') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК;
-
-                // если нажата кнопка "Оплачено"
-                elseif (Yii::$app->request->post('order_paid') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН;
-
-                if ($model->save()) return $this->redirect(['/payment-orders']); else $model->state_id = $state; // возвращаем статус
+            if (Yii::$app->request->post('cc_provided') !== null) {
+                // для актов выполненных работ особые условия
+                $model->fileCc = UploadedFile::getInstance($model, 'fileCc');
+                if ($model->fileCc != null) {
+                    if ($model->uploadCc()) {
+                        Yii::$app->session->setFlash('success', 'Акт выполненных работ успешно загружен.');
+                        return $this->redirect(['/payment-orders']);
+                    }
+                    else {
+                        Yii::$app->session->setFlash('error', 'Ошибка при загрузке Акта выполненных работ!');
+                    }
+                }
+                else {
+                    Yii::$app->session->setFlash('error', 'Акт выполненных работ не выбран!');
+                }
             }
-            else $model->state_id = $state; // возвращаем статус
+            else {
+                // пользователь отправляет форму ордера в другом статусе
+                if ($model->validate()) {
+                    // если нажата кнопка "Отправить на согласование"
+                    if (Yii::$app->request->post('order_ready') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ;
+
+                    // если нажата кнопка "Согласовать"
+                    elseif (Yii::$app->request->post('order_approve') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН;
+
+                    // если нажата кнопка "Отказать"
+                    elseif (Yii::$app->request->post('order_reject') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ;
+
+                    // если нажата кнопка "Подать повторно"
+                    elseif (Yii::$app->request->post('order_repeat') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК;
+
+                    // если нажата кнопка "Оплачено"
+                    elseif (Yii::$app->request->post('order_paid') !== null) $model->state_id = PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН;
+
+                    if ($model->save()) return $this->redirect(['/payment-orders']); else $model->state_id = $state; // возвращаем статус
+                }
+                else $model->state_id = $state; // возвращаем статус
+            }
         }
 
         // файлы к объекту
@@ -202,28 +230,34 @@ class PaymentOrdersController extends Controller
      * @param $pd integer способ расчетов с перевозчиком
      * @return mixed
      */
-    public function actionComposePdField($ferryman_id, $pd)
+    public function actionComposePdField($ferryman_id = null, $pd = null)
     {
         if (Yii::$app->request->isAjax) {
             $ferryman_id = intval($ferryman_id);
+            $pd = intval($pd);
             if ($ferryman_id > 0)
                 $ferryman = Ferrymen::findOne($ferryman_id);
-                if ($ferryman != null) {
-                    switch ($pd) {
-                        case PaymentOrders::PAYMENT_DESTINATION_ACCOUNT:
-                            $dataSet = FerrymenBankDetails::arrayMapForSelect2($ferryman_id);
-                            break;
-                        case PaymentOrders::PAYMENT_DESTINATION_CARD:
-                            $dataSet = FerrymenBankCards::arrayMapForSelect2($ferryman_id);
-                            break;
+                if ($ferryman) {
+                    $dataSet = null;
+
+                    if (!empty($pd)) {
+                        switch ($pd) {
+                            case PaymentOrders::PAYMENT_DESTINATION_ACCOUNT:
+                                $dataSet = FerrymenBankDetails::arrayMapForSelect2($ferryman_id);
+                                break;
+                            case PaymentOrders::PAYMENT_DESTINATION_CARD:
+                                $dataSet = FerrymenBankCards::arrayMapForSelect2($ferryman_id);
+                                break;
+                        }
                     }
-                    if (isset($dataSet)) {
-                        return $this->renderAjax('_block_pd', [
-                            'model' => new PaymentOrders(),
-                            'form' => \yii\bootstrap\ActiveForm::begin(),
-                            'dataSet' => $dataSet,
-                        ]);
-                    }
+
+                    return $this->renderAjax('_block_pd', [
+                        'model' => new PaymentOrders([
+                            'ferryman_id' => $ferryman_id,
+                        ]),
+                        'form' => \yii\bootstrap\ActiveForm::begin(),
+                        'dataSet' => $dataSet,
+                    ]);
                 }
         }
 
@@ -233,13 +267,14 @@ class PaymentOrdersController extends Controller
     /**
      * Загрузка файлов, перемещение их из временной папки, запись в базу данных.
      * @return mixed
+     * @throws \yii\base\Exception
      */
     public function actionUploadFiles()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $obj_id = Yii::$app->request->post('obj_id');
-        $upload_path = PaymentOrdersFiles::getUploadsFilepath();
+        $upload_path = PaymentOrdersFiles::getUploadsFilepath($obj_id);
         if ($upload_path === false) return 'Невозможно создать папку для хранения загруженных файлов!';
 
         // массив загружаемых файлов
@@ -339,6 +374,23 @@ class PaymentOrdersController extends Controller
         }
 
         return false;
+    }
+
+    /**
+     * Выполняет интерактивное изменение значения, представляющего собой наличие акта выполненных работ.
+     * set-ccp-on-the-fly
+     * @param $id integer идентфикатор платежного ордера
+     * @throws NotFoundHttpException
+     * @return bool
+     */
+    public function actionSetCcpOnTheFly($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $model = $this->findModel($id);
+        return $model->updateAttributes([
+            'ccp_at' => time(),
+        ]) > 0;
     }
 
     /**

@@ -7,13 +7,17 @@ use common\models\Organizations;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\LicensesRequests */
+/* @var $formAction string  */
 
 $this->title = 'Новый запрос | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => 'Запросы лицензий', 'url' => ['/licenses-requests']];
 $this->params['breadcrumbs'][] = 'Новый *';
+
+$formOptions = [];
+if (isset($formAction)) $formOptions['action'] = $formAction;
 ?>
 <div class="licenses-requests-create">
-    <?php $form = ActiveForm::begin(); ?>
+    <?php $form = ActiveForm::begin($formOptions); ?>
 
     <div class="row">
         <div class="col-md-3">

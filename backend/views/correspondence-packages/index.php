@@ -20,9 +20,9 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
     <?= $this->render('_search', ['model' => $searchModel]); ?>
 
     <p>
+        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')): ?>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
-        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')): ?>
         <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', $urlComposePackage, [
             'class' => 'btn btn-default pull-right',
             'id' => 'btnComposePackage',
@@ -165,11 +165,21 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{update} {pochtaRuPrint} {delete}',
+                //'template' => '{compose-envelope} {update} {edf} {pochtaRuPrint} {delete}',
+                'template' => '{update} {edf} {pochtaRuPrint} {delete}',
                 'buttons' => [
+                    'compose-envelope' => function ($url, $model) {
+                        return Html::a('<i class="fa fa-envelope"></i>', ['/correspondence-packages/compose-envelope', 'id' => $model->id], ['title' => 'Вывести на печать конверт', 'class' => 'btn btn-xs btn-default']);
+                    },
                     'pochtaRuPrint' => function ($url, $model) {
                         if ($model->pd_id == \common\models\PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ && $model->pochta_ru_order_id != null)
                             return Html::a('<i class="fa fa-barcode"></i>', \backend\controllers\TrackingController::POCHTA_RU_URL_ORDER_PRINT . $model->pochta_ru_order_id, ['title' => 'Печать конверта', 'class' => 'btn btn-xs btn-default', 'target' => '_blank']);
+                        else
+                            return '';
+                    },
+                    'edf' => function ($url, $model) {
+                        if (!empty($model->edf))
+                            return Html::a('<i class="fa fa-file-word-o"></i>', ['/edf/update', 'id' => $model->edf->id], ['title' => 'Открыть электронный документ', 'class' => 'btn btn-xs btn-default']);
                         else
                             return '';
                     },
@@ -212,6 +222,24 @@ $name = 'ComposePackageForm[tpPad]';
 
 $this->registerJs(<<<JS
 var checked = false;
+$("input[type='checkbox']").iCheck({checkboxClass: 'icheckbox_square-green'});
+
+// Обработчик щелчка по ссылке "Отметить все".
+//
+function checkAllOnClick() {
+    if (checked) {
+    operation = "uncheck";
+    checked = false;
+    }
+    else {
+        operation = "check";
+        checked = true;
+    }
+
+    $("input[name ^= 'selection[]']").iCheck(operation);
+
+    return false;
+} // checkAllOnClick()
 
 // Обработчик щелчка по кнопке "Сформировать пакет".
 //
@@ -233,26 +261,9 @@ function composePackageOnClick() {
     return false;
 } // composePackageOnClick()
 
-// Обработчик щелчка по ссылке "Отметить все документы".
-//
-function checkAllDocumentsOnClick() {
-    if (checked) {
-        operation = "uncheck";
-        checked = false;
-    }
-    else {
-        operation = "check";
-        checked = true;
-    }
-
-    $("input[name ^= '$name']").iCheck(operation);
-
-    return false;
-} // checkAllDocumentsOnClick()
-
+$(".select-on-check-all").on("ifClicked", checkAllOnClick);
 $(document).on("click", "#btnComposePackage", btnComposePackageFormOnClick);
 $(document).on("click", "#btn-process", composePackageOnClick);
-$(document).on("click", "#checkAllDocuments", checkAllDocumentsOnClick);
 JS
 , \yii\web\View::POS_READY);
 ?>

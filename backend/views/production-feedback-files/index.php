@@ -18,6 +18,18 @@ $this->params['breadcrumbs'][] = 'Обратная связь от произв�
     <p>
         <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
 
+        <?php if (Yii::$app->user->can('root')): ?>
+        <?= Html::a('<i class="fa fa-trash-o" aria-hidden="true"></i> Удалить файлы проекта', '/production-feedback-files/delete-project-files?' . $queryString, [
+            'title' => Yii::t('yii', 'Удалить'),
+            'class' => 'btn btn-danger pull-right',
+            'style' => 'margin-left: 5px;',
+            'aria-label' => Yii::t('yii', 'Delete'),
+            'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'),
+            'data-method' => 'post',
+            'data-pjax' => '0',
+        ]); ?>
+
+        <?php endif; ?>
         <?= Html::a('<i class="fa fa-cloud-download" aria-hidden="true"></i> Скачать архивом', '/production-feedback-files?downloadArchive=true' . $queryString, ['class' => 'btn btn-default pull-right']) ?>
 
     </p>

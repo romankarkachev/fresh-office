@@ -20,7 +20,15 @@ $this->params['breadcrumbs'][] = 'Единицы измерения';
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
+            [
+                'attribute' => 'code',
+                'label' => 'Код',
+                'options' => ['width' => '130'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
             'name',
+            'name_full',
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

@@ -41,15 +41,59 @@ class DocumentsSearch extends Documents
      */
     public function search($params)
     {
-        $query = Documents::find();
-
-        // add conditions that should always apply here
-
+        $query = Documents::find()->select([
+            '*',
+            'id' => Documents::tableName() . '.id',
+            'created_at' => Documents::tableName() . '.created_at',
+            'doc_num' => Documents::tableName() . '.doc_num',
+            'doc_date' => Documents::tableName() . '.doc_date',
+            'org_id' => Documents::tableName() . '.org_id',
+            'tpCount' => DocumentsTp::find()->select('COUNT(*)')->where(DocumentsTp::tableName() . '.doc_id = ' . Documents::tableName() . '.id')->groupBy('doc_id'),
+        ]);
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => [
+                'route' => 'documents',
+                'pageSize' => 50,
+            ],
+            'sort' => [
+                'route' => 'documents',
+                'defaultOrder' => ['created_at' => SORT_DESC],
+                'attributes' => [
+                    'id',
+                    'created_at' => [
+                        'asc' => [Documents::tableName() . '.created_at' => SORT_ASC],
+                        'desc' => [Documents::tableName() . '.created_at' => SORT_DESC],
+                    ],
+                    'author_id',
+                    'doc_num',
+                    'doc_date',
+                    'act_date',
+                    'org_id',
+                    'fo_project',
+                    'fo_customer',
+                    'fo_contract',
+                    'ed_id',
+                    'comment',
+                    'tpCount',
+                    'createdByProfileName' => [
+                        'asc' => ['profile.name' => SORT_ASC],
+                        'desc' => ['profile.name' => SORT_DESC],
+                    ],
+                    'organizationName' => [
+                        'asc' => ['organizations.name' => SORT_ASC],
+                        'desc' => ['organizations.name' => SORT_DESC],
+                    ],
+                    'edRep' => [
+                        'asc' => ['edf.doc_date' => SORT_ASC],
+                        'desc' => ['edf.doc_date' => SORT_DESC],
+                    ],
+                ],
+            ],
         ]);
 
         $this->load($params);
+        $query->joinWith(['createdByProfile', 'organization', 'ed']);
 
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails

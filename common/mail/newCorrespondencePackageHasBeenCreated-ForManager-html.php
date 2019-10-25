@@ -4,6 +4,7 @@ use yii\helpers\Html;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\CorrespondencePackages */
+/* @var $body string текст уведомления */
 
 $link = Yii::$app->urlManager->createAbsoluteUrl(['/correspondence-packages/update', 'id' => $model->id]);
 ?>
@@ -15,7 +16,8 @@ $link = Yii::$app->urlManager->createAbsoluteUrl(['/correspondence-packages/upda
     </tr>
     <tr>
         <td class="content-block">
-            Создан пакет корреспонденции, в котором Вы указаны как ответственный.
+            <?= $body ?>
+
         </td>
     </tr>
     <tr>

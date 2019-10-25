@@ -30,6 +30,10 @@ class AppealsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
+                        'actions' => ['dispatch-appeal'],
+                        'allow' => true,
+                    ],
+                    [
                         'actions' => ['try-to-identify-counteragent', 'after-identifying-ambiguous', 'delegate-counteragent', 'temp'],
                         'allow' => true,
                         'roles' => ['@'],
@@ -63,9 +67,25 @@ class AppealsController extends Controller
                 'actions' => [
                     'delete' => ['POST'],
                     'delegate-counteragent' => ['POST'],
+                    'dispatch-appeal' => ['POST'],
                 ],
             ],
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function beforeAction($action)
+    {
+        // для этих экшнов отключаем проверку на доступ извне иначе отдает ошибку 400
+        switch ($action->id) {
+            case 'dispatch-appeal':
+                $this->enableCsrfValidation = false;
+                break;
+        }
+
+        return parent::beforeAction($action);
     }
 
     /**
@@ -76,13 +96,6 @@ class AppealsController extends Controller
     {
         $searchModel = new AppealsSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
-
-        // для оператора отбор только по собственным обращениям
-        if (Yii::$app->user->can('operator'))
-            $dataProvider = $searchModel->search(ArrayHelper::merge(
-                Yii::$app->request->queryParams,
-                [$searchModel->formName() => ['created_by' => Yii::$app->user->id]]
-            ));
 
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
@@ -324,6 +337,60 @@ WHERE COMPANY.ID_COMPANY = ' . $ca_id;
                         str_replace('%COMPANY_NAME%', $result[0]['COMPANY_NAME'], Appeals::TEMPLATE_MESSAGE_BODY_DELEGATING_COUNTERAGENT)
                     );
                 }
+            }
+        }
+    }
+
+    /**
+     * Принимает снаружи заявку с сайта 1nok.ru
+     */
+    public function actionDispatchAppeal()
+    {
+        if (Yii::$app->request->isPost) {
+            $fields = [
+                'ac_id' => Appeals::РАЗДЕЛ_УЧЕТА_УТИЛИЗАЦИЯ,
+            ];
+
+            $as_id = null;
+            $src = Yii::$app->request->post('src');
+            if (!empty($src)) {
+                switch ($src) {
+                    case 'nok':
+                        // обращение пришло с сайта 1nok.ru
+                        $as_id = 65;
+                        break;
+                    case 'wl':
+                        // обращение поступило с сайта wastelogistic.ru
+                        $as_id = 13;
+                        break;
+                    case 'mecology':
+                        // обращение поступило с сайта mecology.ru
+                        $as_id = 68;
+                        // частный случай
+                        $fields['ac_id'] = Appeals::РАЗДЕЛ_УЧЕТА_ЭКОЛОГИЯ;
+                        break;
+                }
+            }
+
+            if (!empty($as_id)) {
+                // общие для всех сайтов реквизиты
+                $fields = ArrayHelper::merge($fields, [
+                    'state_id' => Appeals::APPEAL_STATE_NEW,
+                    'form_username' => Yii::$app->request->post('name'),
+                    'form_phone' => Yii::$app->request->post('phone'),
+                    'form_email' => Yii::$app->request->post('email'),
+                    'form_message' => Yii::$app->request->post('comment'),
+                    'as_id' => $as_id,
+                ]);
+
+                // частные случаи
+                if ($src == 'wl') {
+                    // с сайта wastelogistic можно получить еще такую информацию:
+                    $fields['form_company'] = Yii::$app->request->post('company_name');
+                    $fields['form_region'] = Yii::$app->request->post('region');
+                }
+
+                (new Appeals($fields))->save();
             }
         }
     }

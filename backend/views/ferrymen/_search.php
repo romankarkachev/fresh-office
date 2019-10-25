@@ -1,10 +1,15 @@
 <?php
 
+use common\models\TransportTypes;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
 use yii\web\JsExpression;
 use kartik\typeahead\Typeahead;
+use kartik\select2\Select2;
+use common\models\Ferrymen;
+use common\models\FerrymenTypes;
+use common\models\PaymentConditions;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\FerrymenSearch */
@@ -52,6 +57,57 @@ $template = '<div><h5><strong>{{value}}</strong></h5>' . '<em class="text-muted"
                 ],
             ]); ?>
 
+            <div class="row">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+                        'data' => Ferrymen::arrayMapOfStatesForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'ft_id')->widget(Select2::className(), [
+                        'data' => FerrymenTypes::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'pc_id')->widget(Select2::className(), [
+                        'data' => PaymentConditions::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'tax_kind')->widget(Select2::className(), [
+                        'data' => Ferrymen::arrayMapOfTaxKindsForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchTransportType')->widget(Select2::class, [
+                        'data' => TransportTypes::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                    ]) ?>
+
+            </div>
+            </div>
             <div class="form-group">
                 <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info']) ?>
 

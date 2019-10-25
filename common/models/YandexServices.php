@@ -6,11 +6,21 @@ use yii\base\Model;
 use yii\httpclient\Client;
 
 /**
- * Класс для работы с API yandex.ru.
+ * Класс для работы с сервисами Яндекса.
 */
-class YandexAPI extends Model
+class YandexServices extends Model
 {
     const API_URL = 'https://geocode-maps.yandex.ru/1.x/';
+
+    /**
+     * Отправка на распознавание длинных аудио
+     */
+    const URL_SPEECHKIT_RECOGNITION_RUN_LONG = 'https://transcribe.api.cloud.yandex.net/speech/stt/v2/longRunningRecognize';
+
+    /**
+     * Результаты распознавания
+     */
+    const URL_SPEECHKIT_RECOGNITION_RESULTS = 'https://operation.api.cloud.yandex.net/operations/';
 
     /**
      * Выполняет GET-запрос для получения данных по API.

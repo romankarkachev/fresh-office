@@ -15,6 +15,7 @@ Yii::setAlias('@uploads-ferrymen-transport-fs', '@backend/../uploads/ferrymen-tr
 Yii::setAlias('@uploads-ferrymen-drivers-fs', '@backend/../uploads/ferrymen-drivers'); // файлы к водителям перевозчиков, полный путь
 Yii::setAlias('@uploads-ferrymen-fs', '@backend/../uploads/ferrymen'); // файлы к перевозчикам, полный путь
 Yii::setAlias('@uploads-temp-pdfs', '@backend/../uploads/temp-pdfs'); // проекты в формате PDF для рассылки
+Yii::setAlias('@uploads-temp-storage-fs', '@backend/../uploads/storage/temp'); // временные файлы для скачивания архивов файлов контрагентов
 Yii::setAlias('@uploads-production-files-fs', '@backend/../uploads/production-files'); // файлы, которые прикрепляет производство
 Yii::setAlias('@uploads-licenses-files-fs', '@backend/../uploads/licenses-files'); // файлы со сканами страниц лицензии
 Yii::setAlias('@uploads-payment-orders-fs', '@backend/../uploads/payment-orders'); // файлы заявок на оплату
@@ -22,6 +23,10 @@ Yii::setAlias('@uploads-correspondence-packages-fs', '@backend/../uploads/corres
 Yii::setAlias('@uploads-transport-requests-fs', '@backend/../uploads/transport-requests'); // файлы к запросам на транспорт, полный путь
 Yii::setAlias('@uploads-mail-extractions-fs', '@backend/../uploads/mail-extractions'); // файлы с выгрузкой корпоративной почты, полный путь
 Yii::setAlias('@uploads-eco-projects-fs', '@backend/../uploads/eco-projects'); // файлы к этапам проектов по экологии, полный путь
+Yii::setAlias('@uploads-edf-fs', '@backend/../uploads/edf'); // файлы к электронным документам, полный путь
+Yii::setAlias('@uploads-tenders-fs', '@backend/../uploads/tenders'); // файлы к тендерам, полный путь
+Yii::setAlias('@uploads-po-fs', '@backend/../uploads/po'); // файлы к бюджетным платежным ордерам, полный путь
+Yii::setAlias('@uploads-tasks-fs', '@backend/../uploads/tasks'); // файлы к задачам, полный путь
 
 Yii::setAlias('uploads-appeals', '/uploads/appeals/'); // файлы к обращениям, относительный путь
 Yii::setAlias('uploads-ferrymen-drivers', '/uploads/ferrymen-drivers/'); // файлы к автомобилям перевозчиков, относительный путь
@@ -31,3 +36,7 @@ Yii::setAlias('uploads-payment-orders', '/uploads/payment-orders/'); // файл
 Yii::setAlias('uploads-transport-requests', '/uploads/transport-requests/'); // файлы к запросам на транспорт, относительный путь
 Yii::setAlias('uploads-correspondence-packages', '/uploads/correspondence-packages/'); // файлы пакетов корреспонденции, относительный путь
 Yii::setAlias('uploads-eco-projects', '/uploads/eco-projects/'); // файлы к этапам проектов по экологии, относительный путь
+Yii::setAlias('uploads-edf', '/uploads/edf/'); // файлы к электронным документам, относительный путь
+Yii::setAlias('uploads-tenders', '/uploads/tenders/'); // файлы к тендерам, относительный путь
+Yii::setAlias('uploads-po', '/uploads/po/'); // файлы к бюджетным платежным ордерам, относительный путь
+Yii::setAlias('uploads-tasks', '/uploads/tasks/'); // файлы к задачам, относительный путь

@@ -16,12 +16,6 @@ $label_ogrn = $model->attributeLabels()['ogrn'];
 <div class="organizations-form">
     <?php $form = ActiveForm::begin(); ?>
 
-    <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
-
-    <?= $form->field($model, 'name_short')->textInput(['maxlength' => true, 'placeholder' => 'Например, ООО "Ромашка"']) ?>
-
-    <?= $form->field($model, 'name_full')->textInput(['maxlength' => true, 'placeholder' => 'Например, Общество с ограниченной ответственностью "Ромашка"']) ?>
-
     <div class="row">
         <div class="col-md-2">
             <?= $form->field($model, 'inn')->widget(MaskedInput::className(), [
@@ -38,12 +32,81 @@ $label_ogrn = $model->attributeLabels()['ogrn'];
             ])->textInput(['maxlength' => true, 'placeholder' => 'Введите КПП']) ?>
 
         </div>
-        <div class="col-md-3">
+        <div class="col-md-2">
             <?= $form->field($model, 'ogrn')->widget(MaskedInput::className(), [
                 'mask' => '999999999999999',
                 'clientOptions' => ['placeholder' => ''],
             ])->textInput(['maxlength' => true, 'placeholder' => 'Введите ОГРН или ОГРНИП', 'title' => 'Введите ОГРН или ОГРНИП'])
                 ->label($label_ogrn, ['id' => 'label-ogrn']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'doc_num_tmpl')->textInput(['placeholder' => 'Шаблон номера договоров']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'license_req')->textInput(['placeholder' => '№ 050 079 от «30» августа 2017 г.']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'fo_dt_id')->widget(MaskedInput::class, [
+                'mask' => '99',
+                'clientOptions' => ['placeholder' => ''],
+            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите число', 'title' => 'Введите тип документа, по которому будет идентифицирована эта организация при импорте счетов из Fresh Office']) ?>
+
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
+
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'name_short')->textInput(['maxlength' => true, 'placeholder' => 'Например, ООО "Ромашка"']) ?>
+
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'name_full')->textInput(['maxlength' => true, 'placeholder' => 'Например, Общество с ограниченной ответственностью "Ромашка"']) ?>
+
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-4">
+            <?= $form->field($model, 'address_j')->textInput(['placeholder' => 'Введите юридический адрес']) ?>
+
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'address_f')->textInput(['placeholder' => 'Введите фактический адрес']) ?>
+
+        </div>
+        <div class="col-md-4">
+            <?= $form->field($model, 'address_ttn')->textInput(['placeholder' => 'Введите адрес для ТТН']) ?>
+
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-md-2">
+            <?= $form->field($model, 'phones')->textInput(['placeholder' => 'Введите телефоны']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'email')->textInput(['placeholder' => 'Введите E-mail']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'dir_post')->textInput(['maxlength' => true, 'placeholder' => 'Введите должность директора']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'dir_name')->textInput(['maxlength' => true, 'placeholder' => 'Введите ФИО директора полностью']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'dir_name_short')->textInput(['maxlength' => true, 'placeholder' => 'Введите сокрашенные ФИО директора']) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'dir_name_of')->textInput(['maxlength' => true, 'placeholder' => 'Директор в родительном падеже', 'title' => 'Введите полные ФИО директора в родительном падеже']) ?>
 
         </div>
     </div>
@@ -95,6 +158,22 @@ function fillFields(caInfo) {
     \$field = $("#$formName-address_j");
     \$field.val("");
     if (caInfo.address) \$field.val(caInfo.address);
+
+    \$field = $("#$formName-dir_name");
+    \$field.val("");
+    if (caInfo.dir_name) \$field.val(caInfo.dir_name);
+
+    \$field = $("#$formName-dir_name_of");
+    \$field.val("");
+    if (caInfo.dir_name_of) \$field.val(caInfo.dir_name_of);
+
+    \$field = $("#$formName-dir_name_short");
+    \$field.val("");
+    if (caInfo.dir_name_short) \$field.val(caInfo.dir_name_short);
+
+    \$field = $("#$formName-dir_post");
+    \$field.val("");
+    if (caInfo.dir_post) \$field.val(caInfo.dir_post);
 } // fillFields()
 
 // Обработчик изменения значения в поле "ИНН".
@@ -107,11 +186,10 @@ function innOnChange() {
         if (inn != "") {
             \$label = $("#label-inn");
             \$label.html("$label_inn &nbsp;<i class=\"fa fa-spinner fa-pulse fa-fw text-primary\"></i>");
-            $.get("$url_inn_ogrn?query=" + inn, function(response) {
+            $.get("$url_inn_ogrn?query=" + inn + "&specifyingValue=&cleanDir=1", function(response) {
                 if (response != false) {
                     fillFields(response);
                 }
-    
             }).always(function() {
                 \$label.html("$label_inn");
             });
@@ -129,7 +207,7 @@ function ogrnOnChange() {
         if (ogrn != "") {
             \$label = $("#label-ogrn");
             \$label.html("$label_ogrn &nbsp;<i class=\"fa fa-spinner fa-pulse fa-fw text-primary\"></i>");
-            $.get("$url_inn_ogrn?query=" + ogrn, function(response) {
+            $.get("$url_inn_ogrn?query=" + ogrn + "&cleanDir=1", function(response) {
                 if (response != false) {
                     fillFields(response);
                 }

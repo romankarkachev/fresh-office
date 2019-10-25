@@ -47,6 +47,7 @@ class ProjectsStates extends \yii\db\ActiveRecord
     const STATE_СЭД = 45;
     const STATE_ОТДАНО_НА_ПОДПИСЬ = 46;
     const STATE_ДОКУМЕНТЫ_НА_СОГЛАСОВАНИИ_У_КЛИЕНТА = 47;
+    const STATE_ИСПОЛНЕН = 50;
 
     const НАБОР_ОПЕРАТОРА = [
         self::STATE_ОЖИДАЕТ_ОТПРАВКИ,

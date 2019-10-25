@@ -3,9 +3,9 @@
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
-use yii\web\JsExpression;
 use kartik\datecontrol\DateControl;
 use kartik\select2\Select2;
+use common\models\Edf;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\Documents */
@@ -21,7 +21,12 @@ $project_label = $model->attributeLabels()['fo_project'] . ' <span id="project-t
     <?php $form = ActiveForm::begin(); ?>
 
     <?php if (!$model->isNewRecord): ?>
-    <p><strong>Автор:</strong> <?= $model->author->username ?><?= $model->authorProfile->name != null && $model->authorProfile->name != '' ? ' (' . $model->authorProfile->name . ')' : '' ?>. <strong>Создан</strong> <?= Yii::$app->formatter->asDate($model->created_at, 'php:d F Y в H:i') ?>.</p>
+    <p>
+        <strong>Автор:</strong> <?= $model->createdByProfileName ?>.
+        <strong>Создан</strong> <?= Yii::$app->formatter->asDate($model->created_at, 'php:d F Y в H:i') ?>.
+        <strong>Организация:</strong> <?= $model->organizationName ?>.
+        <strong>Контрагент:</strong> <?= $model->counteragentName ?>.
+    </p>
     <?php endif; ?>
 
     <div class="row">
@@ -29,82 +34,47 @@ $project_label = $model->attributeLabels()['fo_project'] . ' <span id="project-t
             <?= $form->field($model, 'doc_num')->textInput(['maxlength' => true, 'placeholder' => 'Введите номер акта']) ?>
 
         </div>
-        <div class="col-md-3">
-            <?= $form->field($model, 'doc_date')->widget(DateControl::className(), [
+        <div class="col-md-2">
+            <?= $form->field($model, 'doc_date')->widget(DateControl::class, [
                 'value' => $model->doc_date,
                 'type' => DateControl::FORMAT_DATE,
                 'displayFormat' => 'php:d.m.Y',
                 'saveFormat' => 'php:Y-m-d',
                 'widgetOptions' => [
                     'layout' => '{input}{picker}',
+                    'options' => ['placeholder' => '- выберите -', 'autocomplete' => 'off'],
                     'pluginOptions' => [
                         'weekStart' => 1,
-                        'autoclose' => true
+                        'autoclose' => true,
+                    ],
+                ],
+            ]) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'act_date')->widget(DateControl::class, [
+                'value' => $model->act_date,
+                'type' => DateControl::FORMAT_DATE,
+                'displayFormat' => 'php:d.m.Y',
+                'saveFormat' => 'php:Y-m-d',
+                'widgetOptions' => [
+                    'layout' => '{input}{picker}',
+                    'options' => ['placeholder' => '- выберите -', 'autocomplete' => 'off'],
+                    'pluginOptions' => [
+                        'weekStart' => 1,
+                        'autoclose' => true,
                     ],
                 ],
             ]) ?>
 
         </div>
         <div class="col-md-3">
-            <?= $form->field($model, 'fo_project')->widget(Select2::className(), [
+            <?= $form->field($model, 'ed_id')->widget(Select2::class, [
+                'data' => Edf::arrayMapOfContractsForSelect2($model->fo_customer),
                 'theme' => Select2::THEME_BOOTSTRAP,
-                'language' => 'ru',
-                'options' => ['placeholder' => 'Введите наименование'],
-                'pluginOptions' => [
-                    'minimumInputLength' => 1,
-                    'language' => 'ru',
-                    'ajax' => [
-                        'url' => Url::to(['documents/direct-sql-get-project-data']),
-                        'delay' => 500,
-                        'dataType' => 'json',
-                        'data' => new JsExpression('function(params) { return {project_id:params.term}; }')
-                    ],
-                    'escapeMarkup' => new JsExpression('function (markup) { return markup; }'),
-                    'templateResult' => new JsExpression('function(result) { return result.text; }'),
-                    'templateSelection' => new JsExpression('function (result) {
-if (!result.customer_id) {return result.text;}
-
-// подставим идентификатор контрагента в соответствующее поле
-if (result.customer_id != "") $("#documents-fo_customer").val(result.customer_id);
-
-// заполним договор
-if (result.contract != "") $("#documents-fo_contract").val(result.contract);
-
-return result.text;
-}'),
-                ],
-                'pluginEvents' => [
-                    'select2:select' => 'function() {
-// заполним табличную часть позициями из проекта
-counter = parseInt($("#btn-add-row").attr("data-count"));
-$("#project-tp-preloader").show();
-$.get("/documents/direct-sql-get-project-table-part?doc_id=1&project_id=" + $(this).val() + "&counter=" + counter, function(data) {
-    if (data != false) {
-        if (data.results != "") {
-            if (counter == -1)
-                $("#block-tp").after(data.results);
-            else
-                $("#dtp-row-" + counter).after(data.results);
-        };
-
-        for (var i = counter; i < data.counter; i++) {
-            $("#documents-product_id-" + (i+1)).select2({theme: "default", width: "100%"});
-        }
-        $("#btn-add-row").attr("data-count", data.counter);
-    }
-    $("#project-tp-preloader").hide();
-});
-}',
-                ]
-            ])->label($project_label) ?>
-
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'fo_customer')->textInput(['maxlength' => true, 'placeholder' => 'Введите ID заказчика'])->label('ID заказчика') ?>
-
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'fo_contract')->textInput(['maxlength' => true, 'placeholder' => 'Введите договор'])->label('Договор') ?>
+                'options' => ['placeholder' => '- выберите -'],
+                'hideSearch' => true,
+            ]) ?>
 
         </div>
     </div>
@@ -112,8 +82,6 @@ $.get("/documents/direct-sql-get-project-table-part?doc_id=1&project_id=" + $(th
         <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите примечание (не обязательно)']) ?>
 
     </div>
-    <?= $form->field($model, 'author_id')->hiddenInput()->label(false) ?>
-
     <?php if (!$model->isNewRecord): ?>
     <?php $count = count($tprows)-1; ?>
     <div id="block-tp" class="page-header"><h3>Табличная часть <?= Html::a('<i class="fa fa-plus" aria-hidden="true"></i> Добавить строку', '#', ['id' => 'btn-add-row', 'class' => 'btn btn-default', 'data-count' => $count]) ?></h3></div>

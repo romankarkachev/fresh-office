@@ -6,6 +6,7 @@ use kartik\file\FileInput;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\CorrespondencePackages */
+/* @var $contactEmails array массив E-mail'ов для уведомлений заказчика о состоянии почтового отправления */
 /* @var $dpFiles \yii\data\ActiveDataProvider */
 /* @var $dpHistory \yii\data\ActiveDataProvider */
 
@@ -16,14 +17,15 @@ $this->params['breadcrumbs'][] = ['label' => 'Пакеты корреспонд�
 $this->params['breadcrumbs'][] = $modelRep;
 ?>
 <div class="correspondence-packages-update">
-    <?= $this->render('_form', ['model' => $model]) ?>
+    <?= $this->render('_form', ['model' => $model, 'contactEmails' => $contactEmails]) ?>
 
     <?php if ($model->is_manual): ?>
-        <?= $this->render('_history', ['dataProvider' => $dpHistory]); ?>
+    <?= $this->render('_history', ['dataProvider' => $dpHistory]); ?>
 
-        <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
+    <?php endif; ?>
+    <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 
-        <?= FileInput::widget([
+    <?= FileInput::widget([
         'id' => 'new_files',
         'name' => 'files[]',
         'options' => ['multiple' => true],
@@ -37,12 +39,11 @@ $this->params['breadcrumbs'][] = $modelRep;
         ]
     ]) ?>
 
-    <?php endif; ?>
 </div>
 <?php
 $this->registerJs(<<<JS
-$("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
-    $.pjax.reload({container:"#afs"});
+$("#new_files").on("fileuploaded filebatchuploadsuccess", function(event, data, previewId, index) {
+    $.pjax.reload({container:"#pjax-files"});
 });
 JS
 , \yii\web\View::POS_READY);

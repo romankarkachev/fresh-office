@@ -100,7 +100,7 @@ class FerrymenBankDetails extends \yii\db\ActiveRecord
         if (!isset($ferryman_id)) return [];
 
         $query = FerrymenBankDetails::find();
-        $query->select(['id', 'accountRep' => 'CONCAT(bank_an, " в ", bank_name)']);
+        $query->select(['id', 'accountRep' => 'CONCAT(name_full, " № ", bank_an, " в ", bank_name)']);
         $query->where(['ferryman_id' => $ferryman_id]);
 
         return ArrayHelper::map($query->all(), 'id', 'accountRep');

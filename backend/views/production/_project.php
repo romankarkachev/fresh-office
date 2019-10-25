@@ -3,6 +3,7 @@
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\bootstrap\ActiveForm;
+use yii\widgets\MaskedInput;
 
 /* @var $this yii\web\View */
 /* @var $project array массив с данными проекта */
@@ -64,6 +65,14 @@ $formNameForId = strtolower($model->formName());
                     </tr>
                 <?php } ?>
                 </table>
+            </div>
+            <div class="col-md-7 col-lg-6">
+                <h4 class="text-center">Данные</h4>
+                <div class="panel panel-default">
+                    <div class="panel-body">
+                        <p><?= $project['dannie'] ?></p>
+                    </div>
+                </div>
             </div>
         </div>
         <?php endif; ?>
@@ -139,6 +148,97 @@ $formNameForId = strtolower($model->formName());
         ]) ?>
 
     </div>
+    <div class="row">
+        <div class="col-md-2">
+            <?= $form->field($model, 'weightTtn', [
+                'template' => '{label}<div class="input-group">{input}<span class="input-group-addon">т</span></div>{error}'
+            ])->widget(MaskedInput::class, [
+                'value' => $model->weightTtn,
+                'options' => [
+                    'class' => 'form-control input-sm',
+                    'placeholder' => '0',
+                    'title' => 'Вес по товарно-транспортной накладной',
+                    'required' => 'required',
+                ],
+                'clientOptions' => [
+                    'alias' =>  'decimal',
+                    'digits' => 4,
+                    'digitsOptional' => true,
+                    'radixPoint' => '.',
+                    'groupSeparator' => ' ',
+                    'autoGroup' => true,
+                    'removeMaskOnSubmit' => true,
+                ],
+            ]) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'weightFact', [
+                'template' => '{label}<div class="input-group">{input}<span class="input-group-addon">т</span></div>{error}'
+            ])->widget(MaskedInput::class, [
+                'value' => $model->weightFact,
+                'options' => [
+                    'class' => 'form-control input-sm',
+                    'placeholder' => '0',
+                    'title' => 'Вес фактический',
+                ],
+                'clientOptions' => [
+                    'alias' =>  'decimal',
+                    'digits' => 4,
+                    'digitsOptional' => true,
+                    'radixPoint' => '.',
+                    'groupSeparator' => ' ',
+                    'autoGroup' => true,
+                    'removeMaskOnSubmit' => true,
+                ],
+            ]) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'volumeTtn', [
+                'template' => '{label}<div class="input-group">{input}<span class="input-group-addon">м³</span></div>{error}'
+            ])->widget(MaskedInput::class, [
+                'value' => $model->volumeTtn,
+                'options' => [
+                    'class' => 'form-control input-sm',
+                    'placeholder' => '0',
+                    'title' => 'Объем по товарно-транспортной накладной',
+                ],
+                'clientOptions' => [
+                    'alias' =>  'decimal',
+                    'digits' => 4,
+                    'digitsOptional' => true,
+                    'radixPoint' => '.',
+                    'groupSeparator' => ' ',
+                    'autoGroup' => true,
+                    'removeMaskOnSubmit' => true,
+                ],
+            ]) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'volumeFact', [
+                'template' => '{label}<div class="input-group">{input}<span class="input-group-addon">м³</span></div>{error}'
+            ])->widget(MaskedInput::class, [
+                'value' => $model->volumeFact,
+                'options' => [
+                    'class' => 'form-control input-sm',
+                    'placeholder' => '0',
+                    'title' => 'Объем фактический',
+                ],
+                'clientOptions' => [
+                    'alias' =>  'decimal',
+                    'digits' => 4,
+                    'digitsOptional' => true,
+                    'radixPoint' => '.',
+                    'groupSeparator' => ' ',
+                    'autoGroup' => true,
+                    'removeMaskOnSubmit' => true,
+                ],
+            ]) ?>
+
+        </div>
+    </div>
     <div class="form-group">
         <p>Соберите все необходимые файлы в одном месте, нажмите на кнопку и единоразово отметьте все файлы. Вы можете прикрепить до <strong>100</strong> файлов.</p>
         <?= $form->field($model, 'files[]')->fileInput(['multiple' => true]) ?>
@@ -148,7 +248,7 @@ $formNameForId = strtolower($model->formName());
         <?= Html::submitButton('<i class="fa fa-plane" aria-hidden="true"></i> Отправить', [
             'id' => 'sendFeedback',
             'class' => 'btn btn-default btn-lg',
-            'title' => 'Вернуться в список. Изменения не будут сохранены'
+            'title' => 'Выполнить отправку файлов на сервер и на почту ответственному',
         ]) ?>
 
     </p>

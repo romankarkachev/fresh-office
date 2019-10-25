@@ -74,7 +74,7 @@ class EcoTypesController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => [
@@ -82,12 +82,12 @@ class EcoTypesController extends Controller
                             'types-milestones-list', self::URL_ADD_MILESTONE, self::URL_DELETE_MILESTONE,
                         ],
                         'allow' => true,
-                        'roles' => ['root'],
+                        'roles' => ['root', 'ecologist_head'],
                     ],
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                     self::URL_DELETE_MILESTONE => ['POST'],
@@ -160,7 +160,7 @@ class EcoTypesController extends Controller
         $model = new EcoTypes();
 
         if ($model->load(Yii::$app->request->post())) {
-            return $this->redirect(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/update', 'id' => $model->id]);
+            if ($model->save()) return $this->redirect(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/update', 'id' => $model->id]);
         }
 
         return $this->render('create', [
@@ -230,7 +230,7 @@ class EcoTypesController extends Controller
     }
 
     /**
-     * Отображает список диалогов запроса, идентификатор которого передается в параметрах.
+     * Отображает список этапов, идентификатор которого передается в параметрах.
      * @param $id integer идентификатор запроса
      * @return mixed
      */

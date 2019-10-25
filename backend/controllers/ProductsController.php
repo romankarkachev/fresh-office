@@ -2,10 +2,11 @@
 
 namespace backend\controllers;
 
-use common\models\ProductsImport;
 use Yii;
 use common\models\Products;
 use common\models\ProductsSearch;
+use common\models\ProductsImport;
+use common\models\DangerClasses;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -26,8 +27,8 @@ class ProductsController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete', 'list-nf'],
+                'class' => AccessControl::class,
+                'only' => ['index', 'create', 'update', 'delete', 'clear', 'list-nf'],
                 'rules' => [
                     [
                         'allow' => true,
@@ -36,7 +37,7 @@ class ProductsController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],
@@ -127,6 +128,29 @@ class ProductsController extends Controller
         } else {
             throw new NotFoundHttpException('Запрошенная страница не существует.');
         }
+    }
+
+    /**
+     * Производит удаление всех имеющихся товаров.
+     * @throws \Throwable
+     * @throws \yii\db\StaleObjectException
+     */
+    public function actionClear()
+    {
+        $count = 0;
+
+        $records = Products::find()->all();
+        foreach ($records as $record) {
+            if (false !== $record->delete()) {
+                $count++;
+            }
+        }
+
+        if ($count > 0) {
+            Yii::$app->session->setFlash('info', 'Объектов удалено: ' . $count . '.');
+        }
+
+        return $this->redirect(['/products']);
     }
 
     /**
@@ -235,12 +259,12 @@ class ProductsController extends Controller
                             $new_record->name = $name;
 
                             // класс опасности
-                            $new_record->dc = ProductsImport::DangerClassRep(substr(trim($fkko), -1));
+                            $new_record->dc = DangerClasses::dangerClassRome(substr(trim($fkko), -1));
                         } elseif ($new_record->type == ProductsImport::PRODUCT_TYPE_PRODUCT) {
                             // единица измерения
                             $new_record->unit = trim($row['unit']);
                             // класс опасности
-                            $new_record->dc = ProductsImport::DangerClassRep(trim($row['dc']));
+                            $new_record->dc = DangerClasses::dangerClassRome(trim($row['dc']));
                             // способ утилизации
                             $new_record->uw = trim($row['uw']);
                             $new_record->name = $name;

@@ -264,30 +264,51 @@ class EcoProjectsController extends Controller
         }
 
         if ($model->load(Yii::$app->request->post()) && $model->save()) {
+            if (Yii::$app->request->post('ahead_of_time') !== null) {
+                $closedAt = time();
+                // закроем все этапы проекта
+                foreach (EcoProjectsMilestones::find()->where(['project_id' => $model->id, 'closed_at' => null])->all() as $milestone) {
+                    $milestone->updateAttributes([
+                        'closed_at' => $closedAt,
+                    ]);
+                }
+
+                // закроем сам проект
+                // последний закрытый этап закрыл бы и проект, если бы мы закрывали его через модель,
+                // но для этапа может быть обязательным файл, а наличие файлов проверяется системой через базу,
+                // что невозможно имитировать
+                $model->updateAttributes([
+                    'closed_at' => $closedAt,
+                ]);
+
+                Yii::$app->session->setFlash('success', 'Проект ' . $model->id . ' завершен досрочно.');
+            }
+
             return $this->redirect(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/update', 'id' => $model->id]);
-        } else {
-            return $this->render('update', [
-                'model' => $model,
-                'newAccessModel' => new EcoProjectsAccess(['project_id' => $id]),
-                'dpAccess' => new ActiveDataProvider([
-                    'query' => EcoProjectsAccess::find()->where(['project_id' => $id]),
-                    'pagination' => false,
-                    'sort' => false,
-                ]),
-                'dpMilestones' => new ActiveDataProvider([
-                    'query' => EcoProjectsMilestones::find()
-                        ->select([
-                            '*',
-                            'filesCount' => EcoProjectsMilestonesFiles::find()
-                                ->select('COUNT(*)')
-                                ->where(EcoProjectsMilestonesFiles::tableName() . '.project_milestone_id = ' . EcoProjectsMilestones::tableName() . '.id'),
-                        ])
-                        ->where(['project_id' => $id]),
-                    'pagination' => false,
-                    'sort' => false,
-                ]),
-            ]);
         }
+
+        return $this->render('update', [
+            'model' => $model,
+            'newAccessModel' => new EcoProjectsAccess(['project_id' => $id]),
+            'dpAccess' => new ActiveDataProvider([
+                'query' => EcoProjectsAccess::find()->where(['project_id' => $id]),
+                'pagination' => false,
+                'sort' => false,
+            ]),
+            'dpMilestones' => new ActiveDataProvider([
+                'query' => EcoProjectsMilestones::find()
+                    ->select([
+                        '*',
+                        'filesCount' => EcoProjectsMilestonesFiles::find()
+                            ->select('COUNT(*)')
+                            ->where(EcoProjectsMilestonesFiles::tableName() . '.project_milestone_id = ' . EcoProjectsMilestones::tableName() . '.id'),
+                    ])
+                    ->where(['project_id' => $id])
+                    ->orderBy('order_no'),
+                'pagination' => false,
+                'sort' => false,
+            ]),
+        ]);
     }
 
     /**
@@ -300,7 +321,7 @@ class EcoProjectsController extends Controller
     {
         $this->findModel($id)->delete();
 
-        return $this->redirect(['index']);
+        return $this->redirect(self::ROOT_URL_AS_ARRAY);
     }
 
     /**
@@ -421,7 +442,7 @@ class EcoProjectsController extends Controller
                 'model' => $model,
                 'dataProvider' => new ArrayDataProvider([
                     'modelClass' => 'common\models\EcoProjectsMilestones',
-                    'allModels' => EcoProjectsMilestones::find()->where(['project_id' => $id])->all(),
+                    'allModels' => EcoProjectsMilestones::find()->where(['project_id' => $id])->orderBy('order_no')->all(),
                     'key' => 'id', // поле, которое заменяет primary key
                     'pagination' => false,
                     'sort' => false,

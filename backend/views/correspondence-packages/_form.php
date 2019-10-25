@@ -4,12 +4,14 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
+use kartik\typeahead\Typeahead;
 use common\models\ProjectsStates;
 use common\models\PostDeliveryKinds;
 use common\models\CorrespondencePackagesStates;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\CorrespondencePackages */
+/* @var $contactEmails array массив E-mail'ов для уведомлений заказчика о состоянии почтового отправления */
 /* @var $form yii\bootstrap\ActiveForm */
 
 $inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span class=\"input-group-btn\"><button class=\"btn btn-default\" type=\"button\" id=\"btnTrackNumber\"><i class=\"fa fa-search\" aria-hidden=\"true\"></i> Отследить</button></span></div>\n{error}";
@@ -56,6 +58,43 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
 
                         </div>
                     </div>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <?php if ($model->state_id < ProjectsStates::STATE_ОТПРАВЛЕНО || $model->state_id == ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ || $model->state_id == ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ): ?>
+                            <?= $form->field($model, 'fo_contact_id')->widget(Select2::className(), [
+                                'initValueText' => $model->contact_person != null ? $model->contact_person : '',
+                                'data' => $model->fo_id_company != null ? $model->arrayMapOfContactPersonsForSelect2() : [],
+                                'theme' => Select2::THEME_BOOTSTRAP,
+                                'options' => ['placeholder' => '- выберите -'],
+                            ]) ?>
+                            <?php else: ?>
+                            <?= $form->field($model, 'contact_person')->textInput(['disabled' => true]) ?>
+                            <?php endif; ?>
+
+                        </div>
+                        <div class="col-md-4">
+                            <?php if ($model->state_id < ProjectsStates::STATE_ОТПРАВЛЕНО || $model->state_id == ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ || $model->state_id == ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ): ?>
+                            <?= $form->field($model, 'contact_email')->widget(Typeahead::class, [
+                                'options' => [
+                                    'placeholder' => 'Введите E-mail',
+                                    'title' => 'На этот E-mail заказчика будут приходить уведомления о состоянии почтового отправления',
+                                    'autocomplete' => 'off',
+                                ],
+                                'defaultSuggestions' => $contactEmails,
+                                'pluginOptions' => ['highlight' => true],
+                                'dataset' => [
+                                    [
+                                        'local' => $contactEmails,
+                                        'limit' => 20,
+                                    ]
+                                ],
+                            ])->label('E-mail') ?>
+                            <?php else: ?>
+                            <?= $form->field($model, 'contact_email')->textInput(['disabled' => true, 'title' => $model->getAttributeLabel('contact_email')])->label('E-mail') ?>
+                            <?php endif; ?>
+
+                        </div>
+                    </div>
                 </div>
             </div>
             <?php else: ?>
@@ -64,10 +103,10 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
                     <?= $form->field($model, 'customer_name')->textInput(['disabled' => true]) ?>
 
                 </div>
-                <?php if ($model->cps_id == CorrespondencePackagesStates::STATE_ЧЕРНОВИК || $model->cps_id == CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ): ?>
+                <?php if ((Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')) && ($model->cps_id == CorrespondencePackagesStates::STATE_ЧЕРНОВИК || $model->cps_id == CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ)): ?>
                 <div class="col-md-3">
                     <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
-                        'data' => \common\models\User::arrayMapForSelect2(),
+                        'data' => \common\models\User::arrayMapForSelect2(\common\models\User::ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                     ]) ?>
@@ -83,12 +122,18 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
             <div class="row">
                 <?php if (!Yii::$app->user->can('sales_department_manager')): ?>
                 <div class="col-md-3">
+                    <?php if (Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head')): ?>
+                    <?= $form->field($model, 'stateName')->textInput(['disabled' => true, 'title' => $model->stateName]) ?>
+
+                    <?php else: ?>
                     <?= $form->field($model, 'state_id')->widget(Select2::className(), [
                         'data' => ProjectsStates::arrayMapForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
+                        'disabled' => Yii::$app->user->can('dpc_head'),
                     ]) ?>
 
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
                 <div class="col-md-3">
@@ -106,12 +151,13 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
                             'maxlength' => true,
                             'placeholder' => 'Введите идентификатор отправления',
                             'title' => 'Введите идентификатор отправления',
+                            'disabled' => Yii::$app->user->can('dpc_head') || Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head'), // менеджеру это поле не должно быть доступно
                         ]) ?>
 
                 </div>
             </div>
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-md-5">
                     <?= $form->field($model, 'address_id')->widget(Select2::className(), [
                         'data' => $model->arrayMapOfAddressesForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
@@ -119,9 +165,14 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
                     ])->label($model->getAttributeLabel('address_id') . ' &nbsp; '.Html::a('<i class="fa fa-plus" aria-hidden="true"></i> добавить', '#', ['id' => 'createNewAddress', 'class' => 'text-success', 'title' => 'Добавить новый почтовый адрес контрагента'])) ?>
 
                 </div>
-                <?php if ((Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('root')) &&
-                    ($model->cps_id == CorrespondencePackagesStates::STATE_ЧЕРНОВИК || $model->cps_id == CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ)): ?>
-                <div class="col-md-6">
+                <?php if ((Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head') || Yii::$app->user->can('dpc_head') ||
+                        Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')) &&
+                    (in_array($model->cps_id, [
+                        CorrespondencePackagesStates::STATE_ЧЕРНОВИК,
+                        CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ,
+                        CorrespondencePackagesStates::STATE_УТВЕРЖДЕН,
+                    ]))): ?>
+                <div class="col-md-4">
                     <?= $form->field($model, 'fo_contact_id')->widget(Select2::className(), [
                         'initValueText' => $model->contact_person != null ? $model->contact_person : '',
                         'data' => $model->fo_id_company != null ? $model->arrayMapOfContactPersonsForSelect2() : [],
@@ -130,9 +181,31 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
                     ]) ?>
 
                 </div>
+                <div class="col-md-3">
+                    <?= $form->field($model, 'contact_email')->widget(Typeahead::class, [
+                        'options' => [
+                            'placeholder' => 'Введите E-mail',
+                            'title' => 'На этот E-mail заказчика будут приходить уведомления о состоянии почтового отправления',
+                            'autocomplete' => 'off',
+                        ],
+                        'defaultSuggestions' => (count($contactEmails) == 1 && empty($contactEmails[0])) ? [] : $contactEmails,
+                        'pluginOptions' => ['highlight' => true],
+                        'dataset' => [
+                            [
+                                'local' => $contactEmails,
+                                'limit' => 20,
+                            ],
+                        ],
+                    ])->label('E-mail') ?>
+
+                </div>
                 <?php else: ?>
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <?= $form->field($model, 'contact_person')->textInput(['disabled' => true]) ?>
+
+                </div>
+                <div class="col-md-3">
+                    <?= $form->field($model, 'contact_email')->textInput(['disabled' => true, 'title' => 'На этот E-mail заказчика будут приходить уведомления о состоянии почтового отправления'])->label('E-mail') ?>
 
                 </div>
                 <?php endif; ?>
@@ -190,7 +263,7 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
     </div>
     <?php if (
         $model->is_manual &&
-        (Yii::$app->user->can('root') || Yii::$app->user->can('sales_department_manager')) &&
+        (Yii::$app->user->can('root') || Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist_head')) &&
         $model->cps_id == \common\models\CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ
     ): ?>
     <?= $form->field($model, 'rejectReason')->textarea(['rows' => 3, 'placeholder' => 'Введите причину отказа']) ?>
@@ -228,6 +301,7 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
 </div>
 <?php
 $url = Url::to(['/tracking/track-by-number']);
+$urlFoContactOnChange = Url::to(['/correspondence-packages/fetch-contact-emails']);
 $url_create_address = Url::to(['/correspondence-packages/create-address-form']);
 $urlNormalizeAddress = Url::to(['/tracking/normalize-address']);
 
@@ -238,9 +312,7 @@ $stateSent = ProjectsStates::STATE_ОТПРАВЛЕНО;
 
 $this->registerJs(<<<JS
 var checked = false;
-$("input").iCheck({
-    checkboxClass: 'icheckbox_square-green',
-});
+$("input[type='checkbox']").iCheck({checkboxClass: 'icheckbox_square-green'});
 
 // Обработчик щелчка по ссылке "Отметить все документы".
 //
@@ -291,6 +363,16 @@ function btnTrackNumberOnClick() {
 function trackNumberOnChange() {
     $("#$formNameId-state_id").val("$stateSent").trigger("change");
 } // trackNumberOnChange()
+
+// Обработчик изменения значения в поле "Контактное лицо".
+//
+function foContactOnChange() {
+    company_id = $("#$formNameId-fo_id_company").val();
+    contact_id = $("#$formNameId-fo_contact_id").val();
+    $.get("$urlFoContactOnChange?company_id=" + company_id + "&contact_id=" + contact_id, function(retval) {
+        $("#$formNameId-contact_email").val(retval);
+    });
+} // foContactOnChange()
 
 // Обработчик изменения значения в поле "Оригинальный адрес" в модальном окне.
 //
@@ -347,6 +429,7 @@ $(document).on("click", "#btnTrackNumber", btnTrackNumberOnClick);
 $(document).on("click", "#createNewAddress", createNewAddressOnClick);
 $(document).on("click", "#btnSubmit", btnSubmitOnClick);
 $(document).on("change", "#$formNameId-track_num", trackNumberOnChange);
+$(document).on("change", "#$formNameId-fo_contact_id", foContactOnChange);
 $(document).on("change", "#counteragentspostaddresses-src_address", srcAddressOnChange);
 JS
 , \yii\web\View::POS_READY);

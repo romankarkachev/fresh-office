@@ -26,6 +26,7 @@ use yii\db\ActiveRecord;
  * @property string $createdByEmail
  * @property string $stateName
  * @property string $organizationName
+ * @property string $licensesRequestsFkkosTextarea
  *
  * @property LicensesRequestsStates $state
  * @property User $createdBy
@@ -145,11 +146,11 @@ class LicensesRequests extends \yii\db\ActiveRecord
 
                 // по очереди проверяем существование каждого кода ФККО
                 $model = Fkko::findOne(['fkko_code' => intval($fkko)]);
-                $page = LicensesFkkoPages::find()->joinWith('file')->where(['fkko_id' => $model->id, 'licenses_files.organization_id' => $this->org_id])->one();
+                $page = LicensesFkkoPages::find()->joinWith('file')->where(['fkko_id' => $model->id, 'licenses_files.organization_id' => $this->org_id])->orderBy('uploaded_at DESC')->one();
 
                 // код ФККО может быть использован, только если он существует в нашей базе, а также если есть
                 // отсканированная страница с этим кодом
-                if ($model != null && !empty($page)) {
+                if ($model && $page) {
                     $lrFkko = new LicensesRequestsFkko([
                         'fkko_id' => $model->id,
                         'file_id' => $page->file_id,
@@ -274,5 +275,19 @@ class LicensesRequests extends \yii\db\ActiveRecord
     public function getLicensesRequestsFkkos()
     {
         return $this->hasMany(LicensesRequestsFkko::className(), ['lr_id' => 'id']);
+    }
+
+    /**
+     * Возвращает коды ФККО в текстовом виде.
+     * @return string
+     */
+    public function getLicensesRequestsFkkosTextarea()
+    {
+        $result = [];
+        foreach ($this->licensesRequestsFkkos as $licensesRequestsFkko) {
+            /* @var LicensesRequestsFkko $licensesRequestsFkkos */
+            $result[] = $licensesRequestsFkko->fkko->fkko_code;
+        }
+        return implode(chr(13), $result);
     }
 }

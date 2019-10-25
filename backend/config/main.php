@@ -69,11 +69,12 @@ return [
             'showScriptName' => false,
             'rules' => [
                 '' => 'default/index',
+                '<action:phpinfo>' => 'default/<action>',
                 '<action:login|logout>' => '/user/security/<action>',
                 '/users' => '/user/admin/index',
                 '<controller:users>/<action:create|update|delete|update-profile|info|confirm|block|assignments>' => '/user/admin/<action>',
                 '<action:profile|account>' => '/user/settings/<action>',
-                '<controller:\w+>/<action:\w+>' => '<controller>/<action>'
+                '<controller:\w+>/<action:\w+>' => '<controller>/<action>',
             ],
         ],
     ],

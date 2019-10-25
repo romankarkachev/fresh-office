@@ -8,7 +8,7 @@ use common\models\foProjects;
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\ReportAnalytics */
 /* @var $searchApplied bool */
-/* @var $totalCount integer общее количество запросов */
+/* @var $totalCount integer общее количество пакетов */
 /* @var $dpTable1 yii\data\ArrayDataProvider */
 /* @var $dpTable2 yii\data\ArrayDataProvider */
 /* @var $dpTable3 yii\data\ArrayDataProvider */

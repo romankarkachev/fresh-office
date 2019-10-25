@@ -25,7 +25,15 @@ $ppMonth = pbxCallsSearch::FILTER_PREDEFINED_PERIOD_MONTH;
 $lblWindowHeaderComments = 'Комментарии к записи разговора';
 $lblWindowHeaderIdentifyCounteragent = 'Идентификация контрагента';
 $lblButtonSumbitIdentification = \backend\models\pbxIdentifyCounteragentForm::BUTTON_SUBMIT_IDENTIFICATION_LABEL;
+$btnTransribeFewId = 'btnTranscribeFew';
+$btnTransribeFewPrompt = 'Распознать выделенные';
+$gwConversationsId = 'gw-conversations';
 $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span class="sr-only">Подождите...</span>';
+
+$btnTransribeFew = '';
+if ($dataProvider->getTotalCount() > 0) {
+    $btnTransribeFew = '<div class="col-md-6">' . Html::a($btnTransribeFewPrompt, '#', ['id' => $btnTransribeFewId, 'class' => 'btn btn-default btn-xs pull-left', 'title' => 'Поставить в очередь на распознание выделенные файлы']) . '</div>';
+}
 ?>
 <div class="pbx-calls-list">
     <?= $this->render('_search', [
@@ -36,9 +44,14 @@ $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span cla
     ]); ?>
 
     <?= GridView::widget([
+        'id' => $gwConversationsId,
+        'layout' => "<div style=\"position: relative; min-height: 20px;\"><small class=\"pull-right form-text text-muted\" style=\"position: absolute; bottom: 0; right: 0;\">{summary}</small></div>\n{items}\n<div class=\"row\">$btnTransribeFew<div class=\"col-md-6\"><small class=\"pull-right form-text text-muted\">{summary}</small></div></div>\n{pager}",
         'dataProvider' => $dataProvider,
         'columns' => [
-            //'id',
+            [
+                'class' => 'yii\grid\CheckboxColumn',
+                'options' => ['width' => '30'],
+            ],
             [
                 'attribute' => 'calldate',
                 'label' => 'Дата',
@@ -256,6 +269,7 @@ $urlGetCounteragentsName = Url::to(['/pbx-calls/get-counteragents-name']);
 $urlFilterByFoCaId = Url::to(['/pbx-calls', $searchModel->formName() => ['fo_ca_id' => '']]);
 $urlIdentifyFoCa = Url::to(['/pbx-calls/identify-counteragent-form']);
 $urlApplyCounteragentsIdentification = Url::to(['/pbx-calls/apply-identification']);
+$urlTranscribeSelected = Url::to(\backend\controllers\PbxCallsController::URL_TRANSCRIBE_SELECTED_FILES_AS_ARRAY);
 
 $this->registerJs(<<<JS
 // Функция-обработчик изменения даты в любом из соответствующих полей.
@@ -274,6 +288,10 @@ JS
 , View::POS_BEGIN);
 
 $this->registerJs(<<<JS
+
+var checkedFiles = false;
+$("input[type='checkbox']").iCheck({checkboxClass: "icheckbox_square-green"});
+
 // После загрузки страницы проходим по всем элементам, где идентифицирован контрагент и запрашиваем их наименования
 //
 function faceCounteragents() {
@@ -416,6 +434,49 @@ function btnPlayOnClick() {
     return false;
 } // btnPlayOnClick()
 
+// Обработчик щелчка по ссылке "Отметить все".
+//
+function checkAllOnClick() {
+    if (checkedFiles) {
+    operation = "uncheck";
+    checkedFiles = false;
+    }
+    else {
+        operation = "check";
+        checkedFiles = true;
+    }
+
+    $("input[name ^= 'selection[]']").iCheck(operation);
+    recountSelectedFiles();
+
+    return false;
+} // checkAllOnClick()
+
+// Выполняет пересчет количества выделенных пользователем файлов и подставляет отличное от нуля значение в текст кнопки.
+//
+function recountSelectedFiles() {
+    var count = $("input[name ^= 'selection[]']:checked").length;
+    var prompt = "$btnTransribeFewPrompt";
+    if (count > 0) {
+        prompt += " <strong>(" + count + ")</strong>";
+    }
+
+    $("#$btnTransribeFewId").html(prompt);
+} // recountSelectedFiles()
+
+// Обработчик щелчка по ссылке "Распознать выделенные файлы".
+//
+function transcribeSelectedFilesOnClick() {
+    var ids = $("#$gwConversationsId").yiiGridView("getSelectedRows");
+    if (ids == "") return false;
+
+    if (confirm("Распознание проиизводится в несколько этапов. Для начала файлы будут отправлены на сервер Яндекса и поставлены в очередь, поскольку процесс распознания занимает время. Когда запись будет распознана (наш робот автоматически отслеживает распознанные записи), на этой странице в каждой такой строке появится соответствующий значок. Продолжить?")) {
+        $(this).attr("href", "$urlTranscribeSelected?ids=" + ids);
+    }
+
+    return false;
+} // transcribeSelectedFilesOnClick()
+
 // подпишем идентифицированных контрагентов их именами
 faceCounteragents();
 
@@ -438,6 +499,11 @@ $(document).on("click", "a[id ^= 'btnShowComments']", btnShowCommentsOnClick);
 $(document).on("click", "a[id ^= 'btnIdentifyCounteragent']", btnIdentifyCounteragentOnClick);
 
 $(document).on("click", "#btnApplyIdentification", btnApplyIdentificationOnClick);
+
+// выделение и отправка на распознание звонков
+$(document).on("change ifChanged", "input[name ^= 'selection[]']", recountSelectedFiles);
+$(document).on("click ifClicked", ".select-on-check-all", checkAllOnClick);
+$(document).on("click", "#$btnTransribeFewId", transcribeSelectedFilesOnClick);
 JS
 , View::POS_READY);
 ?>

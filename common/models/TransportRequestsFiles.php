@@ -109,7 +109,7 @@ class TransportRequestsFiles extends \yii\db\ActiveRecord
             if (!FileHelper::createDirectory($filepath)) return false;
         }
 
-        return $filepath;
+        return realpath($filepath);
     }
 
     /**

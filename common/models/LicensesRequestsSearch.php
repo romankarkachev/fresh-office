@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use common\models\LicensesRequests;
+use yii\helpers\ArrayHelper;
 
 /**
  * LicensesRequestsSearch represents the model behind the search form about `common\models\LicensesRequests`.
@@ -13,14 +14,30 @@ use common\models\LicensesRequests;
 class LicensesRequestsSearch extends LicensesRequests
 {
     /**
+     * Поле для отбора по отходу (fkko_name).
+     * @var integer
+     */
+    public $searchFkkoName;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
             [['id', 'created_at', 'created_by', 'state_id', 'ca_id', 'org_id'], 'integer'],
-            [['ca_email', 'ca_name', 'comment'], 'safe'],
+            [['ca_email', 'ca_name', 'comment', 'searchFkkoName'], 'safe'],
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function attributeLabels()
+    {
+        return ArrayHelper::merge(parent::attributeLabels(), [
+            'searchFkkoName' => 'Отход',
+        ]);
     }
 
     /**
@@ -98,11 +115,41 @@ class LicensesRequestsSearch extends LicensesRequests
             return $dataProvider;
         }
 
+        if (!empty($this->searchFkkoName)) {
+            // отбор по наименованию отхода, дополним условием основной запрос
+            $query->andWhere(['in', 'licenses_requests.id', LicensesRequestsFkko::find()
+                ->select(['id' => 'lr_id'])
+                ->leftJoin(Fkko::tableName(), Fkko::tableName() . '.id = ' . LicensesRequestsFkko::tableName() . '.fkko_id')
+                ->andFilterWhere([
+                    'or',
+                    ['like', 'fkko_code', $this->searchFkkoName],
+                    ['like', 'fkko_name', $this->searchFkkoName],
+                ])
+                ->asArray()
+                ->column()
+            ]);
+        }
+        else {
+            $query->andFilterWhere([
+                'id' => $this->id,
+            ]);
+        }
+
+        if (Yii::$app->user->can('tenders_manager')) {
+            // для специалистов отдела тендеров отбор только по собственным запросам лицензий
+            $query->andWhere([
+                'created_by' => Yii::$app->user->id,
+            ]);
+        }
+        else {
+            $query->andFilterWhere([
+                'created_by' => $this->created_by,
+            ]);
+        }
+
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
             'created_at' => $this->created_at,
-            'created_by' => $this->created_by,
             'state_id' => $this->state_id,
             'ca_email' => $this->ca_email,
             'ca_id' => $this->ca_id,

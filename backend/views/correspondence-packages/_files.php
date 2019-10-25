@@ -12,13 +12,13 @@ use yii\widgets\Pjax;
 
 <div class="files-list">
     <div class="table-responsive">
-        <?php Pjax::begin(['id' => 'afs']); ?>
+        <?php Pjax::begin(['id' => 'pjax-files', 'timeout' => 5000, 'enableReplaceState' => false, 'enablePushState' => false]); ?>
 
         <?= GridView::widget([
-            'dataProvider' => $dataProvider,
-            'showOnEmpty' => true,
-            'emptyText' => 'Файлы к пакету не прикреплялись.',
             'id' => 'gw-files',
+            'dataProvider' => $dataProvider,
+            'showOnEmpty' => false,
+            'emptyText' => '<div class="well well-small">Файлы к пакету корреспонденции не прикреплялись.</div>',
             'layout' => '{items}',
             'tableOptions' => ['class' => 'table table-striped table-hover'],
             'columns' => [
@@ -63,24 +63,36 @@ use yii\widgets\Pjax;
                 ],
                 [
                     'attribute' => 'uploaded_at',
+                    'label' => 'Загружен',
                     'headerOptions' => ['class' => 'text-center'],
                     'contentOptions' => ['class' => 'text-center', 'style' => 'vertical-align: middle;'],
                     'format' =>  ['date', 'dd.MM.Y HH:mm'],
                     'options' => ['width' => '130']
                 ],
                 [
-                    'class' => 'yii\grid\ActionColumn',
-                    'header' => 'Действия',
+                    'class' => 'backend\components\grid\ActionColumn',
                     'template' => '{delete}',
                     'buttons' => [
                         'delete' => function ($url, $model) {
                             /* @var $model \common\models\CorrespondencePackagesFiles */
-                            /* @var $column \yii\grid\DataColumn */
 
-                            return Html::a('<i class="fa fa-trash-o"></i>', ['/correspondence-packages/delete-file', 'id' => $model->id], ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
+                            // только так не скроллится наверх (то есть при помощи заключения в форму):
+                            return Html::beginForm(['/correspondence-packages/delete-file', 'id' => $model->id], 'post', ['data-pjax' => true]) .
+                                Html::a(
+                                    '<i class="fa fa-trash-o"></i>',
+                                    ['/correspondence-packages/delete-file', 'id' => $model->id],
+                                    [
+                                        'title' => Yii::t('yii', 'Удалить'),
+                                        'class' => 'btn btn-xs btn-danger',
+                                        'aria-label' => Yii::t('yii', 'Delete'),
+                                        'data-confirm' => 'Будет выполнено физическое удаление файла из данного пакета корреспонденции. Операция необратима. Продолжить?',
+                                        'data-method' => 'post',
+                                        'data-pjax' => '0',
+                                    ]
+                                ) . Html::endForm();
                         }
                     ],
-                    'options' => ['width' => '40'],
+                    'options' => ['width' => '20'],
                     'headerOptions' => ['class' => 'text-center'],
                     'contentOptions' => ['class' => 'text-center', 'style' => 'vertical-align: middle;'],
                 ],
@@ -111,7 +123,7 @@ $url = Url::to(['/correspondence-packages/preview-file']);
 
 $this->registerJs(<<<JS
 $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {
-    $.pjax.reload({container:"#afs"});
+    $.pjax.reload({container:"#pjax-files"});
 });
 
 // Обработчик щелчка по ссылкам в колонке "Наименование" в таблице файлов.

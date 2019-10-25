@@ -12,6 +12,8 @@ use Yii;
  * @property integer $fkko_id
  * @property integer $file_id
  *
+ * @property string $fkkoRep
+ *
  * @property LicensesFiles $file
  * @property Fkko $fkko
  * @property LicensesRequests $license

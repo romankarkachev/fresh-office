@@ -105,35 +105,6 @@ class ProductsImport extends Model
     }
 
     /**
-     * Переводит цифру в параметрах в римскую (до семи).
-     * @param integer $class
-     * @return string
-     */
-    public static function DangerClassRep($class)
-    {
-        if (!is_numeric($class)) return $class;
-
-        switch ($class) {
-            case 1:
-                return 'I';
-            case 2:
-                return 'II';
-            case 3:
-                return 'III';
-            case 4:
-                return 'IV';
-            case 5:
-                return 'V';
-            case 6:
-                return 'VI';
-            case 7:
-                return 'VII';
-        }
-
-        return '';
-    }
-
-    /**
      * Очищает от мусора наименование, переданное в параметрах.
      * @param string $dirty_name
      * @return string
@@ -144,6 +115,7 @@ class ProductsImport extends Model
         $name = str_replace(chr(194).chr(160), '', $name);
         $name = str_replace('   ', ' ', $name);
         $name = str_replace('  ', ' ', $name);
+        $name = str_replace('Оказание услуг по обращению с отходом: "', '', $name);
         //$name = mb_strtolower($name);
         //$name = ProductsImport::ucFirstRu($name);
         return $name;

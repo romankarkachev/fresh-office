@@ -22,12 +22,56 @@ $this->params['breadcrumbs'][] = 'Документы';
 
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
-            'id',
-            'doc_date:date',
+            [
+                'attribute' => 'created_at',
+                'label' => 'Создан',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\TransportRequests */
+                    return Yii::$app->formatter->asDate($model->{$column->attribute}, 'php:d.m.Y в H:i');
+                },
+                'options' => ['width' => '130'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
+                'attribute' => 'doc_num',
+                'label' => '№ док.',
+                'options' => ['width' => '90'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
+                'attribute' => 'doc_date',
+                'label' => 'Дата док.',
+                'format' => 'date',
+                'options' => ['width' => '90'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
+                'attribute' => 'act_date',
+                'label' => 'Дата акта',
+                'format' => 'date',
+                'options' => ['width' => '90'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            'organizationName',
             'fo_project:ntext:Проект',
             'fo_customer:ntext:Заказчик',
-            'fo_contract:ntext:Договор',
-            //'comment:ntext',
+            [
+                'attribute' => 'edRep',
+                'label' => 'Договор',
+                //'options' => ['width' => '90'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
+                'attribute' => 'tpCount',
+                'options' => ['width' => '90'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',

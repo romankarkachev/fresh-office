@@ -10,12 +10,16 @@ use common\models\CorrespondencePackagesFilesSearch;
 use common\models\CorrespondencePackagesStates;
 use common\models\CorrespondencePackagesHistorySearch;
 use common\models\CounteragentsPostAddresses;
+use common\models\foListEmailClient;
+use common\models\PrintEnvelopeForm;
 use common\models\PostDeliveryKinds;
 use common\models\ProjectsStates;
 use common\models\ComposePackageForm;
 use common\models\PadKinds;
 use common\models\DirectMSSQLQueries;
 use common\models\Profile;
+use common\models\CpBlContactEmails;
+use kartik\mpdf\Pdf;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Url;
 use yii\web\Controller;
@@ -39,25 +43,25 @@ class CorrespondencePackagesController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['download-file', 'temp'],
+                        'actions' => ['download-file'],
                         'allow' => true,
                         'roles' => ['?', '@'],
                     ],
                     [
-                        'actions' => ['delete'],
+                        'actions' => ['delete', 'temp'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
                     [
                         'actions' => [
                             'index', 'create', 'update',
-                            'compose-package-by-selection', 'compose-package',
+                            'compose-package-by-selection', 'compose-package', 'compose-envelope',
                             'create-address-form', 'counteragent-casting-by-name',
-                            'fetch-contact-persons', 'normalize-empty-addresses',
+                            'fetch-contact-persons', 'fetch-contact-emails', 'normalize-empty-addresses',
                             'upload-files', 'preview-file', 'delete-file',
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'operator_head', 'sales_department_manager'],
+                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'dpc_head', 'ecologist', 'ecologist_head'],
                     ],
                 ],
             ],
@@ -68,6 +72,37 @@ class CorrespondencePackagesController extends Controller
                 ],
             ],
         ];
+    }
+
+    /**
+     * Делает выборку файлов, приаттаченных пользователями системы к пакету корреспонденции.
+     * @param $parent_id integer идентификатор родительского объекта, файлы которого выбираются
+     * @return \yii\data\ActiveDataProvider
+     * @throws \yii\base\InvalidConfigException
+     */
+    private function fetchFiles($parent_id)
+    {
+        $searchModel = new CorrespondencePackagesFilesSearch();
+        $dataProvider = $searchModel->search([$searchModel->formName() => ['cp_id' => $parent_id]]);
+        $dataProvider->setSort([
+            'defaultOrder' => ['uploaded_at' => SORT_DESC],
+        ]);
+        $dataProvider->pagination = false;
+
+        return $dataProvider;
+    }
+
+    /**
+     * Рендерит список файлов, прикрепленных к пакету корреспонденции.
+     * @param integer $parent_id идентификатор родительского объекта, приаттаченные файлы которого рендерятся
+     * @return mixed
+     * @throws \yii\base\InvalidConfigException
+     */
+    private function renderFiles($parent_id)
+    {
+        return $this->renderAjax('_files', [
+            'dataProvider' => $this->fetchFiles($parent_id),
+        ]);
     }
 
     /**
@@ -159,23 +194,23 @@ class CorrespondencePackagesController extends Controller
             $model->cps_id = $cps_id; // возвращаем статус
         }
 
-        // файлы к объекту
-        // если только это ручное отправление
         $vars = [
             'model' => $model,
+            'contactEmails' => $model->arrayMapOfCompanyEmailsForSelect2(),
         ];
 
-        if ($model->is_manual) {
-            // прикрепленные файлы
-            $searchModel = new CorrespondencePackagesFilesSearch();
-            $dpFiles = $searchModel->search([$searchModel->formName() => ['cp_id' => $model->id]]);
-            $dpFiles->setSort([
-                'defaultOrder' => ['uploaded_at' => SORT_DESC],
-            ]);
-            $dpFiles->pagination = false;
-            $vars['dpFiles'] = $dpFiles;
+        // прикрепленные файлы
+        $searchModel = new CorrespondencePackagesFilesSearch();
+        $dpFiles = $searchModel->search([$searchModel->formName() => ['cp_id' => $model->id]]);
+        $dpFiles->setSort([
+            'defaultOrder' => ['uploaded_at' => SORT_DESC],
+        ]);
+        $dpFiles->pagination = false;
+        $vars['dpFiles'] = $dpFiles;
 
+        if ($model->is_manual) {
             // история изменения статусов
+            // если только это ручное отправление
             $searchModel = new CorrespondencePackagesHistorySearch();
             $dpHistory = $searchModel->search([$searchModel->formName() => ['cp_id' => $model->id]]);
             $dpHistory->setSort([
@@ -371,13 +406,14 @@ class CorrespondencePackagesController extends Controller
     /**
      * Загрузка файлов, перемещение их из временной папки, запись в базу данных.
      * @return mixed
+     * @throws \yii\base\Exception
      */
     public function actionUploadFiles()
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $obj_id = Yii::$app->request->post('obj_id');
-        $upload_path = CorrespondencePackagesFiles::getUploadsFilepath();
+        $upload_path = CorrespondencePackagesFiles::getUploadsFilepath($obj_id);
         if ($upload_path === false) return 'Невозможно создать папку для хранения загруженных файлов!';
 
         // массив загружаемых файлов
@@ -444,9 +480,34 @@ class CorrespondencePackagesController extends Controller
      * @param integer $id
      * @return mixed
      * @throws NotFoundHttpException если файл не будет обнаружен
+     * @throws \Throwable
+     * @throws \yii\db\Exception
      */
     public function actionDeleteFile($id)
     {
+        if (Yii::$app->request->isPjax) {
+            $model = CorrespondencePackagesFiles::findOne($id);
+            if ($model) {
+                $parent_id = $model->cp_id;
+                $transaction = Yii::$app->db->beginTransaction();
+                try {
+                    if ($model->delete()) {
+                        $transaction->commit();
+                        return $this->renderFiles($parent_id);
+                    }
+                }
+                catch (\Exception $e) {
+                    $transaction->rollBack();
+                    throw $e;
+                } catch (\Throwable $e) {
+                    $transaction->rollBack();
+                    throw $e;
+                }
+                $transaction->rollBack();
+            }
+        }
+
+        /*
         $model = CorrespondencePackagesFiles::findOne($id);
         if ($model != null) {
             $record_id = $model->cp_id;
@@ -456,6 +517,7 @@ class CorrespondencePackagesController extends Controller
         }
         else
             throw new NotFoundHttpException('Файл не обнаружен.');
+        */
     }
 
     /**
@@ -496,6 +558,24 @@ class CorrespondencePackagesController extends Controller
     }
 
     /**
+     * Делает выборку электронных ящиков контактного лица компании и возвращает первый из них.
+     * @param $company_id
+     * @param $contact_id
+     * @return string
+     */
+    public function actionFetchContactEmails($company_id, $contact_id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+        $query = foListEmailClient::find()->select('email')->where(['ID_COMPANY' => $company_id, 'ID_CONTACT_MAN' => $contact_id])->asArray()->column();
+        if (count($query) > 0) {
+            if (CpBlContactEmails::find()->select('email')->where(['email' => $query])->count() == 0) {
+                return trim($query[0]);
+            }
+        }
+        return '';
+    }
+
+    /**
      * Делает выборку адресов контрагентов с пустыми почтовыми индексами и нормализует каждый из них.
      */
     public function actionNormalizeEmptyAddresses()
@@ -509,5 +589,47 @@ class CorrespondencePackagesController extends Controller
                 if (!$address->save()) var_dump($address->errors); else sleep(5);
             }
         }
+    }
+
+    public function actionComposeEnvelope($id)
+    {
+        $model = new PrintEnvelopeForm();
+
+        if (Yii::$app->request->isPost) {
+            Yii::$app->response->format = \yii\web\Response::FORMAT_RAW;
+
+            if ($model->load(Yii::$app->request->post())) {
+                $pdf = new Pdf([
+                    'mode' => Pdf::MODE_UTF8,
+                    'orientation' => Pdf::ORIENT_LANDSCAPE,
+                    'content' => $this->render('@common/mail/layouts/html_envelope', ['model' => $model]),
+                    'cssInline' => '* {
+    margin: 0;
+    padding: 0;
+    font-family: "Helvetica Neue", "Helvetica", Helvetica, Arial, sans-serif;
+    box-sizing: border-box;
+    font-size: 14px;
+}',
+                    'options' => ['title' => 'Краткие сведения о проекте'],
+                ]);
+
+                return $pdf->render();
+            }
+        }
+        else {
+            $model->cp_id = $this->findModel($id);
+
+            return $this->render('compose_envelope', ['model' => $model]);
+        }
+    }
+
+    public function actionTemp()
+    {
+        /*
+        $model = CorrespondencePackages::findOne(5780);
+        if ($model) {
+            $model->sendClientNotification(CorrespondencePackages::NF_ARRIVED);
+        }
+        */
     }
 }

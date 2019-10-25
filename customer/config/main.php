@@ -107,11 +107,11 @@ return [
             'showScriptName' => false,
             'rules' => [
                 '' => 'default/index',
-                '<action:driver-instruction>' => 'default/<action>',
+                '<action:geopos|get-mobile-apps-geopositions|project-rating>' => 'default/<action>',
                 '<action:login|logout>' => '/user/security/<action>',
                 '<action:profile|account>' => '/user-settings/<action>',
                 '/register' => '/user/registration/register',
-                '<controller:\w+>/<action:\w+>' => '<controller>/<action>'
+                '<controller:\w+>/<action:\w+>' => '<controller>/<action>',
             ],
         ],
     ],

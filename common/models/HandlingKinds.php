@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "handling_kinds".
@@ -86,6 +87,16 @@ class HandlingKinds extends \yii\db\ActiveRecord
         if ($this->getDocumentsHks()->count() > 0) return true;
 
         return false;
+    }
+
+    /**
+     * Делает выборку способов обращения и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapForSelect2()
+    {
+        return ArrayHelper::map(self::find()->all(), 'id', 'name');
     }
 
     /**

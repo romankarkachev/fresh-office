@@ -16,6 +16,8 @@ use yii\helpers\ArrayHelper;
  */
 class AppealSources extends \yii\db\ActiveRecord
 {
+    const ИСТОЧНИК_1NOK = 65;
+
     /**
      * @inheritdoc
      */

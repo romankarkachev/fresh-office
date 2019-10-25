@@ -14,6 +14,7 @@
         <td class="content-block">
             <?= $body ?>
 
+        </td>
     </tr>
     <?php if (is_array($mismatches) && count($mismatches) > 0): ?>
     <tr>

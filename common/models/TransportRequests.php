@@ -10,31 +10,33 @@ use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "transport_requests".
  *
- * @property integer $id
- * @property integer $created_at
- * @property integer $created_by
- * @property integer $finished_at
- * @property integer $computed_finished_at
- * @property integer $customer_id
- * @property string $customer_name
- * @property integer $region_id
- * @property integer $city_id
- * @property string $address
- * @property integer $state_id
- * @property integer $is_favorite
- * @property string $comment_manager
- * @property string $comment_logist
- * @property integer $our_loading
- * @property integer $periodicity_id
- * @property string $special_conditions
- * @property integer $spec_free
- * @property string $spec_hose
- * @property string $spec_cond
+ * @property int $id
+ * @property int $created_at Дата и время создания
+ * @property int $created_by Автор создания
+ * @property int $finished_at Дата и время закрытия заявки
+ * @property int $finished_by Кем закрыт
+ * @property int $computed_finished_at Дата и время закрытия заявки без учета выходных
+ * @property int $customer_id Контрагент
+ * @property string $customer_name Контрагент
+ * @property int $region_id Регион
+ * @property int $city_id Город
+ * @property string $address Адрес
+ * @property int $state_id Статус
+ * @property int $is_favorite Избранный
+ * @property string $comment_manager Комментарий менеджера
+ * @property string $comment_logist Комментарий логиста
+ * @property int $our_loading Необходимость нашей погрузки (0 - нет, 1 - да)
+ * @property int $periodicity_id Периодичность вывоза
+ * @property string $special_conditions Особые условия
+ * @property int $spec_free Наличие свободного подъезда (0 - нет, 1 - да)
+ * @property string $spec_hose Длина шланга
+ * @property string $spec_cond Особые условия
  *
  * @property integer $messagesUnread
  * @property integer $privateMessagesUnread
  * @property string $representation
  * @property string $createdByName
+ * @property string $finishedByProfileName
  * @property string $regionName
  * @property string $cityName
  * @property string $stateName
@@ -43,6 +45,9 @@ use yii\helpers\ArrayHelper;
  * @property PeriodicityKinds $periodicity
  * @property Cities $city
  * @property User $createdBy
+ * @property Profile $createdByProfile
+ * @property User $finishedBy
+ * @property Profile $finishedByProfile
  * @property Regions $region
  * @property TransportRequestsStates $state
  * @property TransportRequestsDialogs[] $transportRequestsDialogs
@@ -132,13 +137,14 @@ class TransportRequests extends \yii\db\ActiveRecord
     {
         return [
             [['customer_id', 'region_id', 'city_id', 'state_id'], 'required'],
-            [['created_at', 'created_by', 'finished_at', 'computed_finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'is_favorite', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
+            [['created_at', 'created_by', 'finished_at', 'finished_by', 'computed_finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'is_favorite', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
             [['comment_manager', 'comment_logist', 'special_conditions', 'spec_cond'], 'string'],
             [['customer_name', 'address'], 'string', 'max' => 255],
             [['spec_hose'], 'string', 'max' => 50],
             [['periodicity_id'], 'exist', 'skipOnError' => true, 'targetClass' => PeriodicityKinds::className(), 'targetAttribute' => ['periodicity_id' => 'id']],
             [['city_id'], 'exist', 'skipOnError' => true, 'targetClass' => Cities::className(), 'targetAttribute' => ['city_id' => 'city_id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
+            [['finished_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['finished_by' => 'id']],
             [['region_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regions::className(), 'targetAttribute' => ['region_id' => 'region_id']],
             [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportRequestsStates::className(), 'targetAttribute' => ['state_id' => 'id']],
             // собственные правила валидации
@@ -157,6 +163,7 @@ class TransportRequests extends \yii\db\ActiveRecord
             'created_at' => 'Дата и время создания',
             'created_by' => 'Автор создания',
             'finished_at' => 'Дата и время закрытия заявки',
+            'finished_by' => 'Кем закрыт',
             'computed_finished_at' => 'Дата и время закрытия заявки без учета выходных',
             'customer_id' => 'Контрагент',
             'customer_name' => 'Контрагент',
@@ -506,16 +513,41 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'created_by']);
+        return $this->hasOne(Profile::className(), ['user_id' => 'created_by'])->from(['createdProfile' => 'profile']);
     }
 
     /**
-     * Возвращает наименование .
+     * Возвращает имя создавшего запрос.
      * @return string
      */
     public function getCreatedByName()
     {
         return $this->created_by == null ? '' : ($this->createdBy->profile == null ? $this->createdBy->username : $this->createdBy->profile->name);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFinishedBy()
+    {
+        return $this->hasOne(User::className(), ['id' => 'finished_by']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getFinishedByProfile()
+    {
+        return $this->hasOne(Profile::className(), ['user_id' => 'finished_by'])->from(['finishedByProfile' => 'profile']);
+    }
+
+    /**
+     * Возвращает имя пользователя, закрывшего заявку.
+     * @return string
+     */
+    public function getFinishedByProfileName()
+    {
+        return $this->finishedByProfile != null ? ($this->finishedByProfile->name != null ? $this->finishedByProfile->name : $this->finishedBy->username) : '';
     }
 
     /**

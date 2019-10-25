@@ -75,6 +75,8 @@ class Projects extends \yii\db\ActiveRecord
             'region_id' => 'Регион',
             'city_id' => 'Город',
             'ferryman_id' => 'Перевозчик',
+            'cost' => 'Себестоимость',
+            'amount' => 'Стоимость',
             // вычисляемые поля
             'ferrymanName' => 'Перевозчик',
             'ferrymanRep' => 'Перевозчик',

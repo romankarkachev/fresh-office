@@ -12,30 +12,32 @@ use yii\helpers\Html;
 /**
  * This is the model class for table "correspondence_packages".
  *
- * @property integer $id
- * @property integer $created_at
- * @property integer $is_manual
- * @property integer $cps_id
- * @property integer $ready_at
- * @property integer $sent_at
- * @property integer $delivered_at
- * @property integer $paid_at
- * @property integer $fo_project_id
- * @property integer $fo_id_company
- * @property string $customer_name
- * @property integer $state_id
- * @property integer $type_id
- * @property string $pad
- * @property integer $pd_id
- * @property integer $pochta_ru_order_id
- * @property string $track_num
- * @property integer $address_id
- * @property string $other
- * @property string $comment
- * @property integer $manager_id
- * @property integer $fo_contact_id
- * @property string $contact_person
- * @property integer $rejects_count
+ * @property int $id
+ * @property int $created_at Дата и время создания
+ * @property int $is_manual Признак создания вручную
+ * @property int $cps_id Статус пакета корреспонденции
+ * @property int $ready_at Дата и время подготовки
+ * @property int $sent_at Дата и время отправки
+ * @property int $delivered_at Дата и время доставки
+ * @property int $paid_at Дата и время оплаты
+ * @property int $fo_project_id ID проекта
+ * @property int $fo_id_company Контрагент из Fresh Office
+ * @property string $customer_name Контрагент
+ * @property int $state_id Статус
+ * @property int $type_id Тип
+ * @property string $pad Виды документов
+ * @property int $pd_id Способ доставки
+ * @property int $pochta_ru_order_id Номер заказа (оправления) на Почте России
+ * @property string $track_num Трек-номер
+ * @property int $address_id Адрес почтовый
+ * @property string $other Другие документы
+ * @property string $comment Примечание
+ * @property int $manager_id Ответственный
+ * @property int $fo_contact_id Контактное лицо из CRM
+ * @property string $contact_person Контактное лицо
+ * @property string $contact_email E-mail для уведомлений о состоянии почтового отправления
+ * @property int $rejects_count Количество отказов по пакету
+ * @property int $delivery_notified_at Дата и время отправки уведомления контактному лицу о поступлении почтового отправления в отделение
  *
  * @property string $cpsName
  * @property string $stateName
@@ -49,14 +51,24 @@ use yii\helpers\Html;
  * @property ProjectsStates $state
  * @property ProjectsTypes $type
  * @property User $manager
+ * @property AuthAssignment $managerRole
  * @property Profile $managerProfile
  * @property CounteragentsPostAddresses $address
  * @property CorrespondencePackagesStates $cps
+ * @property CpBlContactEmails $canUnsubscribe
  * @property CorrespondencePackagesFiles[] $correspondencePackagesFiles
  * @property CorrespondencePackagesHistory[] $correspondencePackagesHistory
+ * @property Edf $edf
+ * @property Edf[] $edfs
  */
 class CorrespondencePackages extends \yii\db\ActiveRecord
 {
+    /**
+     * Формы уведомлений о состоянии почтовых отправлений
+     */
+    const NF_PRIMARY = 1; // первичное уведомление (о том, что посылка была отправлена)
+    const NF_ARRIVED = 2; // уведомление о том, что посылка прибыла в почтовое отделение
+
     /**
      * Табличная часть предоставленных видов документов.
      * @var array
@@ -85,14 +97,17 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             [['state_id'], 'required'],
             // для создания пакета корреспонденции вручную необходимо обязательно выбрать контрагента
             [['fo_id_company', 'manager_id'], 'required', 'on' => 'manual_creating'],
-            // для одобрения менеджером обязательно нужно выбрать способ и адрес доставки
+            // для одобрения менеджером обязательно нужно выбрать способ и адрес доставки, контактное лицо и E-mail для уведомлений
             [['pd_id', 'address_id', 'fo_contact_id'], 'required', 'on' => 'manager_approving'],
-            [['created_at', 'is_manual', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'pochta_ru_order_id', 'address_id', 'manager_id', 'fo_contact_id', 'rejects_count'], 'integer'],
+            [['created_at', 'is_manual', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'pochta_ru_order_id', 'address_id', 'manager_id', 'fo_contact_id', 'rejects_count', 'delivery_notified_at'], 'integer'],
             [['pad', 'other', 'comment'], 'string'],
-            [['customer_name'], 'string', 'max' => 255],
+            [['customer_name', 'contact_email'], 'string', 'max' => 255],
+            [['contact_email'], 'trim'],
+            [['contact_email'], 'email'],
             [['track_num'], 'string', 'max' => 50],
             [['contact_person'], 'string', 'max' => 100],
             [['track_num'], 'trim'],
+            [['customer_name', 'track_num', 'other', 'comment', 'contact_person', 'contact_email'], 'default', 'value' => null],
             [['cps_id'], 'exist', 'skipOnError' => true, 'targetClass' => CorrespondencePackagesStates::className(), 'targetAttribute' => ['cps_id' => 'id']],
             [['address_id'], 'exist', 'skipOnError' => true, 'targetClass' => CounteragentsPostAddresses::className(), 'targetAttribute' => ['address_id' => 'id']],
             [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['manager_id' => 'id']],
@@ -136,7 +151,9 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             'manager_id' => 'Ответственный',
             'fo_contact_id' => 'Контактное лицо',
             'contact_person' => 'Контактное лицо',
+            'contact_email' => 'E-mail для уведомлений о состоянии почтового отправления',
             'rejects_count' => 'Количество отказов по пакету',
+            'delivery_notified_at' => 'Дата и время отправки уведомления контактному лицу о поступлении почтового отправления в отделение',
             'rejectReason' => 'Причина отказа',
             // вычисляемые поля
             'cpsName' => 'Статус пакета',
@@ -163,6 +180,75 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     }
 
     /**
+     * Отсылает на E-mail контактного лица контрагента уведомление об отправке ему пакета корреспонденции.
+     * @param $type integer форма уведомления
+     * @return bool
+     */
+    public function sendClientNotification($type)
+    {
+        if (!empty(trim($this->contact_email))) {
+            if (CpBlContactEmails::find()->select('email')->where(['email' => $this->contact_email])->count() == 0) {
+                // отправляем, только если E-mail не находится в блок-листе
+                switch ($type) {
+                    case self::NF_PRIMARY:
+                        $form = 'cpHasBeenSent-html';
+                        $subject = 'Вам отправлен пакет корреспонденции';
+                        break;
+                    case self::NF_ARRIVED:
+                        $form = 'cpHasBeenArrived-html';
+                        $subject = 'Отправленный вам пакет корреспонденции ожидает в почтовом отделении';
+                        break;
+                }
+
+                if (!empty($form)) {
+                    $letter = Yii::$app->mailer->compose([
+                        'html' => $form,
+                    ], [
+                        'model' => $this,
+                    ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameVictor']])
+                        ->setSubject($subject)
+                        //->setCc('bugrovap@gmail.com')
+                        ->setTo($this->contact_email);
+
+                    return $letter->send();
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Отправляет менеджеру на почту уведомление о том, что был создан новый или восстановлен из пепла некий пакет.
+     * @param $subject string тема письма
+     * @param $body string текст уведомления
+     */
+    public function sendManagerNotification($subject = 'Создан пакет корреспонденции', $body = 'Создан пакет корреспонденции%CA_NAME%, в котором Вы указаны как ответственный.')
+    {
+        if ($this->is_manual && $this->manager != null && $this->managerProfile != null &&
+            $this->managerProfile->notify_when_cp == true) {
+            if (!empty($this->customer_name)) {
+                $body = str_replace('%CA_NAME%', ' по контрагенту <strong>' . $this->customer_name . '</strong>', $body);
+            }
+            else {
+                $body = str_replace('%CA_NAME%', '', $body);
+            }
+
+            // если установлен признак необходимости отправки E-mail-уведомления менеджеру, то сделаем это
+            $letter = Yii::$app->mailer->compose([
+                'html' => 'newCorrespondencePackageHasBeenCreated-ForManager-html',
+            ], [
+                'model' => $this,
+                'body' => $body,
+            ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameVictor']])
+                ->setSubject($subject)
+                ->setTo($this->manager->email);
+
+            $letter->send();
+        }
+    }
+
+    /**
      * @inheritdoc
      */
     public function beforeDelete()
@@ -177,6 +263,13 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
 
             // удаляем историю изменения статусов
             CorrespondencePackagesHistory::deleteAll(['cp_id' => $this->id]);
+
+            // открепляем возможную ссылку в документообороте
+            Edf::updateAll([
+                'cp_id' => null,
+            ], [
+                'cp_id' => $this->id,
+            ]);
 
             return true;
         }
@@ -215,19 +308,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
 
         if ($insert) {
             // только для новых
-            if ($this->is_manual && $this->manager != null && $this->managerProfile != null &&
-                $this->managerProfile->notify_when_cp == true) {
-                // если установлен признак необходимости отправки E-mail-уведомления менеджеру, то сделаем это
-                $letter = Yii::$app->mailer->compose([
-                    'html' => 'newCorrespondencePackageHasBeenCreated-ForManager-html',
-                ], [
-                    'model' => $this,
-                ])->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNameVictor']])
-                    ->setSubject('Создан пакет корреспонденции')
-                    ->setTo($this->manager->email);
-
-                $letter->send();
-            }
+            $this->sendManagerNotification();
         }
 
         if (isset($changedAttributes['cps_id'])) {
@@ -236,8 +317,21 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                 $rejectReason = null;
                 // статус изменился, сделаем запись в историю об этом
                 switch ($this->cps_id) {
-                    case CorrespondencePackagesStates::STATE_ОТКАЗ:
+                    /*
+                    // отменено по просьбе заказчика
+                    case CorrespondencePackagesStates::STATE_ЧЕРНОВИК:
+                        // если пакет переводится из статуса Отказ, то отправим дополнительное письмо
+                        if ($changedAttributes['cps_id'] == CorrespondencePackagesStates::STATE_ОТКАЗ) {
+                            $this->sendManagerNotification('Отказной пакет был восстановлен', 'Пакет корреспонденции, ранее находившийся в отказе, был переведен в статус &laquo;Черновик&raquo;.');
+                        }
+
+                        break;
+                    */
                     case CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ:
+                        if ($changedAttributes['cps_id'] == CorrespondencePackagesStates::STATE_ЧЕРНОВИК) {
+                            $this->sendManagerNotification('На согласование поступил пакет документов', 'На согласование поступил пакет корреспонденции%CA_NAME%, в котором Вы указаны как ответственный.');
+                        }
+                    case CorrespondencePackagesStates::STATE_ОТКАЗ:
                     case CorrespondencePackagesStates::STATE_УТВЕРЖДЕН:
                         $oldStateName = '';
                         $oldState = CorrespondencePackagesStates::findOne($changedAttributes['cps_id']);
@@ -254,13 +348,15 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                 }
 
                 if ($this->ready_at == null && ($this->cps_id == CorrespondencePackagesStates::STATE_ОТКАЗ || $this->cps_id == CorrespondencePackagesStates::STATE_УТВЕРЖДЕН)) {
-                    $this->ready_at = time();
-                    $this->save(false);
+                    $this->updateAttributes([
+                        'ready_at' => time(),
+                    ]);
                 }
 
                 if ($this->cps_id == CorrespondencePackagesStates::STATE_ОТКАЗ) {
-                    $this->rejects_count++;
-                    $this->save(false);
+                    $this->updateAttributes([
+                        'rejects_count' => $this->rejects_count++,
+                    ]);
                 }
             }
         }
@@ -268,21 +364,36 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
         if (isset($changedAttributes['state_id'])) {
             // проверим, изменился ли статус проекта в пакете корреспонденции
             if ($changedAttributes['state_id'] != $this->state_id) {
+                $escapeImmediately = false;
+                $edfStateId = null; // при необходимости проставим статус Отправлено или Доставлено также в соответствующих связанных электронных документах
+
                 // статус отличается, зафиксируем время назначения некоторых статусов
                 switch ($this->state_id) {
                     case ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ:
-                        $this->ready_at = time();
-                        $this->save(false);
+                        $this->updateAttributes([
+                            'ready_at' => time(),
+                        ]);
+
                         break;
                     case ProjectsStates::STATE_ОТПРАВЛЕНО:
-                        $this->sent_at = time();
-                        $this->save(false);
+                        $this->updateAttributes([
+                            'sent_at' => time(),
+                        ]);
+
+                        $edfStateId = EdfStates::STATE_ОТПРАВЛЕН;
+
+                        // отправим клиенту уведомление о том, что ему был отправлен пакет корреспонденции
+                        if (!empty($this->track_num) && $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ) $this->sendClientNotification(CorrespondencePackages::NF_PRIMARY);
+
                         break;
                     case ProjectsStates::STATE_ДОСТАВЛЕНО:
+                        $edfStateId = EdfStates::STATE_ДОСТАВЛЕН;
+
                         // фиксируем время доставки
                         if ($this->delivered_at == null) {
-                            $this->delivered_at = time();
-                            $this->save(false);
+                            $this->updateAttributes([
+                                'delivered_at' => time(),
+                            ]);
                         }
 
                         // переводим проект сразу в статус Завершено при определенных условиях
@@ -296,16 +407,26 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                             $project = DirectMSSQLQueries::fetchProjectsData($this->fo_project_id);
                             if (count($project) > 0 && $project['finance_count'] > 0) {
                                 // текущий пакет сразу в статус Завершено. это же действие сделает запись и в истории тоже
-                                $this->state_id = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                                $this->state_id = ProjectsStates::STATE_ИСПОЛНЕН;
                                 $this->save(false);
                             }
 
-                            // уходим отсюда вообще
-                            return true;
+                            $escapeImmediately = true;
                         }
 
                         break;
                 }
+
+                if (!empty($edfStateId)) {
+                    $edfModel = Edf::findOne($this->id);
+                    if ($edfModel) {
+                        $edfModel->state_id = $edfStateId;
+                        $edfModel->save(false); // чтобы выполнить также afterSave
+                    }
+                }
+
+                // уходим отсюда вообще
+                if ($escapeImmediately) return true;
 
                 // если изменился статус проекта, то меняем его и в CRM
                 if ($this->fo_project_id != null) {
@@ -335,7 +456,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function validateTrackNumber()
     {
         if (($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ || $this->pd_id == PostDeliveryKinds::DELIVERY_KIND_MAJOR_EXPRESS) && $this->state_id == ProjectsStates::STATE_ОТПРАВЛЕНО) {
-            if ($this->track_num == null)
+            if (empty(trim($this->track_num)))
                 $this->addError('track_num', 'Поле обязательно для заполнения при выбранном способе.');
         }
     }
@@ -363,6 +484,10 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                     if ($packagesCount >= $limit) $this->addError('pd_id', 'Достигнут лимит отправок этим способом.');
                 }
             }
+        }
+
+        if ($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ && empty($this->contact_email)) {
+            $this->addError('contact_email', 'Для данного способа доставки необходимо указать E-mail для уведомлений.');
         }
     }
 
@@ -452,6 +577,10 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     {
         $result = '';
 
+        $siaButtons = [
+            'save' => Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']),
+        ];
+
         if ($this->is_manual) {
             // наборы кнопок для пакетов, созданных вручную
             if (Yii::$app->user->can('operator_head') || Yii::$app->user->can('root'))
@@ -465,14 +594,14 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                         if (!Yii::$app->user->can('root')) $result .= Html::button('<i class="fa fa-spinner fa-pulse fa-fw"></i><span class="sr-only">Согласование...</span> Ожидайте согласования...', ['class' => 'btn btn-default btn-lg disabled']);
                         break;
                     case CorrespondencePackagesStates::STATE_УТВЕРЖДЕН:
-                        if (!Yii::$app->user->can('root')) $result .= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']);
+                        $result .= $siaButtons['save'];
                         break;
                     case CorrespondencePackagesStates::STATE_ОТКАЗ:
                         $result .= Html::submitButton('<i class="fa fa-refresh" aria-hidden="true"></i> Вернуть в черновики', ['class' => 'btn btn-warning btn-lg', 'name' => 'order_try_again', 'title' => 'Вернуть пакет в черновики после отказа, чтобы исправить ошибки']);
                         break;
                 }
 
-            if (Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('root'))
+            if (Yii::$app->user->can('dpc_head') || Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head') || Yii::$app->user->can('root'))
                 // набор для Менеджера и Полных прав
                 switch ($this->cps_id) {
                     case CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ:
@@ -480,7 +609,8 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                             Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отказать', ['class' => 'btn btn-danger btn-lg', 'name' => 'order_reject', 'title' => 'Отказать в согласовании (обязательно нужно будет указать причину согласования)']);
                         break;
                     case CorrespondencePackagesStates::STATE_УТВЕРЖДЕН:
-                        $result .= Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отозвать', ['class' => 'btn btn-warning btn-lg', 'name' => 'order_cancel', 'title' => 'Отменить согласование']);
+                        // операторы попросили убрать возможность отзыва согласованного пакета
+                        //$result .= Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отозвать', ['class' => 'btn btn-warning btn-lg', 'name' => 'order_cancel', 'title' => 'Отменить согласование']);
                         break;
                 }
         }
@@ -489,7 +619,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             if ($this->isNewRecord)
                 $result .= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать', ['class' => 'btn btn-success btn-lg']);
             else
-                $result .= Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']);
+                $result .= $siaButtons['save'];
         }
 
         return $result;
@@ -516,6 +646,26 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
         if (count($contactPersons) > 0) return ArrayHelper::map($contactPersons, 'id', 'text');
 
         return [];
+    }
+
+    /**
+     * Делает выборку E-mail'ов текущего контрагента и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public function arrayMapOfCompanyEmailsForSelect2()
+    {
+        // делаем выборку почтовых ящиков контрагента
+        $query = foListEmailClient::find()->select('email')->where(['ID_COMPANY' => $this->fo_id_company])->asArray()->column();
+        // проверяем каждый отдельный ящик на присутствие в блок-листе (список отказавшихся от рассылки)
+        foreach (CpBlContactEmails::find()->select('email')->where(['email' => $query])->asArray()->column() as $exclusion) {
+            $key = array_search($exclusion, $query);
+            if (false !== $key) {
+                unset($query[$key]);
+            }
+        }
+
+        if (empty($query)) return ['']; else return $query;
     }
 
     /**
@@ -605,9 +755,17 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getManagerRole()
+    {
+        return $this->hasOne(AuthAssignment::className(), ['user_id' => 'manager_id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getManagerProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'manager_id']);
+        return $this->hasOne(Profile::class, ['user_id' => 'manager_id'])->from(['managerProfile' => 'profile']);
     }
 
     /**
@@ -616,7 +774,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
      */
     public function getManagerProfileName()
     {
-        return $this->managerProfile != null ? ($this->managerProfile->name != null ? $this->managerProfile->name : $this->manager->username) : '';
+        return !empty($this->managerProfile) ? (!empty($this->managerProfile->name) ? $this->managerProfile->name : $this->manager->username) : '';
     }
 
     /**
@@ -637,6 +795,15 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     }
 
     /**
+     * Возвращает возможный E-mail из списка исключаемых из рассылки уведомлений о почтовых отправлениях.
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCanUnsubscribe()
+    {
+        return $this->hasOne(CpBlContactEmails::className(), ['email' => 'contact_email']);
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getCorrespondencePackagesFiles()
@@ -650,5 +817,21 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function getCorrespondencePackagesHistory()
     {
         return $this->hasMany(CorrespondencePackagesHistory::className(), ['cp_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEdf()
+    {
+        return $this->hasOne(Edf::className(), ['cp_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEdfs()
+    {
+        return $this->hasMany(Edf::className(), ['cp_id' => 'id']);
     }
 }

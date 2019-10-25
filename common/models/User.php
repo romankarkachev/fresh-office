@@ -12,6 +12,9 @@ use dektrium\user\models\User as BaseUser;
  * @property AuthItem $role
  *
  * @property Profile $profile
+ * @property EcoProjects $ecoProjects
+ * @property EcoProjectsAccess $ecoProjectsAccesses
+ * @property EcoProjectsMilestonesFiles $ecoProjectsMilestonesFiles
  */
 class User extends BaseUser
 {
@@ -27,6 +30,8 @@ class User extends BaseUser
     const ARRAY_MAP_OF_USERS_BY_ALL_ROLES = 1; // все пользователи
     const ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE = 2; // отбор по роли менеджера
     const ARRAY_MAP_OF_USERS_BY_ECOLOGIST_ROLE = 3; // только экологи
+    const ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE = 4; // только менеджеры и экологи
+    const ARRAY_MAP_OF_USERS_BY_LOGIST_ROLE = 5; // только логисты
 
     /**
      * Имя.
@@ -45,6 +50,16 @@ class User extends BaseUser
      * @var string
      */
     public $role_id;
+
+    /**
+     * @var array отделы, к которым относится пользователь
+     */
+    public $departments;
+
+    /**
+     * @var array статьи расходов, доступные пользователю
+     */
+    public $poEis;
 
     /**
      * Подтверждение пароля.
@@ -78,6 +93,7 @@ class User extends BaseUser
         $rules[] = ['password_confirm', 'required', 'on' => 'create'];
         $rules[] = ['password_confirm', 'compare', 'skipOnEmpty' => false, 'compareAttribute' => 'password', 'message' => 'Пароли не совпадают', 'on' => 'create'];
         $rules[] = [['name'], 'string', 'max' => 255];
+        $rules[] = [['departments'], 'safe'];
 
         return $rules;
     }
@@ -87,18 +103,18 @@ class User extends BaseUser
      */
     public function attributeLabels()
     {
-        $result = parent::attributeLabels();
-
-        $result['email'] = 'E-mail';
-        $result['fo_id'] = 'Пользователь Fresh Office';
-        $result['name'] = 'ФИО';
-        $result['role_id'] = 'Роль';
-        $result['password_confirm'] = 'Подтверждение пароля';
-        // для сортировки
-        $result['profileName'] = 'ФИО';
-        $result['roleName'] = 'Роль';
-
-        return $result;
+        return ArrayHelper::merge(parent::attributeLabels(), [
+            'email' => 'E-mail',
+            'fo_id' => 'Пользователь Fresh Office',
+            'name' => 'ФИО',
+            'role_id' => 'Роль',
+            'departments' => 'Отделы',
+            'poEis' => 'Доступные статьи расходов',
+            'password_confirm' => 'Подтверждение пароля',
+            // для сортировки
+            'profileName' => 'ФИО',
+            'roleName' => 'Роль',
+        ]);
     }
 
     /**
@@ -130,6 +146,10 @@ class User extends BaseUser
             // делаем автором загрузки файлов встроенного пользователя
             DriversFiles::updateAll(['uploaded_by' => 1], ['uploaded_by' => $this->id]);
             TransportFiles::updateAll(['uploaded_by' => 1], ['uploaded_by' => $this->id]);
+
+            // очищаем поле user_id таблицы drivers
+            UsersDepartments::deleteAll(['user_id' => $this->id]);
+
 
             return true;
         } else {
@@ -167,6 +187,29 @@ class User extends BaseUser
         $this->profile->name = $this->name;
         $this->profile->fo_id = $this->fo_id;
         $this->profile->save();
+
+        // заполнение отделов, к которым относится пользователь
+        if (!empty($this->departments)) {
+            UsersDepartments::deleteAll(['user_id' => $this->id]);
+
+            foreach ($this->departments as $department) {
+                (new UsersDepartments([
+                    'user_id' => $this->id,
+                    'department_id' => $department,
+                ]))->save();
+            }
+        }
+
+        // заполнение статей расходов, к которым имеют доступ сотрудники
+        UsersEiAccess::deleteAll(['user_id' => $this->id]);
+        if (!empty($this->poEis)) {
+            foreach ($this->poEis as $ei) {
+                (new UsersEiAccess([
+                    'user_id' => $this->id,
+                    'ei_id' => $ei,
+                ]))->save();
+            }
+        }
 
         return true;
     }
@@ -276,14 +319,21 @@ class User extends BaseUser
             case self::ARRAY_MAP_OF_USERS_BY_ECOLOGIST_ROLE:
                 $roleName = 'ecologist';
                 break;
+            case self::ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE:
+                $roleName = ['sales_department_manager', 'ecologist', 'ecologist_head'];
+                break;
+            case self::ARRAY_MAP_OF_USERS_BY_LOGIST_ROLE:
+                $roleName = ['logist'];
+                break;
         }
 
         return ArrayHelper::merge([
             1 => 'Алексей Бугров',
+            17 => 'Текучева Елена', // исправить когда-нибудь, сделать, чтобы выбирался пользователь и его роль, а не вот это вот все
         ], ArrayHelper::map(self::find()->select(self::tableName() . '.*')
             ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`=' . self::tableName().'.`id`')
             ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
-            ->where(['`auth_assignment`.`item_name`' => $roleName])->orderBy('profile.name')->all(), 'id', 'profile.name'));
+            ->where(['in', '`auth_assignment`.`item_name`', $roleName])->orderBy('profile.name')->all(), 'id', 'profile.name'));
     }
 
     /**
@@ -296,6 +346,17 @@ class User extends BaseUser
         $man = DirectMSSQLQueries::fetchManager($id);
         if (is_array($man)) if (count($man) > 0) return $man[0]['name'];
         return '';
+    }
+
+    /**
+     * Выполняет проверку, используется ли запись в других элементах.
+     * @return bool
+     */
+    public function checkIfUsed()
+    {
+        if ($this->getEcoProjects()->count() > 0 || $this->getEcoProjectsAccesses()->count() > 0 || $this->getEcoProjectsMilestonesFiles()->count() > 0) return true;
+
+        return false;
     }
 
     /**
@@ -348,5 +409,28 @@ class User extends BaseUser
     public function getRoleDescription()
     {
         return $this->role != null ? $this->role->description : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEcoProjects()
+    {
+        return $this->hasMany(EcoProjects::className(), ['created_by' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEcoProjectsAccesses()
+    {
+        return $this->hasMany(EcoProjectsAccess::className(), ['user_id' => 'id']);
+    }
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEcoProjectsMilestonesFiles()
+    {
+        return $this->hasMany(EcoProjectsMilestonesFiles::className(), ['uploaded_by' => 'id']);
     }
 }

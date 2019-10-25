@@ -26,6 +26,8 @@ class PaymentOrdersStates extends \yii\db\ActiveRecord
      */
     const PAYMENT_STATES_SET_ACCOUNTANT_DEFAULT = [
         self::PAYMENT_STATE_УТВЕРЖДЕН,
+        self::PAYMENT_STATE_ОПЛАЧЕН,
+        self::PAYMENT_STATE_ОТКАЗ,
     ];
 
     /**

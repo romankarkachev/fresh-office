@@ -278,15 +278,62 @@ string(39) "Генеральный директор"
 */
 class DadataAPI extends Model
 {
-    const API_TOKEN = '3523cabe059250cc360ce05b32b3795b0742ecd6';
+    /**
+     * Секретный ключ для стандартизации
+     */
+    const API_KEY = '9cb46de9da8e7307941333505e131b3cd056f275';
+
+    /**
+     * API-ключ
+     */
+    const API_TOKEN = '4a32f63641d406338f11f06669b4673ce5ebf124';
+
     const API_URL = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/findById/party';
+    const API_URL_CLEAN_NAME = 'https://dadata.ru/api/v2/clean/name';
+    //const API_URL_ADDRESS = 'https://suggestions.dadata.ru/suggestions/api/4_1/rs/findById/address';
+    const API_URL_CLEAN_ADDRESS = 'https://dadata.ru/api/v2/clean/address';
+
+    /**
+     * This method provides a unicode-safe implementation of built-in PHP function `ucfirst()`.
+     *
+     * @param string $string the string to be proceeded
+     * @param string $encoding Optional, defaults to "UTF-8"
+     * @return string
+     * @see https://secure.php.net/manual/en/function.ucfirst.php
+     * @since 2.0.16
+     */
+    public static function mb_ucfirst($string, $encoding = 'UTF-8')
+    {
+        $firstChar = mb_substr($string, 0, 1, $encoding);
+        $rest = mb_substr($string, 1, null, $encoding);
+        return mb_strtoupper($firstChar, $encoding) . $rest;
+    }
+
+    /**
+     * This method provides a unicode-safe implementation of built-in PHP function `ucwords()`.
+     *
+     * @param string $string the string to be proceeded
+     * @param string $encoding Optional, defaults to "UTF-8"
+     * @return string
+     * @see https://secure.php.net/manual/en/function.ucwords.php
+     * @since 2.0.16
+     */
+    public static function mb_ucwords($string, $encoding = 'UTF-8')
+    {
+        $words = preg_split("/\s/u", $string, -1, PREG_SPLIT_NO_EMPTY);
+        $titelized = array_map(function ($word) use ($encoding) {
+            return static::mb_ucfirst($word, $encoding);
+        }, $words);
+        return implode(' ', $titelized);
+    }
 
     /**
      * Выполняет POST-запрос для получения данных по API.
      * @param $query string
+     * @param $specifyingValue string
      * @return array|false
      */
-    public static function postRequestToApi($query)
+    public static function postRequestToApi($query, $specifyingValue = null)
     {
         $client = new Client();
         $response = $client->createRequest()
@@ -306,8 +353,75 @@ class DadataAPI extends Model
                 $result = array_values(self::cleanFromLiquidated($data['suggestions']));
 
                 // если контрагент однозначно идентифицирован, то возвращаем массив с его данными
-                if (count($result) == 1) return $result[0]['data'];
+                if (count($result) == 1)
+                    return $result[0]['data'];
+                else {
+                    if (!empty($specifyingValue)) {
+                        foreach ($result as $suggestion) {
+                            if ($suggestion['data']['kpp'] == $specifyingValue) {
+                                return $suggestion['data'];
+                            }
+                        }
+                        return $data['suggestions'][0]['data'];
+                    }
+                }
             }
+        }
+
+        return false;
+    }
+
+    /**
+     * Выполняет POST-запрос для получения стандартизированных фамилии, имени и отчества по API.
+     * @param $query string
+     * @return array|false
+     */
+    public static function cleanName($query)
+    {
+        $client = new Client();
+        $response = $client->createRequest()
+            ->setMethod('post')
+            ->setUrl(self::API_URL_CLEAN_NAME)
+            ->setContent(Json::encode([$query]))
+            ->setHeaders([
+                'Authorization' => 'Token ' . self::API_TOKEN,
+                'X-Secret' => self::API_KEY,
+                'Content-Type' => 'application/json;charset=utf-8',
+                'Accept' => 'application/json',
+            ])->send();
+
+        if ($response->isOk) {
+            $data = $response->getData()[0];
+            if (isset($data['qc']) && $data['qc'] == 0) {
+                // качество стандартизации сервис оценивает как уверенное, возвращаем результат
+                return $data;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Выполняет POST-запрос для получения стандартизированного адреса по API.
+     * @param $query string
+     * @return array|false
+     */
+    public static function cleanAddress($query)
+    {
+        $client = new Client();
+        $response = $client->createRequest()
+            ->setMethod('post')
+            ->setUrl(self::API_URL_CLEAN_ADDRESS)
+            ->setContent(Json::encode([$query], JSON_UNESCAPED_UNICODE))
+            ->setHeaders([
+                'Authorization' => 'Token ' . self::API_TOKEN,
+                'X-Secret' => self::API_KEY,
+                'Content-Type' => 'application/json;charset=utf-8',
+                'Accept' => 'application/json',
+            ])->send();
+
+        if ($response->isOk) {
+            return $response->getData()[0];
         }
 
         return false;

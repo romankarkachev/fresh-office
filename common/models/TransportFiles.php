@@ -100,11 +100,23 @@ class TransportFiles extends \yii\db\ActiveRecord
     /**
      * Возвращает путь к папке, в которую необходимо поместить загружаемые пользователем файлы.
      * Если папка не существует, она будет создана. Если создание провалится, будет возвращено false.
-     * @return bool|string
+     * @param $obj_id integer идентификатор родительской сущности, к которой прикрепляются файлы
+     * @return mixed
+     * @throws \yii\base\Exception
      */
-    public static function getUploadsFilepath()
+    public static function getUploadsFilepath($obj_id = null)
     {
         $filepath = Yii::getAlias('@uploads-ferrymen-transport-fs');
+        if (!empty($obj_id)) {
+            // если передается идентификатор родительской сущности, дополним тогда путь вложенными папками,
+            // представляющими дату создания объекта и его идентификатор
+            $object = Transport::findOne($obj_id);
+            if ($object) {
+                // например: \uploads\correspondence-packages\1970\01\01\1524
+                $filepath .= '/' . date('Y', $object->created_at) . '/' . date('m', $object->created_at) . '/' . date('d', $object->created_at) . '/' . $obj_id;
+            }
+        }
+
         if (!is_dir($filepath)) {
             if (!FileHelper::createDirectory($filepath)) return false;
         }

@@ -65,7 +65,10 @@ class FerrymenBankCards extends \yii\db\ActiveRecord
     {
         if (!isset($ferryman_id)) return [];
 
-        return ArrayHelper::map(self::find()->where(['ferryman_id' => $ferryman_id])->all(), 'id', 'number');
+        return ArrayHelper::map(self::find()->select([
+            'id',
+            'number' => 'CONCAT(number, " (", cardholder, ", ", bank, ")")',
+        ])->where(['ferryman_id' => $ferryman_id])->all(), 'id', 'number');
     }
 
     /**

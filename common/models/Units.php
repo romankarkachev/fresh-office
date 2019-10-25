@@ -8,10 +8,13 @@ use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "units".
  *
- * @property integer $id
- * @property string $name
+ * @property int $id
+ * @property string $name Наименование
+ * @property string $name_full Наименование полное
+ * @property string $code Международный код
  *
- * @property TransportRequestsWaste[] $transportRequestsWastes
+ * @property TransportRequestsWaste[] $transportRequestsWaste
+ * @property EdfTp[] $edfTableParts
  */
 class Units extends \yii\db\ActiveRecord
 {
@@ -29,7 +32,10 @@ class Units extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
+            [['name'], 'required'],
             [['name'], 'string', 'max' => 30],
+            [['name_full'], 'string', 'max' => 100],
+            [['code'], 'string', 'max' => 3],
         ];
     }
 
@@ -41,6 +47,8 @@ class Units extends \yii\db\ActiveRecord
         return [
             'id' => 'ID',
             'name' => 'Наименование',
+            'name_full' => 'Наименование полное',
+            'code' => 'Международный код',
         ];
     }
 
@@ -50,7 +58,7 @@ class Units extends \yii\db\ActiveRecord
      */
     public function checkIfUsed()
     {
-        if ($this->getTransportRequestsWastes()->count() > 0) return true;
+        if ($this->getTransportRequestsWaste()->count() > 0) return true;
 
         return false;
     }
@@ -68,8 +76,16 @@ class Units extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
-    public function getTransportRequestsWastes()
+    public function getTransportRequestsWaste()
     {
         return $this->hasMany(TransportRequestsWaste::className(), ['unit_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEdfTableParts()
+    {
+        return $this->hasMany(EdfTp::className(), ['unit_id' => 'id']);
     }
 }

@@ -2,8 +2,6 @@
 
 namespace backend\controllers;
 
-use common\models\foProjects;
-use common\models\User;
 use Yii;
 use common\models\TransportRequests;
 use common\models\TransportRequestsSearch;
@@ -17,7 +15,9 @@ use common\models\TransportRequestsDialogsSearch;
 use common\models\PackingTypeReplaceForm;
 use common\models\Fkko;
 use common\models\PackingTypes;
+use common\models\foProjects;
 use yii\data\ActiveDataProvider;
+use yii\db\Expression;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\web\Controller;
@@ -40,19 +40,24 @@ class TransportRequestsController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => [
-                    'index', 'create', 'update', 'delete', 'unit-mass-repalce',
-                    'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
-                    'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
-                    'return-to-process', 'meignored', 'toggle-favorite', 'mark-as-read',
-                    'similar-statements', 'compose-region-fields',
-                    'dialog-messages-list', 'dialog-private-messages-list', 'add-dialog-message', 'add-private-dialog-message',
-                    'upload-files', 'download-file', 'delete-file', 'preview-file',
-                ],
                 'rules' => [
                     [
+                        'actions' => ['delete', 'packing-type-mass-replace'],
                         'allow' => true,
-                        'roles' => ['root', 'logist', 'sales_department_head', 'sales_department_manager', 'head_assist'],
+                        'roles' => ['root'],
+                    ],
+                    [
+                        'actions' => [
+                            'index', 'create', 'update',
+                            'list-of-fkko-for-typeahead', 'list-of-packing-types-for-typeahead',
+                            'render-fkko-row', 'delete-fkko-row', 'render-transport-row', 'delete-transport-row',
+                            'return-to-process', 'meignored', 'toggle-favorite', 'mark-as-read',
+                            'similar-statements', 'compose-region-fields',
+                            'dialog-messages-list', 'dialog-private-messages-list', 'add-dialog-message', 'add-private-dialog-message',
+                            'upload-files', 'download-file', 'delete-file', 'preview-file',
+                        ],
+                        'allow' => true,
+                        'roles' => ['root', 'logist', 'sales_department_head', 'sales_department_manager', 'head_assist', 'dpc_head'],
                     ],
                 ],
             ],
@@ -128,9 +133,9 @@ class TransportRequestsController extends Controller
     {
         $searchModel = new TransportRequestsSearch();
 
-        // для менеджеров отбор только собственных объектов (где он является автором)
+        // для менеджеров и руководителя ЦОД отбор только собственных объектов (где он является автором)
         $conditions = [];
-        if (Yii::$app->user->can('sales_department_manager')) {
+        if (Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('dpc_head')) {
             $conditions = [
                 $searchModel->formName() => [
                     'created_by' => Yii::$app->user->id,
@@ -260,6 +265,7 @@ class TransportRequestsController extends Controller
                         // закрываем запрос только один первый раз, если он закрывается повторно, то не важно уже это
                         $model->state_id = TransportRequestsStates::STATE_ЗАКРЫТ;
                         $model->finished_at = time();
+                        $model->finished_by = Yii::$app->user->id;
                         $model->computed_finished_at = $model->computeFinishedAt();
                     }
 
@@ -444,11 +450,14 @@ class TransportRequestsController extends Controller
         if (Yii::$app->request->isAjax) {
             Yii::$app->response->format = Response::FORMAT_JSON;
 
-            $query = Fkko::find()->select([
+            $select = [
                 'id',
-                'value' => 'CONCAT(fkko_code, " - ", fkko_name)',
-                $counter . ' AS `counter`',
-            ])->andFilterWhere([
+                'value' => new Expression('CONCAT(fkko_code, " - ", fkko_name)'),
+            ];
+
+            if (!empty($counter)) $select[] = $counter . ' AS `counter`';
+
+            $query = Fkko::find()->select($select)->andFilterWhere([
                 'or',
                 ['like', 'fkko_code', $q],
                 ['like', 'fkko_name', $q],
@@ -755,8 +764,9 @@ class TransportRequestsController extends Controller
             // возвращаем статус "В обработке", если запрос не находится в обработке
             $tr = TransportRequests::findOne($model->tr->id);
             if ($tr != null && $tr->state_id != TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ) {
-                $tr->state_id = TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ;
-                $tr->save(false);
+                $tr->updateAttributes([
+                    'state_id' => TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ,
+                ]);
             }
 
             $newMessage = new TransportRequestsDialogs();

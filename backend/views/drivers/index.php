@@ -25,6 +25,14 @@ $this->params['breadcrumbs'][] = 'Водители';
         'layout' => "<div style=\"position: relative; min-height: 20px;\"><small class=\"pull-right form-text text-muted\" style=\"position: absolute; bottom: 0; right: 0;\">{summary}</small></div>\n{items}\n{pager}",
         'summary' => "Показаны записи с <strong>{begin}</strong> по <strong>{end}</strong>, на странице <strong>{count}</strong>, всего <strong>{totalCount}</strong>. Страница <strong>{page}</strong> из <strong>{pageCount}</strong>.",
         'tableOptions' => ['class' => 'table table-striped table-hover'],
+        'rowOptions' => function ($model, $key, $index, $grid) {
+            /* @var $model \common\models\Drivers */
+            /* @var $column \yii\grid\DataColumn */
+
+            if ($model->is_deleted) {
+                return ['class' => 'danger'];
+            }
+        },
         'columns' => [
             [
                 'attribute' => 'ferrymanName',

@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "MANAGERS".
@@ -165,6 +166,16 @@ class foManagers extends \yii\db\ActiveRecord
             'has_iron_phone' => 'Has Iron Phone',
             'IS_OUTER_CHAT_ON' => 'Is  Outer  Chat  On',
         ];
+    }
+
+    /**
+     * Делает выборку пользователей Fresh Office и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapForSelect2()
+    {
+        return ArrayHelper::map(self::find()->where(['ENABLED' => 'True'])->orderBy('MANAGER_NAME')->all(), 'ID_MANAGER', 'MANAGER_NAME');
     }
 
     /**

@@ -28,6 +28,8 @@ if ($model->pd_type != null && $model->pd_id != null) {
 
     if ($account != '') $paymentDetails = 'Для оплаты выбран способ <strong>' . $model->pdTypeName . '</strong>' . $account . '.';
 }
+
+$buttonToDraft = Html::submitButton('Вернуть в черновики', ['class' => 'btn btn-default btn-lg', 'name' => 'order_repeat', 'title' => 'Сделать черновиком']);
 ?>
 
 <div class="payment-orders-form">
@@ -39,12 +41,12 @@ if ($model->pd_type != null && $model->pd_id != null) {
             <?= $model->createdByProfileName ?>
             запросил оплату перевозчику
             <strong><?= $model->ferrymanName?></strong>
-            по факту завершения проекта(ов): <?= $model->projects ?>.
+            по факту завершения проекта(ов): <?= str_replace(',', ', ', $model->projects) ?>.
             <?= $paymentDetails ?>
         </p>
         <p class="lead">Текущий статус: <strong><?= $model->stateName ?></strong>.</p>
     </div>
-    <?php if (Yii::$app->user->can('accountant') && (in_array($model->state_id, PaymentOrdersStates::PAYMENT_STATES_SET_RECORD_CONFIRMED))): ?>
+    <?php if ((Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b')) && (in_array($model->state_id, PaymentOrdersStates::PAYMENT_STATES_SET_RECORD_CONFIRMED))): ?>
     <div class="row">
         <div class="col-md-2">
             <?= $form->field($model, 'payment_date')->widget(DateControl::className(), [
@@ -67,20 +69,33 @@ if ($model->pd_type != null && $model->pd_id != null) {
         </div>
     </div>
     <?php endif; ?>
-    <?php if ((Yii::$app->user->can('root') || Yii::$app->user->can('accountant')) && (in_array($model->state_id, PaymentOrdersStates::PAYMENT_STATES_SET_RECORD_CONFIRMED))): ?>
+    <?php if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН): ?>
+    <?= $form->field($model, 'fileCc')->fileInput(); ?>
+
+    <?php endif; ?>
+    <?php if ((Yii::$app->user->can('root') || Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b')) && (in_array($model->state_id, PaymentOrdersStates::PAYMENT_STATES_SET_RECORD_CONFIRMED))): ?>
     <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите причину отказа']) ?>
 
     <?php endif; ?>
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Платежные ордеры', ['/payment-orders'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
+        <?php if (Yii::$app->user->can('logist') && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ): ?>
+
+        <?= $buttonToDraft ?>
+
+        <?= $form->field($model, 'comment')->hiddenInput()->label(false) ?>
+
+        <?php endif; ?>
         <?php if (Yii::$app->user->can('root') && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ): ?>
+        <?= $buttonToDraft ?>
+
         <?= Html::submitButton('Согласовать', ['class' => 'btn btn-success btn-lg', 'name' => 'order_approve', 'title' => 'Согласовать и сразу отправить на оплату']) ?>
 
         <?= Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отказать', ['class' => 'btn btn-danger btn-lg', 'name' => 'order_reject', 'title' => 'Отказать в согласовании (обязательно нужно будет указать причину согласования)']) ?>
         <?php endif; ?>
         <?php if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН): ?>
-        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('accountant')): ?>
+        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b')): ?>
         <?= Html::submitButton('Оплачено', ['class' => 'btn btn-success btn-lg', 'name' => 'order_paid', 'title' => 'Установить признак "Оплачено"']) ?>
 
         <?php endif; ?>
@@ -93,6 +108,10 @@ if ($model->pd_type != null && $model->pd_id != null) {
         <?= Html::submitButton('<i class="fa fa-refresh" aria-hidden="true"></i> Подать повторно', ['class' => 'btn btn-default btn-lg', 'name' => 'order_repeat', 'title' => 'Подать отклоненный ордер на согласование повторно']) ?>
         <?php endif; ?>
 
+        <?php if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН): ?>
+        <?= Html::submitButton('<i class="fa fa-save" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-lg', 'name' => 'cc_provided', 'title' => 'Кнопка используется только для загрузки Акта выполненных работ к уже оплаченному ордеру']) ?>
+
+        <?php endif; ?>
     </div>
     <?php ActiveForm::end(); ?>
 

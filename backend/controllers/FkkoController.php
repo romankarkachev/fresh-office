@@ -27,11 +27,21 @@ class FkkoController extends Controller
         return [
             'access' => [
                 'class' => AccessControl::className(),
-                'only' => ['index', 'create', 'update', 'delete', 'list-of-fkko-for-select2', 'clear', 'import'],
                 'rules' => [
                     [
+                        'actions' => ['list-of-fkko-for-select2'],
+                        'allow' => true,
+                        'roles' => ['@'],
+                    ],
+                    [
+                        'actions' => ['index'],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'sales_department_manager'],
+                    ],
+                    [
+                        'actions' => ['create', 'update', 'delete', 'clear', 'import', 'drop-unused'],
+                        'allow' => true,
+                        'roles' => ['root'],
                     ],
                 ],
             ],
@@ -217,7 +227,7 @@ class FkkoController extends Controller
 
                         // проверка на существование
                         // отключена, потому что группы и элементы могут быть похожими
-                        if (in_array($fkko, $exists_nom)) {
+                        if (in_array($fkko, $exists_nom, true)) {
                             $errors_import[] = 'Обнаружен дубликат: ' . $fkko . '. Пропущен.';
                             $row_number++;
                             continue;
@@ -267,5 +277,19 @@ class FkkoController extends Controller
         return $this->render('import', [
             'model' => $model,
         ]);
+    }
+
+    /**
+     * Удаляет неиспользуемые коды ФККО. Остаются только те, которые не задействованы нигде.
+     * drop-unused
+     */
+    public function actionDropUnused()
+    {
+        // все работает, раскомментировать и использовать при необходимости
+        /*
+        foreach (Fkko::find()->all() as $fkko) {
+            if (!$fkko->checkIfUsed()) $fkko->delete();
+        }
+        */
     }
 }

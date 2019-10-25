@@ -56,6 +56,16 @@ class FileStorage extends \yii\db\ActiveRecord
     public $file;
 
     /**
+     * @var integer проект (виртуальное поле)
+     */
+    public $project_id;
+
+    /**
+     * @var bool предоставленный экземпляр - скан-копия оригинала (виртуальное поле)
+     */
+    public $is_scan;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -72,7 +82,8 @@ class FileStorage extends \yii\db\ActiveRecord
             [['ffp', 'fn', 'ofn', 'file'], 'required'],
             [['ca_id', 'type_id', 'file'], 'required', 'on' => 'create'],
             [['ca_id', 'type_id'], 'required', 'on' => 'update'],
-            [['uploaded_at', 'uploaded_by', 'ca_id', 'type_id', 'size', 'needToCreateFolder'], 'integer'],
+            [['ca_id', 'type_id'], 'required', 'on' => 'bulk_import'],
+            [['uploaded_at', 'uploaded_by', 'ca_id', 'type_id', 'size', 'needToCreateFolder', 'project_id', 'is_scan'], 'integer'],
             [['ca_name', 'ffp', 'fn', 'ofn'], 'string', 'max' => 255],
             ['caFolderName', 'safe'],
             [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => UploadingFilesMeanings::className(), 'targetAttribute' => ['type_id' => 'id']],
@@ -98,6 +109,9 @@ class FileStorage extends \yii\db\ActiveRecord
             'ofn' => 'Оригинальное имя файла',
             'size' => 'Размер файла',
             'file' => 'Файл',
+            // виртуальные поля
+            'project_id' => 'Проект',
+            'is_scan' => 'Скан',
             // вычисляемые поля
             'uploadedByProfileName' => 'Загрузил',
             'typeName' => 'Тип',

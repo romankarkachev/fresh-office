@@ -9,6 +9,7 @@ use common\models\DriversFiles;
 use common\models\DriversFilesSearch;
 use common\models\UploadingFilesMeanings;
 use common\models\User;
+use backend\models\FerrymanReplacingForm;
 use dektrium\user\helpers\Password;
 use yii\helpers\Html;
 use yii\web\Controller;
@@ -42,6 +43,7 @@ class FerrymenDriversController extends Controller
                             'index', 'create', 'update', 'delete',
                             'upload-files', 'download-file', 'preview-file', 'delete-file',
                             'create-user',
+                            'replace-ferryman-form', 'validate-ferryman-replacing', 'replace-ferryman',
                         ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'head_assist'],
@@ -53,6 +55,8 @@ class FerrymenDriversController extends Controller
                 'actions' => [
                     'delete' => ['POST'],
                     'create-user' => ['POST'],
+                    'validate-ferryman-replacing' => ['POST'],
+                    'replace-ferryman' => ['POST'],
                 ],
             ],
         ];
@@ -222,7 +226,7 @@ class FerrymenDriversController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $obj_id = Yii::$app->request->post('obj_id');
-        $upload_path = DriversFiles::getUploadsFilepath();
+        $upload_path = DriversFiles::getUploadsFilepath($obj_id);
         if ($upload_path === false) return 'Невозможно создать папку для хранения загруженных файлов!';
 
         // массив загружаемых файлов
@@ -376,5 +380,58 @@ class FerrymenDriversController extends Controller
         else Yii::$app->session->setFlash('error', 'Не обнаружен водитель.');
 
         $this->redirect(['/ferrymen-drivers/update', 'id' => $driver->id]);
+    }
+
+    /**
+     * Рендерит форму приглашения перевозчика создать аккаунт в личном кабинете.
+     * @param $id integer идентификатор перевозчика, который приглашается
+     * @return mixed
+     */
+    public function actionReplaceFerrymanForm($id)
+    {
+        if (Yii::$app->request->isAjax) {
+            $id = intval($id);
+            $driver = Drivers::findOne($id);
+            if ($driver) {
+                return $this->renderAjax('/drivers/_replace_ferryman_form', [
+                    'model' => new FerrymanReplacingForm([
+                        'driver_id' => $id,
+                    ]),
+                ]);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * AJAX-валидация формы отправки приглашения.
+     */
+    public function actionValidateFerrymanReplacing()
+    {
+        $model = new FerrymanReplacingForm();
+
+        if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+            echo json_encode(\yii\widgets\ActiveForm::validate($model));
+            Yii::$app->end();
+        }
+    }
+
+    /**
+     * Отправляет приглашение перевозчику создать аккаунт в личном кабинете.
+     * @return array|bool
+     */
+    public function actionReplaceFerryman()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $model = new FerrymanReplacingForm();
+
+        if ($model->load(Yii::$app->request->post())) {
+            return $model->replaceFerryman();
+        }
+
+        return false;
     }
 }

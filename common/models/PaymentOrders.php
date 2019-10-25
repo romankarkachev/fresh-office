@@ -9,22 +9,24 @@ use yii\helpers\ArrayHelper;
 /**
  * This is the model class for table "payment_orders".
  *
- * @property integer $id
- * @property integer $created_at
- * @property integer $created_by
- * @property integer $creation_type
- * @property integer $state_id
- * @property integer $ferryman_id
- * @property string $projects
- * @property string $cas
- * @property string $vds
- * @property string $amount
- * @property integer $pd_type
- * @property integer $pd_id
- * @property string $payment_date
- * @property integer $emf_sent_at
- * @property integer $approved_at
- * @property string $comment
+ * @property int $id
+ * @property int $created_at Дата и время создания
+ * @property int $created_by Автор создания
+ * @property int $creation_type Способ создания (1 - создано вручную, 2 - импорт из файла Excel)
+ * @property int $state_id Статус
+ * @property int $ferryman_id Перевозчик
+ * @property string $projects Проекты
+ * @property string $cas Контрагенты из проектов
+ * @property string $vds Даты вывоза из проектов
+ * @property string $amount Сумма
+ * @property int $pd_type Payment destination (1 - банковский счет, 2 - перевод на карту)
+ * @property int $pd_id Ссылка на банковский счет (номер карты)
+ * @property string $pay_till Оплатить до
+ * @property string $payment_date Дата оплаты
+ * @property int $emf_sent_at Дата и время отправки письма перевозчику
+ * @property int $approved_at Дата и время согласования ордера
+ * @property int $ccp_at Дата и время прикрепления акта выполненных работ
+ * @property string $comment Комментарий
  *
  * @property string $modelRep
  * @property string $createdByProfileName
@@ -53,6 +55,16 @@ class PaymentOrders extends \yii\db\ActiveRecord
     const PAYMENT_ORDER_CREATION_TYPE_ИМПОРТ_ИЗ_EXCEL = 2;
 
     /**
+     * @var integer количество прикрепленных к платежному ордеру файлов (виртуальное поле)
+     */
+    public $paymentOrdersFilesCount;
+
+    /**
+     * @var \yii\web\UploadedFile файл с актом выполненных работ (certificate of completion)
+     */
+    public $fileCc;
+
+    /**
      * @inheritdoc
      */
     public static function tableName()
@@ -67,10 +79,12 @@ class PaymentOrders extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'projects'], 'required'],
-            [['created_at', 'created_by', 'creation_type', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'emf_sent_at', 'approved_at'], 'integer'],
+            [['created_at', 'created_by', 'creation_type', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'emf_sent_at', 'approved_at', 'ccp_at'], 'integer'],
             [['projects', 'cas', 'vds', 'comment'], 'string'],
             [['amount'], 'number'],
-            [['payment_date'], 'safe'],
+            [['pay_till', 'payment_date'], 'safe'],
+            [['comment'], 'default', 'value' => null],
+            [['fileCc'], 'file', 'skipOnEmpty' => true],
             [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
             [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentOrdersStates::className(), 'targetAttribute' => ['state_id' => 'id']],
@@ -99,10 +113,14 @@ class PaymentOrders extends \yii\db\ActiveRecord
             'amount' => 'Сумма',
             'pd_type' => 'Способ расчетов', // 1 - банковский счет, 2 - перевод на карту
             'pd_id' => 'Ссылка на банковский счет (номер карты)',
+            'pay_till' => 'Оплатить до',
             'payment_date' => 'Дата оплаты',
             'emf_sent_at' => 'Дата и время отправки письма перевозчику',
             'approved_at' => 'Дата и время согласования ордера',
+            'ccp_at' => 'Дата и время прикрепления акта выполненных работ',
             'comment' => 'Комментарий',
+            // виртуальные поля
+            'fileCc' => 'Файл с АВР',
             // вычисляемые поля
             'createdByProfileName' => 'Автор создания',
             'stateName' => 'Статус',
@@ -213,7 +231,40 @@ class PaymentOrders extends \yii\db\ActiveRecord
     }
 
     /**
-     * Возвращает массив со .
+     * @return bool
+     * @throws \yii\base\Exception
+     */
+    public function uploadCc()
+    {
+        $uploadDir = PaymentOrdersFiles::getUploadsFilepath();
+        if (!file_exists($uploadDir) && !is_dir($uploadDir)) mkdir($uploadDir, 0755);
+
+        $fn = strtolower(Yii::$app->security->generateRandomString() . '.' . $this->fileCc->extension);
+        $ffp = $uploadDir . '/' . $fn;
+        if ($this->fileCc->saveAs($ffp)) {
+            if ((new PaymentOrdersFiles([
+                'po_id' => $this->id,
+                'ffp' => $ffp,
+                'fn' => $fn,
+                'ofn' => $this->fileCc->name,
+                'size' => filesize($ffp),
+            ]))->save()) {
+                $this->updateAttributes([
+                    'ccp_at' => time(),
+                ]);
+                return true;
+            }
+            else {
+                // удаляем загруженный файл, возвратится false
+                unlink($ffp);
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Возвращает массив, содержащий способы оплаты.
      * @return array
      */
     public static function fetchPaymentDestinations()
@@ -245,6 +296,8 @@ class PaymentOrders extends \yii\db\ActiveRecord
      */
     public function calculateProjectsTotalAmount()
     {
+        $ferrymanCrm = []; // если перевозчик во всех проектах будет один и тот же, то подставим его в соответствующее поле
+
         $projects = explode(',', $this->projects);
         if (count($projects) > 0) {
             $totalAmount = 0;
@@ -261,9 +314,21 @@ class PaymentOrders extends \yii\db\ActiveRecord
                 // проект должен существовать
                 $object = DirectMSSQLQueries::fetchProjectsData($project_id);
                 if (count($object) > 0) $totalAmount += $object['cost'];
+
+                // перевозчик
+                $ferrymanCrm[] = $object['ferryman'];
             }
 
             $this->amount = $totalAmount;
+
+            // подставим в поле Перевозчик значение, если он везде один и тот же
+            $ferrymanCrm = array_unique($ferrymanCrm);
+            if (count($ferrymanCrm) == 1 && !empty($ferrymanCrm[0])) {
+                $ferryman = Ferrymen::findOne(['name_crm' => $ferrymanCrm[0]]);
+                if ($ferryman) {
+                    $this->ferryman_id = $ferryman->id;
+                }
+            }
         }
     }
 

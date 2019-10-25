@@ -70,7 +70,7 @@ return result.text;
                 </div>
                 <div class="col-md-3">
                     <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
-                        'data' => User::arrayMapForSelect2(),
+                        'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                     ]) ?>
@@ -130,9 +130,7 @@ $stateSent = ProjectsStates::STATE_ОТПРАВЛЕНО;
 
 $this->registerJs(<<<JS
 var checked = false;
-$("input").iCheck({
-    checkboxClass: 'icheckbox_square-green',
-});
+$("input").iCheck({checkboxClass: 'icheckbox_square-green'});
 
 // Обработчик щелчка по ссылке "Отметить все документы".
 //

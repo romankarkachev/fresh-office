@@ -5,15 +5,17 @@ use yii\bootstrap\ActiveForm;
 use kartik\datecontrol\DateControl;
 
 /* @var $this yii\web\View */
-/* @var $model common\models\ClosingMilestonesForm */
+/* @var $model common\models\ClosingMilestonesForm || common\models\ClosingInvoicesForm */
+/* @var string $pageTitle */
+/* @var string $prompt */
 
-$this->title = 'Закрытие этапов проектов | ' . Yii::$app->name;
-$this->params['breadcrumbs'][] = 'Закрытие этапов проектов';
+$this->title = $pageTitle . ' | ' . Yii::$app->name;
+$this->params['breadcrumbs'][] = $pageTitle;
 ?>
-<div class="ferrymen-form">
+<div class="closing-milestones-invoices-form">
     <?php $form = ActiveForm::begin(); ?>
 
-    <p>Форма предназначена для закрытия этапов в проектах.</p>
+    <p>Форма предназначена для закрытия <?= $prompt ?>.</p>
     <p>Выберите дату, применяется инклюзивный способв закрытия этапов, то есть включительно до конца выбранного дня.</p>
     <div class="row">
         <div class="col-md-2">
@@ -24,7 +26,7 @@ $this->params['breadcrumbs'][] = 'Закрытие этапов проектов
                 'displayFormat' => 'php:d.m.Y',
                 'saveFormat' => 'php:Y-m-d',
                 'widgetOptions' => [
-                    'options' => ['placeholder' => '- выберите -'],
+                    'options' => ['placeholder' => '- выберите -', 'autocomplete' => 'off'],
                     'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
                     'layout' => '<div class="input-group">{input}{picker}</div>',
                     'pluginOptions' => [

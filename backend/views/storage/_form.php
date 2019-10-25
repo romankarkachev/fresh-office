@@ -7,17 +7,19 @@ use yii\web\JsExpression;
 use kartik\select2\Select2;
 use common\models\TransportRequests;
 use common\models\UploadingFilesMeanings;
+use yii\widgets\MaskedInput;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\FileStorage */
 /* @var $form yii\bootstrap\ActiveForm */
 
 $formName = strtolower($model->formName());
+$labelProject = $model->attributeLabels()['project_id'];
 $urlFindFolderByName = Url::to(['/storage/find-folder-by-name']);
 ?>
 
 <div class="file-storage-form">
-    <?php $form = ActiveForm::begin(); ?>
+    <?php $form = ActiveForm::begin(['id' => 'frmStorage']); ?>
 
     <div class="row">
         <div class="col-md-3">
@@ -69,6 +71,20 @@ $urlFindFolderByName = Url::to(['/storage/find-folder-by-name']);
             ]) ?>
 
         </div>
+        <div id="block-project" class="collapse">
+            <div class="col-md-2">
+                <?= $form->field($model, 'project_id')->widget(MaskedInput::className(), [
+                    'mask' => '99999',
+                    'clientOptions' => ['placeholder' => ''],
+                ])->textInput(['maxlength' => true, 'placeholder' => 'ID проекта'])->label($labelProject, ['id' => 'lblProject']) ?>
+
+            </div>
+            <div class="col-md-1">
+                <label for="<?= $formName ?>-is_scan" class="control-label">Скан</label>
+                <?= $form->field($model, 'is_scan')->checkbox()->label(false) ?>
+
+            </div>
+        </div>
         <?php if ($model->isNewRecord): ?>
         <div class="col-md-2">
             <?= $form->field($model, 'file[]')->fileInput(['multiple' => true]) ?>
@@ -94,8 +110,11 @@ $urlFindFolderByName = Url::to(['/storage/find-folder-by-name']);
 </div>
 <?php
 $urlFindFolderByName = Url::to(['/storage/find-folder-by-name']);
+$urlProjectOnChange = Url::to(['/storage/project-on-change']);
 
 $this->registerJs(<<<JS
+$("input[type='checkbox']").iCheck({checkboxClass: "icheckbox_square-green"});
+
 // Обработчик изменения значения в поле "Контрагент".
 //
 function caOnChange() {
@@ -115,6 +134,54 @@ function caOnChange() {
         });        
     }
 } // caOnChange()
+
+// Обработчик изменения значения в поле "Тип контента".
+//
+function typeOnChange() {
+    if ($(this).val() == "2") {
+        $("#block-project").show();
+    }
+    else {
+        $("#$formName-project_id").val("");
+        $("#block-project").hide();
+    }
+} // typeOnChange()
+
+// Обработчик изменения значения в поле "Проект".
+//
+function projectOnChange() {
+    project_id = $("#$formName-project_id").val();
+    if ((project_id != "") && (project_id != undefined)) {
+        \$label = $("#lblProject");
+        \$label.html("$labelProject &nbsp;<i class=\"fa fa-spinner fa-pulse fa-fw text-primary\"></i>");
+        $.get("$urlProjectOnChange?project_id=" + project_id, function(response) {
+            if (response != false) {
+                var newOption = new Option(response.name, response.id, true, true);
+                $("#$formName-ca_id").append(newOption).trigger("change");
+            }
+        }).always(function() {
+            \$label.html("$labelProject");
+        });;
+    }
+} // projectOnChange()
+
+$("#frmStorage").keydown(function(event) {
+    if (event.keyCode == 13) {
+        event.preventDefault();
+        return false;
+    }
+});
+
+/*
+$("#$formName-project_id").on("keypress", function (e) {
+     if (e.which === 13) {
+        projectOnChange();
+     }
+});
+*/
+
+$(document).on("change", "#$formName-type_id", typeOnChange);
+$(document).on("change", "#$formName-project_id", projectOnChange);
 JS
 , \yii\web\View::POS_READY);
 ?>

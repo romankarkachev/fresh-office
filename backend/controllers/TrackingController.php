@@ -2,12 +2,14 @@
 
 namespace backend\controllers;
 
+use common\models\CorrespondencePackages;
 use Yii;
 use yii\helpers\Json;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\httpclient\Client;
 use common\models\PostDeliveryKinds;
+use common\models\DadataAPI;
 
 /**
  * Контроллер для ослеживания отправлений Почты России и компании Major Express.
@@ -55,12 +57,14 @@ class TrackingController extends Controller
 
     /**
      * Выполняет проверку вручения или отслеживание отправления. Если передается параметр $full, то будет возвращен список
-     * движений по отправлению. Если не передается, то будет выполнена проверка вручения и результат типа bool.
+     * движений по отправлению. Если не передается, то будет выполнена проверка вручения и результат типа timestamp.
      * @param $track_num string трек-номер отправления
-     * @param null $full при наличии значения в переменной будет возвращен полный спиок движений по отправлению
-     * @return bool|string
+     * @param $full bool при наличии значения в переменной будет возвращен полный спиок движений по отправлению
+     * @param $cp CorrespondencePackages
+     * @return bool|false|int|string
+     * @throws \yii\base\InvalidConfigException
      */
-    public static function trackPochtaRu($track_num, $full = null)
+    public static function trackPochtaRu($track_num, $full = null, $cp = null)
     {
         $client2 = new \SoapClient(self::POCHTA_RU_API_URL, ['trace' => 1, 'soap_version' => SOAP_1_2]);
 
@@ -80,7 +84,6 @@ class TrackingController extends Controller
             $history = $result->OperationHistoryData->historyRecord;
         }
         catch (\Exception $exception) {
-            //var_dump($exception);
             return false;
         }
 
@@ -99,6 +102,18 @@ class TrackingController extends Controller
         }
         else
             if (is_array($history)) foreach ($history as $record) {
+                // коды операций: https://tracking.pochta.ru/support/dictionaries/operation_codes
+                if (!empty($cp) && empty($cp->delivery_notified_at) && $record->OperationParameters->OperType->Id == 8 && $record->OperationParameters->OperAttr->Id == 2) {
+                    // 8 - операция Обработка, 2 - Прибыло в место вручения
+                    // отправим уведомление контактному лицу о том, что посылка прибыла в почтовое отделение
+                    if ($cp->sendClientNotification(CorrespondencePackages::NF_ARRIVED)) {
+                        // и пометим, что отправили такое уведомление (чтобы это было один раз в жизни)
+                        $cp->updateAttributes([
+                            'delivery_notified_at' => strtotime($record->OperationParameters->OperDate),
+                        ]);
+                    }
+                }
+
                 if ($record->OperationParameters->OperType->Id == 2) { // 2 - операция Вручение на Почте России
                     return strtotime($record->OperationParameters->OperDate);
                 }
@@ -156,7 +171,7 @@ class TrackingController extends Controller
     }
 
     /**
-     * Выполняет нормализацию адреса, переданного в параметрах.
+     * Выполняет нормализацию адреса, переданного в параметрах, при помощи API Почты России.
      * @param $address string
      * @return array|bool
      */
@@ -180,7 +195,6 @@ class TrackingController extends Controller
                 'Content-Type' => 'application/json;charset=UTF-8',
             ])->send();
 
-        var_dump($response);
         if ($response->isOk) {
             // извлекаем результат, берем первый элемент массива
             $data = $response->getData();
@@ -335,6 +349,25 @@ class TrackingController extends Controller
     }
 
     /**
+     * Раскладывает ответ сервиса Dadata в виде массива в строку.
+     * @param $data array входной массив
+     * @return string
+     */
+    public static function implodeDadataAnswerToString($data)
+    {
+        $result = '';
+        if (isset($data['region_with_type'])) $result = $data['region_with_type'] . ', ';
+        if (isset($data['city_with_type']) && $result != '' && $data['region_with_type'] != $data['city_with_type']) $result = trim($result) . ' ' . $data['city_with_type'] . ', ';
+        if (isset($data['street'])) $result = trim($result) . ' ' . $data['street_type_full'] . ' ' . $data['street'] . ', ';
+        if (isset($data['house'])) $result = trim($result) . ' д.' . $data['house'] . ', ';
+        if (isset($data['building'])) $result = trim($result) . ' стр.' . $data['building'];
+        $result = trim($result, ', ');
+
+        if ($result == '') $result = $data['original-address'];
+        return $result;
+    }
+
+    /**
      * @param $pd_id integer способ доставки
      * @param $track_num string трек-номер отправления
      * @return bool|string
@@ -369,6 +402,18 @@ class TrackingController extends Controller
      */
     public function actionNormalizeAddress($address)
     {
+        $data = DadataAPI::cleanAddress($address);
+        if ($data !== false) {
+            Yii::$app->response->format = Response::FORMAT_JSON;
+
+            return [
+                'index' => $data['postal_code'],
+                'address' => self::implodeDadataAnswerToString($data),
+            ];
+        }
+
+        // Почта России (отключено из-за низкого качества оказания услуги)
+        /*
         $data = self::pochtaRuNormalizeAddress($address);
         if ($data !== false) {
             Yii::$app->response->format = Response::FORMAT_JSON;
@@ -379,6 +424,7 @@ class TrackingController extends Controller
                 'address' => self::implodePochtaRuAnswerToString($data),
             ];
         }
+        */
 
         return false;
     }

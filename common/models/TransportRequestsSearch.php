@@ -55,7 +55,7 @@ class TransportRequestsSearch extends TransportRequests
     public function rules()
     {
         return [
-            [['id', 'created_at', 'created_by', 'finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free', 'searchFkko', 'searchTransportType', 'searchOnlyFavorite'], 'integer'],
+            [['id', 'created_at', 'created_by', 'finished_at', 'finished_by', 'customer_id', 'region_id', 'city_id', 'state_id', 'our_loading', 'periodicity_id', 'spec_free', 'searchFkko', 'searchTransportType', 'searchOnlyFavorite'], 'integer'],
             [['customer_name', 'address', 'comment_manager', 'comment_logist', 'special_conditions', 'spec_hose', 'spec_cond', 'searchDateStart', 'searchDateEnd', 'searchFkkoName'], 'safe'],
         ];
     }
@@ -188,6 +188,10 @@ class TransportRequestsSearch extends TransportRequests
                         'asc' => ['profile.name' => SORT_ASC],
                         'desc' => ['profile.name' => SORT_DESC],
                     ],
+                    'finishedByProfileName' => [
+                        'asc' => ['finishedByProfile.name' => SORT_ASC],
+                        'desc' => ['finishedByProfile.name' => SORT_DESC],
+                    ],
                     'regionName' => [
                         'asc' => ['region.name' => SORT_ASC],
                         'desc' => ['region.name' => SORT_DESC],
@@ -211,7 +215,7 @@ class TransportRequestsSearch extends TransportRequests
         ]);
 
         $this->load($params);
-        $query->joinWith(['createdByProfile', 'region', 'city', 'state', 'periodicity']);
+        $query->joinWith(['createdByProfile', 'finishedByProfile', 'region', 'city', 'state', 'periodicity']);
 
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails
@@ -279,8 +283,9 @@ class TransportRequestsSearch extends TransportRequests
         }
 
         $query->andFilterWhere([
-            'transport_requests.created_by' => $this->created_by,
-            'finished_at' => $this->finished_at,
+            parent::tableName() . '.created_by' => $this->created_by,
+            parent::tableName() . '.finished_at' => $this->finished_at,
+            parent::tableName() . '.finished_by' => $this->finished_by,
             'customer_id' => $this->customer_id,
             'transport_requests.region_id' => $this->region_id,
             'city_id' => $this->city_id,

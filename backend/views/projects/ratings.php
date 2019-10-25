@@ -41,7 +41,15 @@ if ($isDetailed) {
             },
         ],
         'rated_at:datetime',
-        'ratedByProfileName',
+        [
+            'attribute' => 'ratedByProfileName',
+            'value' => function ($model, $key, $index, $column) {
+                /* @var $model \common\models\ProjectsRatings */
+                /* @var $column \yii\grid\DataColumn */
+
+                return !empty($model->email) ? $model->email : $model->{$column->attribute};
+            },
+        ],
     ];
 }
 else {

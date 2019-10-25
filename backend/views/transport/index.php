@@ -42,7 +42,7 @@ $this->params['breadcrumbs'][] = 'Транспорт';
             'stateName',
             'brandName',
             'ttName',
-            'ttUnloadingTime',
+            //'ttUnloadingTime',
             // колонка преобразована в другую и скрыта за ненадобностью
             [
                 'header' => 'VIN и госномер',
@@ -51,8 +51,8 @@ $this->params['breadcrumbs'][] = 'Транспорт';
                     /** @var $column \yii\grid\DataColumn */
 
                     $result = $model->vin;
-                    if ($model->rn != null && $model->rn != '') $result .= ' г/н ' . $model->rn;
-                    if ($model->trailer_rn != null && $model->trailer_rn != '') $result .= ' прицеп ' . $model->trailer_rn;
+                    if (!empty($model->rn)) $result .= ' г/н ' . $model->rn;
+                    if (!empty($model->trailer_rn)) $result .= ' прицеп ' . $model->trailer_rn;
                     return $result;
                 },
                 'visible' => false,
@@ -116,4 +116,5 @@ $this->params['breadcrumbs'][] = 'Транспорт';
             ],
         ],
     ]); ?>
+
 </div>

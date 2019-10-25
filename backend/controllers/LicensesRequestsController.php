@@ -21,6 +21,36 @@ use kartik\mpdf\Pdf;
 class LicensesRequestsController extends Controller
 {
     /**
+     * URL, применяемый для сортировки и постраничного перехода
+     */
+    const ROOT_URL_FOR_SORT_PAGING = 'licenses-requests';
+
+    /**
+     * URL, ведущий в список записей без отбора
+     */
+    const ROOT_URL_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING];
+
+    /**
+     * URL для создания записи
+     */
+    const URL_CREATE = 'create';
+
+    /**
+     * URL для создания записи в виде массива
+     */
+    const URL_CREATE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_CREATE];
+
+    /**
+     * URL для дублирования записи
+     */
+    const URL_COPY = 'copy';
+
+    /**
+     * URL для дублирования записи в виде массива
+     */
+    const URL_COPY_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_COPY];
+
+    /**
      * @inheritdoc
      */
     public function behaviors()
@@ -30,24 +60,19 @@ class LicensesRequestsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['index'],
+                        'actions' => ['index', 'create', 'fkko-list'],
                         'allow' => true,
-                        'roles' => ['root', 'sales_department_head', 'sales_department_manager'],
+                        'roles' => ['root', 'sales_department_head', 'sales_department_manager', 'dpc_head', 'tenders_manager'],
                     ],
                     [
-                        'actions' => ['update', 'wizard'],
+                        'actions' => [self::URL_CREATE, self::URL_COPY, 'update', 'wizard'],
                         'allow' => true,
-                        'roles' => ['root', 'sales_department_head'],
+                        'roles' => ['root', 'sales_department_head', 'sales_department_manager'],
                     ],
                     [
                         'actions' => ['delete'],
                         'allow' => true,
                         'roles' => ['root'],
-                    ],
-                    [
-                        'actions' => ['create', 'fkko-list'],
-                        'allow' => true,
-                        'roles' => ['root', 'sales_department_head', 'sales_department_manager'],
                     ],
                 ],
             ],
@@ -132,6 +157,7 @@ class LicensesRequestsController extends Controller
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'searchApplied' => !empty(Yii::$app->request->get($searchModel->formName())),
         ]);
     }
 
@@ -196,6 +222,30 @@ class LicensesRequestsController extends Controller
         return $this->render('create', [
             'model' => $model,
         ]);
+    }
+
+    /**
+     * Выполняет копирование записи.
+     * @param $id integer идентификатор записи-источника
+     * @return mixed
+     * @throws NotFoundHttpException if the model cannot be found
+     */
+    public function actionCopy($id)
+    {
+        $model = new LicensesRequests();
+        $origin = $this->findModel($id);
+        if ($origin != null) {
+            $model->attributes = $origin->attributes;
+            $model->fkkosTextarea = $origin->licensesRequestsFkkosTextarea;
+
+            return $this->render('create', [
+                'model' => $model,
+                'formAction' => Url::to(self::URL_CREATE_AS_ARRAY),
+            ]);
+        }
+
+        Yii::$app->session->setFlash('error', 'Запись-источник не обнаружена. Создание копии невозможно.');
+        return $this->redirect(self::ROOT_URL_AS_ARRAY);
     }
 
     /**

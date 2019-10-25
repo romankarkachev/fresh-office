@@ -99,7 +99,7 @@ class AppealsFiles extends \yii\db\ActiveRecord
             if (!FileHelper::createDirectory($filepath, 0775, true)) return false;
         }
 
-        return $filepath;
+        return realpath($filepath);
     }
 
     /**

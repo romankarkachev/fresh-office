@@ -2,7 +2,6 @@
 
 namespace backend\controllers;
 
-use common\models\User;
 use Yii;
 use common\models\DirectMSSQLQueries;
 use common\models\foProjects;
@@ -12,6 +11,12 @@ use common\models\FerrymanOrderForm;
 use common\models\Ferrymen;
 use common\models\Projects;
 use common\models\ProjectsRatingsSearch;
+use common\models\ProductionFeedbackFiles;
+use common\models\CustomerRatingProposalForm;
+use common\models\ProjectsRatings;
+use common\models\foCompany;
+use common\models\foListEmailClient;
+use common\models\ExportWasteReminderForm;
 use moonland\phpexcel\Excel;
 use yii\bootstrap\ActiveForm;
 use yii\data\ArrayDataProvider;
@@ -23,12 +28,19 @@ use yii\web\NotFoundHttpException;
 use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
+use yii\web\UploadedFile;
 
 /**
  * Работа с проектами Fresh Office.
  */
 class ProjectsController extends Controller
 {
+    /**
+     * Типы документов для автоматического формирования
+     */
+    const GENERATE_DOCUMENT_TTN = 1;
+    const GENERATE_DOCUMENT_APP = 2;
+
     /**
      * @inheritdoc
      */
@@ -44,14 +56,12 @@ class ProjectsController extends Controller
                         'roles' => ['@'],
                     ],
                     [
-                        'actions' => ['ratings', 'states-matrix'],
+                        'actions' => ['send-rating-proposal', 'render-rating-proposal-fields', 'validate-rating-proposal', 'states-matrix', 'drop-production-files'],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
                     [
-                        'actions' => [
-                            'ferrymen-casting', 'cast-ferryman-by-region',
-                        ],
+                        'actions' => ['ferrymen-casting', 'cast-ferryman-by-region', 'ratings'],
                         'allow' => true,
                         'roles' => ['root', 'logist'],
                     ],
@@ -61,6 +71,7 @@ class ProjectsController extends Controller
                             'assign-ferryman-form', 'compose-ferryman-fields', 'assign-ferryman',
                             'create-order-by-selection',
                             'ferryman-order-form', 'validate-ferryman-order', 'export-ferryman-order',
+                            'generate-document', 'export-waste-reminder-form', 'send-export-waste-reminder',
                         ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'sales_department_manager', 'head_assist'],
@@ -72,6 +83,7 @@ class ProjectsController extends Controller
                 'actions' => [
                     'assign-ferryman' => ['POST'],
                     'export-ferryman-order' => ['POST'],
+                    'drop-production-files' => ['POST'],
                 ],
             ],
         ];
@@ -97,6 +109,7 @@ class ProjectsController extends Controller
 
     /**
      * Отображает список проектов с оценками, выставленными клиентами.
+     * send-rating-proposal
      * @return mixed
      */
     public function actionRatings()
@@ -112,6 +125,107 @@ class ProjectsController extends Controller
             'isDetailed' => !empty($searchModel->searchDetailed),
             'searchApplied' => $searchApplied,
         ]);
+    }
+
+    /**
+     * Отображает форму отправки клиенту предложения оценить работу по проекту и отправляет его.
+     *
+     * @return mixed
+     * @throws \yii\base\Exception
+     * @throws \yii\db\StaleObjectException
+     */
+    public function actionSendRatingProposal()
+    {
+        $model = new CustomerRatingProposalForm();
+        if (Yii::$app->request->isPost) {
+            if ($model->load(Yii::$app->request->post())) {
+                $ratingExist = ProjectsRatings::findOne(['project_id' => $model->project_id]);
+                if ($ratingExist !== null) {
+                    Yii::$app->session->setFlash('error', 'Повторная отправка возможности оценить работу по проекту недопустима.');
+                } else {
+                    if ($model->validate()) {
+                        $rating = new ProjectsRatings([
+                            'project_id' => $model->project_id,
+                            'ca_id' => $model->ca_id,
+                            'token' => Yii::$app->security->generateRandomString(),
+                            'email' => $model->email,
+                        ]);
+                        if ($rating->save()) {
+                            $mailer = Yii::$app->mailer;
+                            $mailer->htmlLayout = 'layouts/html_stars';
+                            $letter = $mailer->compose([
+                                'html' => 'projectRatingByCustomer-html',
+                            ], [
+                                'project_id' => $model->project_id,
+                                'token' => $rating->token,
+                            ])
+                                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderPorfirius']])
+                                ->setTo($model->email)
+                                //->setTo('bugrovap@gmail.com')
+                                ->setSubject('Оценка качества / контроль качества услуг');
+
+                            if ($letter->send()) {
+                                Yii::$app->session->setFlash('success', 'Приглашение оценить работу отправлено успешно.');
+                                return $this->redirect(['/projects/send-rating-proposal']);
+                            } else {
+                                // если не удалось отправить письмо, удаляем и запись для голосования
+                                $rating->delete();
+                                Yii::$app->session->setFlash('error', 'Отправка письма завершилась ошибкой.');
+                            }
+                        } else {
+                            Yii::$app->session->setFlash('error', 'Не удалось создать запись в таблице рейтингов.');
+                        }
+                    } else {
+                        //Yii::$app->session->setFlash('success', 'Иста всему');
+                    }
+                }
+            } else {
+
+            }
+        } else {
+
+        }
+
+        return $this->render('_rating_proposal_form', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * render-rating-proposal-fields
+     * @param $project_id integer проект, контрагент, контактные лица и E-mail которого запрашиваются
+     * @return mixed
+     */
+    public function actionRenderRatingProposalFields($project_id)
+    {
+        $project = foProjects::findOne($project_id);
+        if ($project) {
+            $ratingExist = ProjectsRatings::findOne(['project_id' => $project_id]);
+            if ($ratingExist === null) {
+                $ca = foCompany::findOne($project->ID_COMPANY);
+                if ($ca) {
+                    $email = foListEmailClient::find()->select('email')->where(['ID_COMPANY' => $project->ID_COMPANY, 'ID_CONTACT_MAN' => $project->ID_CONTACT_MAN])->one();
+                    $model = new CustomerRatingProposalForm([
+                        'ca_id' => $project->ID_COMPANY,
+                        'ca_name' => $ca->COMPANY_NAME,
+                        'cp_id' => $project->ID_CONTACT_MAN,
+                    ]);
+
+                    if (!empty($email)) {
+                        $model->email = $email->email;
+                    }
+
+                    return $this->renderAjax('_fields_crpf', [
+                        'model' => $model,
+                        'form' => ActiveForm::begin(),
+                    ]);
+                }
+            } else {
+                return $this->renderPartial('_rating_exists');
+            }
+        }
+
+        return '';
     }
 
     /**
@@ -138,15 +252,14 @@ class ProjectsController extends Controller
 
             Excel::export([
                 'models' => $dataProvider->getModels(),
-                'fileName' => 'Матрица статусов проектов (сформирован '.date('Y-m-d в H i').').xlsx',
+                'fileName' => 'Матрица статусов проектов (сформирован ' . date('Y-m-d в H i') . ').xlsx',
                 'format' => 'Excel2007',
                 'columns' => $columns,
             ]);
-        }
-        else {
+        } else {
             // в кнопку Экспорт в Excel встраиваем строку запроса
             $queryString = '';
-            if (Yii::$app->request->queryString != '') $queryString = '&'.Yii::$app->request->queryString;
+            if (Yii::$app->request->queryString != '') $queryString = '&' . Yii::$app->request->queryString;
 
             // для таблицы GridView уберем поле header, чтобы можно было сортировать по колонкам
             $searchModel->removeSortColumn($columns, 'header');
@@ -204,8 +317,7 @@ class ProjectsController extends Controller
                         'projects.*',
                         'ferrymanRep' => new Expression('CASE WHEN ferryman_id IS NULL THEN ferryman_origin ELSE ferrymen.name END')
                     ])->where(['region_id' => intval($region_id)])->joinWith('ferryman')->all();
-            }
-            else {
+            } else {
                 $data = Projects::find()
                     ->select([
                         'cityNames' => 'GROUP_CONCAT(DISTINCT city.name ORDER BY city.name SEPARATOR ", ")',
@@ -409,7 +521,7 @@ class ProjectsController extends Controller
     }
 
     /**
-     * Заполняет данными заявку по шаблону, заменяя в нем переменные. Отдает на скачивание готовый файл.
+     * Заполняет данными заявку на перевозку по шаблону, заменяя в нем переменные. Отдает на скачивание готовый файл.
      * Выходной файл не сохраняется.
      * @throws NotFoundHttpException
      */
@@ -461,13 +573,9 @@ class ProjectsController extends Controller
 
             // стоимость
             $spellout = Yii::$app->formatter->asSpellout($model->amount);
-            /*
-            $spellout = str_replace('целых', 'руб.', $spellout);
-            $spellout = str_replace('сотых', 'коп.', $spellout);
-            */
             $spellout = str_replace('целых', ' ', $spellout);
             $spellout = str_replace('сотых', '', $spellout);
-            $amount = Yii::$app->formatter->asDecimal($model->amount) . ' (' . $spellout . ') руб. б/нал. ' . ($model->hasVat == 0 ? 'без НДС' : 'с НДС') . ' 10 б/д по ФТТН';
+            $amount = Yii::$app->formatter->asDecimal($model->amount) . ' (' . $spellout . ') руб. безнал в течение 10 (десяти) банковских дней, по сканам счета, акта, сч-ф, сопроводительных транспортных документов и скана квитка об отправке оригиналов';
 
             // представление транспорнтого средства
             $transportRep = '';
@@ -523,6 +631,192 @@ class ProjectsController extends Controller
 
             \Yii::$app->response->sendFile($ffp, $rn, ['mimeType' => 'application/docx']);
             if (file_exists($ffp)) unlink($ffp);
+        }
+    }
+
+    /**
+     * Производит удаление файлов производства.
+     * drop-production-files
+     */
+    public function actionDropProductionFiles($id)
+    {
+        $iterator = 0;
+
+        foreach (ProductionFeedbackFiles::find()->where(['project_id' => $id])->all() as $model) {
+            if ($model->delete()) $iterator++;
+        }
+
+        if ($iterator > 0) Yii::$app->session->set('success', 'Файлы от производства по проекту ' . $id . ' успешно удалены.');
+
+        return $this->redirect(['/projects']);
+    }
+
+    /**
+     * Записывает в сессию идентификатор проекта, по которому будет генерироваться документ, и перенаправляет в
+     * соответствующий раздел.
+     * generate-document
+     * @param $doc_type
+     * @param $project_id
+     * @return mixed
+     */
+    public function actionGenerateDocument($doc_type, $project_id)
+    {
+        switch ($doc_type) {
+            case self::GENERATE_DOCUMENT_TTN:
+                Yii::$app->session->set('id_for_generating_ttn_' . Yii::$app->user->id, $project_id);
+                return $this->redirect(['/documents/generate-ttn']);
+            case self::GENERATE_DOCUMENT_APP:
+                Yii::$app->session->set('id_for_generating_app_' . Yii::$app->user->id, $project_id);
+                return $this->redirect(['/documents/generate-app']);
+                break;
+        }
+    }
+
+    /**
+     * Рендерит форму, из которой можно отправить напоминание клиенту о том, что вскоре состоится вывоз отходов.
+     * @param $id integer идентификатор проекта
+     * @return mixed
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionExportWasteReminderForm($id)
+    {
+        $model = new ExportWasteReminderForm([
+            'project' => foProjects::findOne($id),
+        ]);
+
+        if ($model->project) {
+            $model->date = Yii::$app->formatter->asDate($model->project->ADD_vivozdate, 'php:Y-m-d');
+            $model->email = $model->project->contactPersonEmailValue;
+
+            if (!empty($model->project->ADD_dannie)) {
+                $ferryman = Ferrymen::findOne(['name_crm' => $model->project->ADD_perevoz]);
+                if ($ferryman) {
+                    $data = str_replace(chr(32), '', mb_strtolower($model->project->ADD_dannie));
+                    $data = str_replace('/', '', $data);
+                    $data = str_replace('\\', '', $data);
+
+                    // перевозчик идентифицирован, теперь попробуем найти у него такой транспорт
+                    $transport_info = $ferryman->tryToIdentifyTransport($data);
+
+                    if (empty($transport_info)) {
+                        // информация о транспортном средстве не обнаружена, просто вставляем данные проекта
+                        $model->transport_info = $model->project->ADD_dannie;
+                    } else {
+                        // данные о транспортном средстве собраны, выводим их в поле
+                        $model->transport_info = $transport_info;
+                    }
+
+                    unset($transport_info);
+
+                    // найдем водителя
+                    $driver_info = '';
+                    foreach ($ferryman->drivers as $driver) {
+                        /* @var $driver \common\models\Drivers */
+                        $driverName = mb_strtolower(trim($driver->surname) . trim($driver->name));
+                        $driverSurname = mb_strtolower(trim($driver->surname) . trim($driver->name) . trim($driver->patronymic));
+                        if (false !== stripos($data, $driver->driver_license_index) || false !== stripos($data, $driverName) || false !== stripos($data, $driverSurname)) {
+                            // водитель такой наден, зафиксируем это
+                            $array = [];
+
+                            if (!empty($driver->surname)) {
+                                $array[] = $driver->surname;
+                            }
+
+                            if (!empty($driver->name)) {
+                                $array[] = $driver->name;
+                            }
+
+                            if (!empty($driver->patronymic)) {
+                                $array[] = $driver->patronymic;
+                            }
+
+                            if (!empty($driver->pass_serie)) {
+                                $array[] = $driver->pass_serie;
+                            }
+
+                            if (!empty($driver->pass_num)) {
+                                $array[] = $driver->pass_num;
+                            }
+
+                            if (!empty($driver->pass_issued_by)) {
+                                $array[] = $driver->pass_issued_by;
+                            }
+
+                            if (!empty($driver->pass_issued_at)) {
+                                $array[] = Yii::$app->formatter->asDate($driver->pass_issued_at, 'php:d.m.Y г.');
+                            }
+
+                            $driver_info .= trim(implode(' ', $array));
+                            unset($array);
+
+                            break;
+                        }
+                    }
+
+                    if (empty($driver_info)) {
+                        // информация о водителе не обнаружена, просто вставляем данные проекта
+                        $model->driver_info = $model->project->ADD_dannie;
+                    } else {
+                        // данные о водителе собраны, выводим их в поле
+                        $model->driver_info = $driver_info;
+                    }
+                    unset($driver_info);
+                }
+            }
+        }
+
+        return $this->renderAjax('_export_waste_reminder_form', [
+            'model' => $model,
+        ]);
+    }
+
+    /**
+     * Выполняет отправку уведомления клиенту о предстоящем вывозе отходов.
+     * @return mixed
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionSendExportWasteReminder()
+    {
+        $model = new ExportWasteReminderForm();
+
+        if ($model->load(Yii::$app->request->post())) {
+            $letter = Yii::$app->mailer->compose([
+                'html' => 'exportWasteComing-html',
+            ], [
+                'model' => $model,
+            ])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderPorfirius']])
+                ->setTo($model->email)
+                ->setSubject('Вывоз на ' . Yii::$app->formatter->asDate($model->date, 'php:d.m.Y г.'));
+
+            $filesToDelete = [];
+            $model->files = UploadedFile::getInstances($model, 'files');
+            if (count($model->files) > 0) {
+                $pifp = realpath(Yii::getAlias('@uploads-temp-pdfs'));
+
+                foreach ($model->files as $file) {
+                    $fileAttached_fn = strtolower(Yii::$app->security->generateRandomString() . '.' . $file->extension);
+                    $fileAttached_ffp = $pifp . '/' . $fileAttached_fn;
+
+                    if ($file->saveAs($fileAttached_ffp)) {
+                        $letter->attach($fileAttached_ffp, ['fileName' => $file->name]);
+                        $filesToDelete[] = $fileAttached_ffp;
+                    }
+                }
+            }
+
+            if ($letter->send()) {
+                Yii::$app->session->setFlash('success', 'Уведомление о вывозе успешно отправлено.');
+            }
+            else {
+                Yii::$app->session->setFlash('error', 'Уведомление клиенту в предстоящем вывозе не было отправлено.');
+            }
+
+            foreach ($filesToDelete as $file) {
+                if (file_exists($file)) unlink($file);
+            }
+
+            return $this->redirect(['/projects']);
         }
     }
 }

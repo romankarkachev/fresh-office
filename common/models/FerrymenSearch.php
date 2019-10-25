@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use common\models\Ferrymen;
+use yii\helpers\ArrayHelper;
 
 /**
  * FerrymenSearch represents the model behind the search form about `common\models\Ferrymen`.
@@ -13,10 +14,14 @@ use common\models\Ferrymen;
 class FerrymenSearch extends Ferrymen
 {
     /**
-     * Универсальная переменная для поиска по всем полям.
-     * @var string
+     * @var string универсальная переменная для поиска по всем полям
      */
     public $searchEntire;
+
+    /**
+     * @var integer поле для отбора по типу транспорта
+     */
+    public $searchTransportType;
 
     /**
      * @inheritdoc
@@ -24,8 +29,8 @@ class FerrymenSearch extends Ferrymen
     public function rules()
     {
         return [
-            [['id', 'ft_id', 'pc_id'], 'integer'],
-            [['name', 'phone', 'email', 'contact_person', 'searchEntire'], 'safe'],
+            [['id', 'created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created', 'user_id', 'ppdq', 'searchTransportType'], 'integer'],
+            [['name', 'name_crm', 'name_full', 'name_short', 'inn', 'kpp', 'ogrn', 'address_j', 'address_f', 'phone', 'email', 'contact_person', 'post', 'phone_dir', 'email_dir', 'contact_person_dir', 'post_dir', 'ati_code', 'contract_expires_at', 'searchEntire'], 'safe'],
         ];
     }
 
@@ -34,9 +39,10 @@ class FerrymenSearch extends Ferrymen
      */
     public function attributeLabels()
     {
-        return [
+        return ArrayHelper::merge(parent::attributeLabels(), [
             'searchEntire' => 'Универсальный поиск',
-        ];
+            'searchTransportType' => 'Тип транспорта',
+        ]);
     }
 
     /**
@@ -131,14 +137,37 @@ class FerrymenSearch extends Ferrymen
             return $dataProvider;
         }
 
+        // возможный отбор по типу транспорта
+        if (!empty($this->searchTransportType)) {
+            $query->leftJoin(['stt' => (new \yii\db\Query())->select([
+                'ferryman_id',
+                'sttCount' => 'COUNT(`tt_id`)',
+            ])->from(Transport::tableName())->andWhere([
+                'tt_id' => $this->searchTransportType,
+            ])->groupBy(['ferryman_id'])], 'stt.ferryman_id = ' . new \yii\db\Expression('`' . Ferrymen::tableName() . '`.`id`'));
+            $query->andWhere('`stt`.`sttCount` IS NOT NULL AND `stt`.`sttCount` > 0');
+        }
+
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
+            'created_at' => $this->created_at,
+            'created_by' => $this->created_by,
+            'updated_at' => $this->updated_at,
+            'updated_by' => $this->updated_by,
+            'fo_id' => $this->fo_id,
+            'opfh_id' => $this->opfh_id,
+            'tax_kind' => $this->tax_kind,
             'ft_id' => $this->ft_id,
             'pc_id' => $this->pc_id,
+            'state_id' => $this->state_id,
+            'contract_expires_at' => $this->contract_expires_at,
+            'notify_when_payment_orders_created' => $this->notify_when_payment_orders_created,
+            'user_id' => $this->user_id,
+            'ppdq' => $this->ppdq,
         ]);
 
-        if ($this->searchEntire != null && $this->searchEntire != '')
+        if (!empty($this->searchEntire != null))
             $query->andFilterWhere([
                 'or',
                 ['like', 'ferrymen.name', $this->searchEntire],
@@ -149,9 +178,23 @@ class FerrymenSearch extends Ferrymen
             ]);
         else
             $query->andFilterWhere(['like', 'ferrymen.name', $this->name])
+                ->andFilterWhere(['like', 'ferrymen.name_crm', $this->name_crm])
+                ->andFilterWhere(['like', 'ferrymen.name_full', $this->name_full])
+                ->andFilterWhere(['like', 'ferrymen.name_short', $this->name_short])
+                ->andFilterWhere(['like', 'ferrymen.inn', $this->inn])
+                ->andFilterWhere(['like', 'ferrymen.kpp', $this->kpp])
+                ->andFilterWhere(['like', 'ferrymen.ogrn', $this->ogrn])
+                ->andFilterWhere(['like', 'ferrymen.address_j', $this->address_j])
+                ->andFilterWhere(['like', 'ferrymen.address_f', $this->address_f])
                 ->andFilterWhere(['like', 'ferrymen.phone', $this->phone])
                 ->andFilterWhere(['like', 'ferrymen.email', $this->email])
-                ->andFilterWhere(['like', 'contact_person', $this->contact_person]);
+                ->andFilterWhere(['like', 'ferrymen.contact_person', $this->contact_person])
+                ->andFilterWhere(['like', 'ferrymen.post', $this->post])
+                ->andFilterWhere(['like', 'ferrymen.phone_dir', $this->phone_dir])
+                ->andFilterWhere(['like', 'ferrymen.email_dir', $this->email_dir])
+                ->andFilterWhere(['like', 'ferrymen.contact_person_dir', $this->contact_person_dir])
+                ->andFilterWhere(['like', 'ferrymen.post_dir', $this->post_dir])
+                ->andFilterWhere(['like', 'ferrymen.ati_code', $this->ati_code]);
 
         return $dataProvider;
     }

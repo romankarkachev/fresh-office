@@ -14,6 +14,7 @@ use kartik\datecontrol\DateControl;
     'saveFormat' => 'php:Y-m-d',
     'widgetOptions' => [
         'layout' => '{input}{picker}',
+        'size' => 'sm',
         'options' => ['placeholder' => '- выберите дату -'],
         'pluginOptions' => [
             'weekStart' => 1,

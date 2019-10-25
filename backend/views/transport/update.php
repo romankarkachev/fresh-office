@@ -22,7 +22,7 @@ $this->params['breadcrumbs'][] = 'Автомобиль ' . $modelRepresentation;
 
     <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
 
-    <?php if (Yii::$app->user->can('root')): ?>
+    <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('logist')): ?>
     <?= FileInput::widget([
         'id' => 'new_files',
         'name' => 'files[]',

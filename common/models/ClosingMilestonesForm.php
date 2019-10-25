@@ -16,8 +16,7 @@ class ClosingMilestonesForm extends Model
     const STATE_CLOSED = 9;
 
     /**
-     * Идентификаторы проектов.
-     * @var string
+     * @var string дата, по которую включительно будут закрыты этапы проектов
      */
     public $date_finish;
 

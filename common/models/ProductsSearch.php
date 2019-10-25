@@ -24,8 +24,8 @@ class ProductsSearch extends Products
     public function rules()
     {
         return [
-            [['id', 'created_at', 'is_deleted', 'author_id', 'type', 'fkko', 'fo_id'], 'integer'],
-            [['name', 'unit', 'uw', 'dc', 'fkko_date', 'fo_name', 'fo_fkko'], 'safe'],
+            [['id', 'created_at', 'created_by', 'is_deleted', 'type', 'unit_id', 'hk_id', 'dc_id', 'fkko_id', 'fo_id'], 'integer'],
+            [['name', 'src_unit', 'src_uw', 'src_dc', 'src_fkko', 'fkko_date', 'fo_name', 'fo_fkko'], 'safe'],
             // для отбора
             [['searchField'], 'safe'],
         ];
@@ -79,25 +79,35 @@ class ProductsSearch extends Products
         $query->andFilterWhere([
             'id' => $this->id,
             'created_at' => $this->created_at,
+            'created_by' => $this->created_by,
             'is_deleted' => $this->is_deleted,
-            'author_id' => $this->author_id,
             'type' => $this->type,
-            'fkko' => $this->fkko,
+            'unit_id' => $this->unit_id,
+            'hk_id' => $this->hk_id,
+            'dc_id' => $this->dc_id,
+            'fkko_id' => $this->fkko_id,
             'fkko_date' => $this->fkko_date,
             'fo_id' => $this->fo_id,
         ]);
 
-        $query->orFilterWhere(['like', 'name', $this->searchField])
-            ->orFilterWhere(['like', 'fkko', $this->searchField])
-            ->orFilterWhere(['fo_id' => $this->searchField])
-            ->orFilterWhere(['id' => $this->searchField]);
-
-//        $query->andFilterWhere(['like', 'name', $this->name])
-//            ->andFilterWhere(['like', 'unit', $this->unit])
-//            ->andFilterWhere(['like', 'uw', $this->uw])
-//            ->andFilterWhere(['like', 'dc', $this->dc])
-//            ->andFilterWhere(['like', 'fo_name', $this->fo_name])
-//            ->andFilterWhere(['like', 'fo_fkko', $this->fo_fkko]);
+        if (!empty($this->searchField)) {
+            $query->andWhere([
+                'or',
+                ['like', 'name', $this->searchField],
+                ['like', 'src_fkko', $this->searchField],
+                ['fo_id' => $this->searchField],
+                ['id' => $this->searchField],
+            ]);
+        }
+        else {
+            $query->andFilterWhere(['like', 'name', $this->name])
+                ->andFilterWhere(['like', 'src_unit', $this->src_unit])
+                ->andFilterWhere(['like', 'src_uw', $this->src_uw])
+                ->andFilterWhere(['like', 'src_dc', $this->src_dc])
+                ->andFilterWhere(['like', 'src_fkko', $this->src_fkko])
+                ->andFilterWhere(['like', 'fo_name', $this->fo_name])
+                ->andFilterWhere(['like', 'fo_fkko', $this->fo_fkko]);
+        }
 
         return $dataProvider;
     }

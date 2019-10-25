@@ -2,6 +2,7 @@
 
 use yii\helpers\Html;
 use backend\components\grid\GridView;
+use backend\components\TotalsColumn;
 use backend\controllers\EcoProjectsController;
 
 /* @var $this yii\web\View */
@@ -18,7 +19,7 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
-        <?= Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
+        <?php // Html::a('<i class="fa fa-filter"></i> Отбор', ['#frm-search'], ['class' => 'btn btn-'.($searchApplied ? 'info' : 'default'), 'data-toggle' => 'collapse', 'aria-expanded' => 'false', 'aria-controls' => 'frm-search']) ?>
 
     </p>
     <?= $this->render('_search', ['model' => $searchModel, 'searchApplied' => $searchApplied, 'searchProgresses' => $searchProgresses]); ?>
@@ -26,6 +27,8 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'layout' => '{items}{pager}',
+        'showFooter' => true,
+        'footerRowOptions' => ['class' => 'text-right'],
         'columns' => [
             [
                 'attribute' => 'id',
@@ -42,7 +45,7 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
                 'contentOptions' => ['class' => 'text-center'],
             ],
             [
-                'attribute' => 'createdByProfileName',
+                'attribute' => 'responsibleProfileName',
                 'visible' => Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head'),
             ],
             [
@@ -51,7 +54,21 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
                 'contentOptions' => ['class' => 'text-center'],
                 'options' => ['width' => '100'],
             ],
-            'customerName',
+            [
+                'attribute' => 'customerName',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\EcoProjects */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    if (!empty(trim($model->comment))) {
+                        return Html::tag('abbr', $model->{$column->attribute}, ['title' => $model->comment]);
+                    }
+                    else {
+                        return $model->{$column->attribute};
+                    }
+                },
+            ],
             [
                 'label' => 'Этап',
                 'format' => 'raw',
@@ -66,6 +83,11 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
                         $prependText = '';
                         $appendText = '';
                         $text = $model->currentMilestoneName . ' (' . ($model->milestonesDoneCount+1) . ' / ' . $model->totalMilestonesCount . ')';
+
+                        // если этап еще не закрыт, то проверим, не просрочены ли сроки его выполнения
+                        if (!empty($model->currentMilestoneDatePlan) && strtotime($model->currentMilestoneDatePlan) <= time()) {
+                            $appendText = ' <i class="fa fa-exclamation-triangle text-warning" aria-hidden="true" title="Данный этап просрочен с ' . Yii::$app->formatter->asDate($model->currentMilestoneDatePlan, 'php:d.m.Y г.') . '"></i>';
+                        }
                     }
 
                     return $prependText . Html::a($text, '#', [
@@ -118,6 +140,24 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
                 'contentOptions' => ['class' => 'text-center'],
                 'visible' => !$progressFilterApplied,
             ],
+            [
+                'attribute' => 'date_finish_contract',
+                'format' => 'date',
+                'label' => 'Дата договор',
+                'footer' => '<strong>Итого:</strong>',
+                'footerOptions' => ['class' => 'text-right'],
+                'contentOptions' => ['class' => 'text-center'],
+                'headerOptions' => ['class' => 'text-center'],
+            ],
+            [
+                'class' => TotalsColumn::className(),
+                'attribute' => 'contract_amount',
+                'format' => 'currency',
+                'footerOptions' => ['style' => 'white-space:nowrap;'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-right'],
+                'visible' => Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head'),
+            ],
             //'comment:ntext',
             [
                 'class' => 'backend\components\grid\ActionColumn',
@@ -129,7 +169,7 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
     ]); ?>
 
     <div id="modalWindow" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-info" role="document">
+        <div class="modal-dialog modal-xl modal-info" role="document">
             <div class="modal-content">
                 <div class="modal-header"><h4 id="modalTitle" class="modal-title">Modal title</h4></div>
                 <div id="modalBody" class="modal-body"><p>One fine body…</p></div>
@@ -142,6 +182,17 @@ $this->params['breadcrumbs'][] = EcoProjectsController::ROOT_LABEL;
 </div>
 <?php
 $urlModalProjectsMilestones = \yii\helpers\Url::to(['/eco-projects/modal-projects-milestones']);
+
+// лайфхачек для увеличения размеров модального окошечечка
+$this->registerCss(<<<CSS
+@media (min-width: 768px) {
+  .modal-xl {
+    width: 90%;
+   max-width:1200px;
+  }
+}
+CSS
+);
 
 $this->registerJs(<<<JS
 // Обработчик щелчка по одной из ссылок "Подробная информация об этапах проекта".

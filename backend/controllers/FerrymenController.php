@@ -67,7 +67,7 @@ class FerrymenController extends Controller
                             'invite-ferryman-form', 'validate-invitation', 'send-invitation',
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'logist', 'head_assist'],
+                        'roles' => ['root', 'logist', 'head_assist', 'accountant'],
                     ],
                 ],
             ],

@@ -16,10 +16,10 @@ use common\models\PaymentOrdersStates;
         <?php Pjax::begin(['id' => 'afs']); ?>
 
         <?= GridView::widget([
+            'id' => 'gw-files',
             'dataProvider' => $dataProvider,
             'showOnEmpty' => false,
-            'emptyText' => 'Файлы к ордеру не прикреплялись.',
-            'id' => 'gw-files',
+            'emptyText' => '<div class="well well-small">Файлы к ордеру не прикреплялись.</div>',
             'layout' => '{items}',
             'tableOptions' => ['class' => 'table table-striped table-hover'],
             'columns' => [
@@ -78,7 +78,7 @@ use common\models\PaymentOrdersStates;
                             /* @var $model \common\models\PaymentOrdersFiles */
                             /* @var $column \yii\grid\DataColumn */
 
-                            if ($model->po->state_id == PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК)
+                            if ($model->po->state_id == PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК || Yii::$app->user->can('root'))
                                 return Html::a('<i class="fa fa-trash-o"></i>', ['/payment-orders/delete-file', 'id' => $model->id], ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
                             else
                                 return '';
@@ -87,6 +87,7 @@ use common\models\PaymentOrdersStates;
                     'options' => ['width' => '40'],
                     'headerOptions' => ['class' => 'text-center'],
                     'contentOptions' => ['class' => 'text-center', 'style' => 'vertical-align: middle;'],
+                    'visible' => Yii::$app->user->can('root'),
                 ],
             ],
         ]); ?>

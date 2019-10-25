@@ -18,6 +18,7 @@ customer\assets\AppAsset::register($this);
 $items = [
     ['label' => 'Рабочий стол', 'icon' => 'fa fa-desktop', 'url' => ['/']],
     ['label' => 'Заказы', 'icon' => 'fa fa-list-ol', 'url' => ['/orders']],
+    ['label' => 'Транспорт на карте', 'icon' => 'fa fa-map-marker', 'url' => ['/geopos']],
 ];
 ?>
 <?php $this->beginPage() ?>
@@ -87,9 +88,6 @@ $items = [
         <span class="float-right">Вы авторизованы как <?= Yii::$app->user->identity->profile->name == null || Yii::$app->user->identity->profile->name == '' ? '' : Yii::$app->user->identity->profile->name ?>.</span>
     </footer>
 <?php $this->endBody() ?>
-﻿<!--BEGIN FRESHOFFICE CHAT CODE-->
-<script type='text/javascript'src="http://ecosystemstoragewe.blob.core.windows.net/cdn/sourcebuster.js"></script><script type='text/javascript'>var sbjs=_sbjs||{session_length:15,timezone_offset:3};if(typeof sbjs!=='undefined')sbjs.init(_sbjs);!function(){function e(){var frame=document.createElement("iframe"),_div=document.createElement("div");_frame.src="http://ecosystem-CDN-endpoint1.azureedge.net/chat-utf8-http.html?subs_id=2202&color=";_frame.title="",_frame.role="presentation",_frame.setAttribute("name","freshoffice-chat");_frame.setAttribute("id","iframe-freshoffice-chat-container");_frame.setAttribute("frameborder","no");(_frame.frameElement||_frame).style.cssText="width:100%;height:100%;border:0;padding:0;marging:0";_div.setAttribute("id","div-freshoffice-char-container");_div.style.cssText="visibility: visible;width: 78px;height: 78px;display: block;right: 0px;bottom: 0px;position: fixed;z-index:10000000!important";_div.appendChild(_frame);var e=document.body.lastChild;e?e.parentNode.insertBefore(_div,e.nextSibling):document.body.appendChild(_div);window.addEventListener("message",function(e){if(e.data.indexOf("change-chat-size")>=0){var t=JSON.parse(e.data),i=document.getElementById("div-freshoffice-char-container");i.style.height=t.height+(""!=t.height&&"auintialto"!=t.height?"px":"");i.style.width=t.width+(""!=t.width&&"auto"!=t.width?"px":"");i.style.top=t.top}else if(e.data.indexOf("get-source")>=0){if(typeof sbjs!=='undefined'&&sbjs.get){var get=sbjs.get;var data={current:_get.current,first:_get.first,session:_get.session};document.getElementById('iframe-freshoffice-chat-container').contentWindow.postMessage(JSON.stringify(_data),"*")}else document.getElementById('iframe-freshoffice-chat-container').contentWindow.postMessage('',"*")}})}var t=document,i=window;"complete"==t.readyState?e():i.attachEvent?i.attachEvent("onload",e):i.addEventListener("load",e,false)}();</script>
-<!--END FRESHOFFICE CHAT CODE-->
 </body>
 </html>
 <?php $this->endPage() ?>

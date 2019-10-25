@@ -6,13 +6,21 @@ use Yii;
 use common\models\FileStorage;
 use common\models\FileStorageSearch;
 use common\models\FileStorageFolders;
+use common\models\foProjects;
 use common\models\UploadingFilesMeanings;
 use common\models\DirectMSSQLQueries;
 use common\models\FileStorageFilesEnumerator;
 use common\models\FileStorageStats;
+use common\models\FileStorageExtractionForm;
+use common\models\StorageBulkImportForm;
+use common\models\ProductionFeedbackFiles;
+use common\models\StorageTtnRequired;
+use moonland\phpexcel\Excel;
 use yii\bootstrap\ActiveForm;
 use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
+use yii\helpers\FileHelper;
+use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
@@ -53,19 +61,20 @@ class StorageController extends Controller
                     [
                         'actions' => [
                             'scan-directory', 'store-enumerated-files', 'find-folder-by-name', 'casting-by-foldername',
+                            'files-extraction',
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'operator_head'],
+                        'roles' => ['root', 'operator_head', 'logist'],
                     ],
                     [
-                        'actions' => ['index'],
+                        'actions' => ['index', 'preview', 'download', 'bulk-import'],
                         'allow' => true,
-                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'sales_department_head', 'dpc_head'],
+                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'sales_department_head', 'dpc_head', 'ecologist', 'ecologist_head', 'logist', 'accountant_b', 'tenders_manager'],
                     ],
                     [
-                        'actions' => ['create', 'preview', 'download'],
+                        'actions' => ['create', 'project-on-change'],
                         'allow' => true,
-                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'dpc_head'],
+                        'roles' => ['root', 'operator_head', 'sales_department_manager', 'dpc_head', 'logist', 'accountant_b'],
                     ],
                     [
                         'actions' => ['update', 'delete'],
@@ -193,7 +202,7 @@ class StorageController extends Controller
         $counter = 1;
         $result = [];
 
-        $ufm = UploadingFilesMeanings::find()->select(['id', 'keywords'])->where(['not' => ['keywords' => null]])->asArray()->all();
+        $ufm = UploadingFilesMeanings::find()->select(['id', 'keywords'])->where('`keywords` IS NOT NULL')->asArray()->all();
 
         $files = scandir($rootFolder);
         foreach ($files as $file) {
@@ -440,6 +449,26 @@ class StorageController extends Controller
                     Yii::$app->session->set('storage_ca_id_' . Yii::$app->user->id, $model->ca_id);
                     Yii::$app->session->set('storage_ca_name_' . Yii::$app->user->id, $model->ca_name);
                     Yii::$app->session->set('storage_type_id_' . Yii::$app->user->id, $model->type_id);
+
+                    // изменим в проекте значение в поле "ТТН"
+                    if (!empty($model->project_id) && $model->type_id == UploadingFilesMeanings::ТИП_КОНТЕНТА_ТТН) {
+                        // снаружи пришел идентификатор проекта, это означает, что пользователь хочет изменить значение в поле "ТТН" проекта
+                        $project = foProjects::findOne($model->project_id);
+                        if ($project) {
+                            $value = '';
+                            switch ($model->is_scan) {
+                                case 0:
+                                    $value = 'да';
+                                    break;
+                                case 1:
+                                    $value = 'скан';
+                                    break;
+                            }
+                            if (!empty($value)) {
+                                $project->updateAttributes(['ADD_ttn' => $value]);
+                            }
+                        }
+                    }
                 }
 
                 return $this->redirect(['create']);
@@ -683,5 +712,266 @@ class StorageController extends Controller
         closedir($dir);
         Yii::$app->response->format = Response::FORMAT_JSON;
         return ['results' => $result];
+    }
+
+    /**
+     * Отображает форму, указав условия в которой возможно отобрать файлы контрагентов и скачать их одним архивом.
+     * @return mixed
+     */
+    public function actionFilesExtraction()
+    {
+        $model = new FileStorageExtractionForm();
+        if ($model->load(Yii::$app->request->post())) {
+            $files = FileStorage::find()->where(['in', 'ca_id', $model->fo_ca_ids])->andWhere(['in', 'type_id', $model->type_ids])->orderBy('ca_id')->all();
+            if (count($files) == 0) {
+                Yii::$app->getSession()->setFlash('error', 'Нет файлов для помещения в архив.');
+            }
+            else {
+                $filepath = FileStorageExtractionForm::getUploadsFilepath();
+                if (false == $filepath) {
+                    Yii::$app->getSession()->setFlash('error', 'Не удалось создать папку для хранения временных файлов.');
+                }
+                else {
+                    $temp_fn = Yii::$app->security->generateRandomString(8) . '.zip';
+                    $temp_ffp = $filepath . '/' . $temp_fn;
+
+                    $zip = new \ZipArchive();
+                    $zip->open($temp_ffp, \ZipArchive::CREATE);
+
+                    $currentDirectory = '';
+                    foreach ($files as $file) {
+                        /* @var $file \common\models\FileStorage */
+
+                        if ($currentDirectory != $file->ca_id) {
+                            $zip->addEmptyDir($file->ca_id);
+                        }
+
+                        // проверяем физическое существование файла и соответствие выбранным типам файлов
+                        if (file_exists($file->ffp) && in_array($file->type_id, $model->type_ids)) {
+                            // файл существует, копируем его во временный файл, в котором будут производиться изменения
+                            $zip->addFile($file->ffp, $file->ca_id . '/' . $file->ofn);
+                        }
+
+                        $currentDirectory = $file->ca_id;
+                    }
+
+                    $zip->close();
+                    \Yii::$app->response->sendFile($temp_ffp, 'storage_extraction-' . $temp_fn, ['mimeType' => 'application/zip']);
+                    if (file_exists($temp_ffp)) unlink($temp_ffp);
+                }
+            }
+        }
+
+        return $this->render('files_extraction', ['model' => $model]);
+    }
+
+    /**
+     * Идентификация контрагента при изменении номера проекта.
+     * @param $project_id integer идентификатор проекта
+     * @return mixed
+     */
+    public function actionProjectOnChange($project_id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $project = foProjects::findOne($project_id);
+        if ($project) {
+            return [
+                'id' => $project->ID_COMPANY,
+                'name' => $project->companyName,
+            ];
+        }
+
+        return false;
+    }
+
+    /**
+     * @return mixed
+     * @throws \yii\base\Exception
+     */
+    public function actionBulkImport()
+    {
+        $model = new StorageBulkImportForm();
+
+        if (Yii::$app->request->isPost) {
+            if ($model->load(Yii::$app->request->post())) {
+                $required = []; // массив документов, обязательных для некоторых контрагентов (проектов)
+                $countSuccessFiles = 0; // количество файлов, которые обработаны успешно
+                $errors = []; // здесь будем хранить ошибки, накопленные в процессе импорта
+                $projectStates15 = []; // проекты, по которым подгружались файлы с признаком "несовпадение" от производства
+                if ($model->validate()) {
+                    $model->files = UploadedFile::getInstances($model, 'files');
+                    foreach ($model->files as $file) {
+                        $transaction = Yii::$app->db->beginTransaction();
+                        $project_id = intval($file->name);
+                        if (!empty($project_id) && $model->type_id == UploadingFilesMeanings::ТИП_КОНТЕНТА_ТТН) {
+                            $project = foProjects::findOne($project_id);
+                            if ($project) {
+                                try {
+                                    // отмечаем во Fresh Office что оригинал документа на руках
+                                    $project->updateAttributes(['ADD_ttn' => 'да']);
+
+                                    // помещаем файл в хранилище
+                                    $ca_id = $project->ID_COMPANY;
+                                    $ca_name = $project->companyName;
+                                    // папка контрагента уже может быть в базе
+                                    $storedFolder = FileStorageFolders::find()->where(['fo_ca_id' => $ca_id])->one();
+                                    if ($storedFolder != null) {
+                                        // у контрагента есть папка уже
+                                        $folderName = $storedFolder->folder_name;
+                                    }
+                                    else {
+                                        // контрагент наверное еще не проходил парсинг, поэтому папка еще не назначена,
+                                        // но она может существовать на диске. Вместе с Сергеем Дружко проверим это.
+                                        $folderExists = file_exists(FileStorage::ROOT_FOLDER . '/' . $ca_name);
+                                        if ($folderExists) $folderName = $ca_name; else $folderName = $ca_id;
+                                    }
+
+                                    $fsModel = new FileStorage([
+                                        'caFolderName' => $folderName,
+                                        'ca_id' => $ca_id,
+                                        'ca_name' => $ca_name,
+                                        'type_id' => $model->type_id,
+                                    ]);
+                                    $pifp = $fsModel->getUploadsFilepath();
+                                    $fn = Yii::$app->security->generateRandomString() . '.' . $file->extension;
+                                    $ffp = $pifp . '/' . $fn;
+
+                                    if ($file->saveAs($ffp)) {
+                                        $fsModel->ffp = $ffp;
+                                        $fsModel->fn = $fn;
+                                        $fsModel->ofn = $file->name;
+                                        $fsModel->size = filesize($ffp);
+                                        $fsModel->scenario = 'bulk_import';
+                                        $fsModel->file = true;
+                                        if (!$fsModel->save()) {
+                                            $details = '';
+                                            foreach ($fsModel->errors as $error)
+                                                foreach ($error as $detail)
+                                                    $details .= '<p>' . $detail . '</p>';
+
+                                            if (!empty($details)) $errors[] = $details;
+
+                                            $transaction->rollBack();
+                                        }
+                                        else {
+                                            // все необходимые действия выполнены успешно, наращиваем количество успешно обработанных файлов
+                                            //$errors[] = 'Контрагент ' . $ca_id . ', ответственный ' . $project->companyManagerId . ', проект ' . $project_id;
+                                            $countSuccessFiles++;
+                                            $transaction->commit();
+
+                                            // проверим наличие файлов от производства с признаком "несоответствие"
+                                            if (ProductionFeedbackFiles::find()->where(['project_id' => $project_id])->andWhere('`action` = 1')->count() > 0) {
+                                                $projectStates15[] = $project_id;
+                                            }
+
+                                            // проверим, является ли предоставление ТТН по данному контрагенту обязательным
+                                            if (StorageTtnRequired::find()
+                                                ->where(['type' => StorageTtnRequired::TYPE_КОНТРАГЕНТ, 'entity_id' => $ca_id])
+                                                ->orWhere(['type' => StorageTtnRequired::TYPE_ОТВЕТСТВЕННЫЙ, 'entity_id' => $project->companyManagerId])
+                                                ->orWhere(['type' => StorageTtnRequired::TYPE_ПРОЕКТ, 'entity_id' => $project_id])
+                                                ->count() > 0) {
+                                                $required[] = [
+                                                    'project_id' => $project_id,
+                                                    'manager_name' => $project->companyManagerName,
+                                                    'ca_name' => $project->companyName,
+                                                ];
+                                            }
+                                        }
+                                    }
+                                    else {
+                                        $transaction->rollBack();
+                                    }
+                                } catch (\Exception $e) {
+                                    $transaction->rollBack();
+                                    throw $e;
+                                }
+                            }
+                        }
+                        else {
+                            $errors[] = 'Проект не идентифицирован: ' . $file->name . '.';
+                        }
+                    }
+                    if (isset($project)) unset($project);
+                }
+
+                $flashType = 'error';
+                if (count($model->files) == $countSuccessFiles) {
+                    $flashType = 'success';
+                    $flashMessage = 'Все файлы успешно загружены.';
+
+                    if (!empty($required)) {
+                        if (!empty($projectStates15)) {
+                            $required[] = [
+                                'project_id' => ' ',
+                                'manager_name' => ' ',
+                                'ca_name' => ' ',
+                            ];
+                            $required[] = [
+                                'project_id' => 'Несоответствия',
+                                'manager_name' => ' ',
+                                'ca_name' => ' ',
+                            ];
+                            foreach ($projectStates15 as $item) {
+                                $required[] = [
+                                    'project_id' => $item,
+                                    'manager_name' => '-',
+                                    'ca_name' => '-',
+                                ];
+                            }
+                        }
+
+                        Excel::export([
+                            'models' => (new ArrayDataProvider([
+                                'allModels' => $required,
+                                'pagination' => false,
+                                'sort' => false,
+                            ]))->getModels(),
+                            'fileName' => 'Список обязательных ТТН.xlsx',
+                            'format' => 'Excel2007',
+                            'columns' => [
+                                [
+                                    'attribute' => 'project_id',
+                                    'header' => 'Проект',
+                                ],
+                                [
+                                    'attribute' => 'manager_name',
+                                    'header' => 'Менеджер',
+                                ],
+                                [
+                                    'attribute' => 'ca_name',
+                                    'header' => 'Контрагент',
+                                ],
+                            ],
+                        ]);
+                    }
+                }
+                else {
+                    $flashMessage = 'Файлы не были загружены в полном объеме (' . $countSuccessFiles . ' / ' . count($model->files) . ').';
+                    // выводим возможные ошибки
+                    if (count($errors) > 0) {
+                        foreach ($errors as $error) {
+                            $flashMessage .= Html::tag('p', $error);
+                        }
+                    }
+                }
+
+                // выводим проекты, по которым зафиксировано несовпадение
+                if (count($projectStates15)) {
+                    $flashMessage .= Html::tag('p', 'Проекты, по которым зафиксировано несовпадение груза: ' . trim(implode(', ', $projectStates15), ', '));
+                }
+
+                if (!empty($flashMessage)) {
+                    Yii::$app->session->setFlash($flashType, $flashMessage);
+
+                    return $this->redirect(['/storage/bulk-import']);
+                }
+            }
+        }
+        else {
+            $model->type_id = UploadingFilesMeanings::ТИП_КОНТЕНТА_ТТН;
+        }
+
+        return $this->render('bulk_import', ['model' => $model]);
     }
 }

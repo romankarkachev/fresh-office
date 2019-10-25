@@ -1,5 +1,7 @@
 <?php
 
+use backend\controllers\PaymentOrdersController;
+use common\models\PaymentOrders;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use backend\components\grid\GridView;
@@ -12,6 +14,14 @@ use common\models\PaymentOrdersStates;
 
 $this->title = 'Платежные ордеры | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Платежные ордеры';
+
+// вычислим количество дней для оплаты перевозчикам из настроек
+if (!empty(Yii::$app->params['payment_orders.days_to_pay'])) {
+    $days = Yii::$app->params['payment_orders.days_to_pay'];
+}
+else {
+    $days = 10;
+}
 ?>
 <div class="payment-orders-list">
     <?= $this->render('_search', ['model' => $searchModel]); ?>
@@ -32,6 +42,31 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
+        'rowOptions' => function ($model, $key, $index, $grid) use ($days) {
+            /* @var $model \common\models\PaymentOrders */
+
+            $options = [];
+            switch ($model->state_id) {
+                case PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ:
+                    $options = ['class' => 'danger'];
+                    break;
+                case PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН:
+                    $options = ['class' => 'success'];
+                    break;
+            }
+
+            // если поле "Срок оплаты" заполнено, проверим, не просрочена ли оплата
+            if (!empty($model->pay_till)) {
+                if (time() > strtotime($model->pay_till . ' + ' . $days . ' days')) {
+                    $options = ['style' => 'background-color: #fdb7ed; color: #f9f9f9;'];
+                }
+                elseif (time() >= strtotime($model->pay_till)) {
+                    $options = ['style' => 'background-color: #f7e2f2;'];
+                }
+            }
+
+            return $options;
+        },
         'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'showFooter' => true,
@@ -40,9 +75,33 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
             [
                 'attribute' => 'created_at',
                 'label' => 'Создано',
-                'format' => ['datetime', 'dd.MM.YYYY HH:mm'],
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) use ($days) {
+                    /* @var $model \common\models\PaymentOrders */
+                    /* @var $column \yii\grid\DataColumn */
+                    $content = '';
+
+                    if (!empty($model->pay_till)) {
+                        $payTill = date('Y-m-d', strtotime($model->pay_till. ' + ' . $days . ' days'));
+                        $content = '<br /><strong>' . Yii::$app->formatter->asDate($payTill, 'php:d.m.Y') . '</strong> <i class="fa fa-exclamation-triangle text-danger" aria-hidden="true" title="Крайний срок оплаты по данному перевозчику"></i>';
+                    }
+
+                    return Yii::$app->formatter->asDate($model->{$column->attribute}, 'php:d.m.Y H:i') . $content;
+                },
                 'headerOptions' => ['class' => 'text-center'],
-                'contentOptions' => ['class' => 'text-center'],
+                'contentOptions' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\PaymentOrders */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $result = ['class' => 'text-center'];
+                    if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН && empty($model->ccp_at)) {
+                        // если поле "Дата и время загрузки в систему Акта выполненных работ" заполнено, то отметим
+                        $result['style'] = 'background-color:#f38f8f;color:#f9f9f9;';
+                        $result['title'] = 'К платежному ордеру не прикреплен акт выполненных работ!';
+                    }
+
+                    return $result;
+                },
                 'options' => ['width' => '130'],
             ],
             'createdByProfileName',
@@ -94,7 +153,7 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
                 'class' => TotalsColumn::className(),
                 'attribute' => 'amount',
                 'format' => 'currency',
-                'options' => ['width' => '100'],
+                'options' => ['width' => '130'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-right'],
             ],
@@ -114,7 +173,7 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
                     $buttons = '';
 
                     // кнопки логиста
-                    if (Yii::$app->user->can('logist') && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК)
+                    if ((Yii::$app->user->can('logist') || Yii::$app->user->can('accountant')) && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК)
                         $buttons = Html::a('На согласование', '#', [
                             'class' => 'btn btn-success btn-xs',
                             'id' => 'changeOnTheFly' . PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ . $model->id,
@@ -130,7 +189,7 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
                         ]);
 
                     // кнопки бухгалтера
-                    if (Yii::$app->user->can('accountant') && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН)
+                    if ((Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b')) && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН)
                         $buttons = Html::a('Отметить оплаченным', '#', [
                             'class' => 'btn btn-success btn-xs',
                             'id' => 'changeOnTheFly' . PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН . $model->id,
@@ -144,19 +203,29 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{update} {delete}',
+                'template' => '{cc_provided} {update} {delete}',
                 'buttons' => [
+                    'cc_provided' => function ($url, $model) {
+                        /* @var $model \common\models\PaymentOrders */
+
+                        if (empty($model->ccp_at) && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН && $model->paymentOrdersFilesCount >= 2) {
+                            return Html::a('<i class="fa fa-certificate text-warning"></i>', '#', ['id' => 'btnSetCcProvidedOnTheFly' . $model->id, 'data-id' => $model->id, 'title' => 'Установить отметку наличия Акта выполненных работ', 'class' => 'btn btn-default btn-xs']);
+                        }
+                        else {
+                            return '';
+                        }
+                    },
                     'update' => function ($url, $model) {
-                        return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-xs btn-default']);
+                        return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-default btn-xs']);
                     },
                     'delete' => function ($url, $model) {
-                        return Html::a('<i class="fa fa-trash-o"></i>', $url, ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
+                        return Html::a('<i class="fa fa-trash-o"></i>', $url, ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-danger btn-xs', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post', 'data-pjax' => '0',]);
                     }
                 ],
                 'visibleButtons' => [
                     'delete' => Yii::$app->user->can('root'),
                 ],
-                'options' => ['width' => '130'],
+                'options' => ['width' => '90'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
@@ -166,6 +235,7 @@ $this->params['breadcrumbs'][] = 'Платежные ордеры';
 </div>
 <?php
 $url = Url::to(['/payment-orders/change-state-on-the-fly']);
+$urlCcProvided = Url::to(PaymentOrdersController::URL_SET_CCP_ON_THE_FLY_AS_ARRAY);
 
 $this->registerJs(<<<JS
 // Функция-обработчик изменения даты в любом из соответствующих полей.
@@ -202,7 +272,28 @@ function btnchangeOnTheFlyOnClick() {
     return false;
 } // btnchangeOnTheFlyOnClick()
 
+// Обработчик щелчка по кнопкам, позволяющим отметить признак наличия актов выполненных работ.
+//
+function btnSetCcProvidedOnTheFlyOnClick() {
+    \$button = $(this);
+    id = $(this).attr("data-id");
+    if (id) {
+        $.post("$urlCcProvided?id=" + id, function(data) {
+            var response = jQuery.parseJSON(data);
+            if (response != false) {
+                \$button.remove();
+                $("tr[data-key='" + id + "'] > td").first().removeAttr("style");
+            }
+            else
+                \$button.html('<i class="fa fa-times text-danger"></i>');
+        });
+    }
+
+    return false;
+} // btnSetCcProvidedOnTheFlyOnClick()
+
 $(document).on("click", "a[id ^= 'changeOnTheFly']", btnchangeOnTheFlyOnClick);
+$(document).on("click", "a[id ^= 'btnSetCcProvidedOnTheFly']", btnSetCcProvidedOnTheFlyOnClick);
 JS
 , yii\web\View::POS_READY);
 ?>

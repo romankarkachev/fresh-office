@@ -21,6 +21,8 @@ use common\models\ReportTRAnalytics;
 use common\models\ReportCorrespondenceAnalytics;
 use common\models\ReportFileStorageStats;
 use common\models\ReportPbxAnalytics;
+use common\models\ReportEdfAnalytics;
+use common\models\ReportPoAnalytics;
 
 /**
  * Reports controller
@@ -37,7 +39,7 @@ class ReportsController extends Controller
                 'class' => AccessControl::className(),
                 'rules' => [
                     [
-                        'actions' => ['turnover'],
+                        'actions' => ['turnover', 'edf-analytics'],
                         'allow' => true,
                         'roles' => ['root', 'sales_department_head', 'dpc_head'],
                     ],
@@ -55,7 +57,7 @@ class ReportsController extends Controller
                         'actions' => [
                             'emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics', 'tr-analytics',
                             'correspondence-analytics', 'correspondence-manual-analytics', 'file-storage-stats',
-                            'pbx-analytics', 'pbx-calls-has-tasks-assigned',
+                            'pbx-analytics', 'pbx-calls-has-tasks-assigned', 'po-analytics',
                         ],
                         'allow' => true,
                         'roles' => ['root'],
@@ -628,5 +630,61 @@ class ReportsController extends Controller
                 'queryString' => $queryString,
             ]);
         }
+    }
+
+    public function actionEdfAnalytics()
+    {
+        $searchModel = new ReportEdfAnalytics();
+        $cArray = $searchModel->search(Yii::$app->request->queryParams);
+
+        // Таблица 1. Количество документов в разрезе ответственных.
+        $dpTable1 = $searchModel->makeDataProviderForTable1($cArray);
+
+        // Таблица 2. Количество документов в разрезе статусов.
+        $dpTable2 = $searchModel->makeDataProviderForTable2($cArray);
+
+        // Таблица 3. Количество документов в разрезе признака "Типовой".
+        $dpTable3 = $searchModel->makeDataProviderForTable3($cArray);
+
+        $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
+
+        return $this->render('edf', [
+            'searchModel' => $searchModel,
+            'searchApplied' => $searchApplied,
+            'totalCount' => count($cArray),
+            'dpTable1' => $dpTable1,
+            'dpTable2' => $dpTable2,
+            'dpTable3' => $dpTable3,
+        ]);
+    }
+
+    public function actionPoAnalytics()
+    {
+        $searchModel = new ReportPoAnalytics();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        $columns = [
+            'groupName',
+            'name',
+        ];
+        for ($i = 1; $i <= 12; $i++) {
+            $columns[] = [
+                'attribute' => 'amount' . ($i <= 9 ? '0' . $i : $i),
+                // хорошая попытка, но по-английски
+                //'label' => \Yii::t('app', '{0, date, MMMM}', mktime(0, 0, 0, $i, 10)),
+                'label' => ReportPoAnalytics::MONTHS_RUSSIAN[$i],
+                'format' => 'decimal',
+                'options' => ['width' => '110'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-right text-nowrap'],
+            ];
+        }
+
+        return $this->render('po', [
+            'searchModel' => $searchModel,
+            //'searchApplied' => $searchApplied,
+            'dataProvider' => $dataProvider,
+            'columns' => $columns,
+        ]);
     }
 }

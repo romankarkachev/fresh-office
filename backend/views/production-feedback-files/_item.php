@@ -1,11 +1,11 @@
 <?php
 
+use yii\helpers\Html;
+
 /* @var $this \yii\web\View */
 /* @var $item \common\models\ProductionFeedbackFiles */
 /* @var $uploadDir string относительный путь к папке с изображениями */
 /* @var $renderHeader boolean изменился ли идентификатор проект для визуальной группировки */
-
-use yii\helpers\Html;
 
 $icon = ' <i class="fa fa-check-circle text-success" aria-hidden="true" title="Груз соответствует документам"></i>';
 $action = '';

@@ -23,16 +23,27 @@ class DirectMSSQLQueries extends Model
      * Набор статусов проектов для отбора логистом
      */
     const PROJECT_STATES_FOR_LOGIST_FILTER = [
-        ProjectsStates::STATE_ОПЛАЧЕНО,
-        ProjectsStates::STATE_СОГЛАСОВАНИЕ_ВЫВОЗА,
-        ProjectsStates::STATE_ВЫВОЗ_ЗАВЕРШЕН,
-        ProjectsStates::STATE_ЗАВЕРШЕНО,
-        ProjectsStates::STATE_САМОПРИВОЗ_ОДОБРЕН,
-        ProjectsStates::STATE_ТРАНСПОРТ_ЗАКАЗАН,
-        ProjectsStates::STATE_ЕДЕТ_К_ЗАКАЗЧИКУ,
-        ProjectsStates::STATE_У_ЗАКАЗЧИКА,
-        ProjectsStates::STATE_ЕДЕТ_НА_СКЛАД,
-        ProjectsStates::STATE_НА_СКЛАДЕ,
+        ProjectsStates::STATE_ОПЛАЧЕНО, // 5
+        ProjectsStates::STATE_СОГЛАСОВАНИЕ_ВЫВОЗА, // 6
+        ProjectsStates::STATE_ВЫВОЗ_ЗАВЕРШЕН, // 13
+        ProjectsStates::STATE_НЕСОВПАДЕНИЕ, // 15
+        ProjectsStates::STATE_ЗАКРЫТИЕ_СЧЕТА, // 17
+        ProjectsStates::STATE_ОТДАНО_НА_ОТПРАВКУ, // 18
+        ProjectsStates::STATE_ОТПРАВЛЕНО, // 19
+        ProjectsStates::STATE_ДОСТАВЛЕНО, // 20
+        ProjectsStates::STATE_ЗАВЕРШЕНО, // 25
+        ProjectsStates::STATE_САМОПРИВОЗ_ОДОБРЕН, //28
+        ProjectsStates::STATE_ТРАНСПОРТ_ЗАКАЗАН, // 30
+        ProjectsStates::STATE_ЕДЕТ_К_ЗАКАЗЧИКУ, // 31
+        ProjectsStates::STATE_У_ЗАКАЗЧИКА, // 32
+        ProjectsStates::STATE_ЕДЕТ_НА_СКЛАД, // 33
+        ProjectsStates::STATE_НА_СКЛАДЕ, // 34
+        ProjectsStates::STATE_ДЕЖУРНЫЙ_МЕНЕДЖЕР, // 36
+        ProjectsStates::STATE_ФОРМИРОВАНИЕ_ДОКУМЕНТОВ_НА_ОТПРАВКУ, // 38
+        ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ, // 43
+        ProjectsStates::STATE_ОТДАНО_НА_ПОДПИСЬ, // 46
+        ProjectsStates::STATE_ДОКУМЕНТЫ_НА_СОГЛАСОВАНИИ_У_КЛИЕНТА, // 47
+        ProjectsStates::STATE_ИСПОЛНЕН, // 50
     ];
 
     /**
@@ -54,7 +65,8 @@ class DirectMSSQLQueries extends Model
      * оплачено, у заказчика, на складе, едет на склад, едет к заказчику, вывоз завершен, вывоз согласован,
      * самопривоз одобрен, согласование вывоза, транспорт заказан
      */
-    const PROJECTS_STATES_LOGIST_LIMIT = '5,6,13,28,30,31,32,33,34';
+    //const PROJECTS_STATES_LOGIST_LIMIT = '5,6,13,15,28,30,31,32,33,34';
+    const PROJECTS_STATES_LOGIST_LIMIT = '5,6,13,15,17,18,19,20,25,28,30,31,32,33,34,36,38,43,46,47,50';
 
     /**
      * Названия таблиц в MS SQL
@@ -178,7 +190,7 @@ FROM CBaseCRM_Fresh_7x.dbo.COMPANY
 LEFT JOIN MANAGERS ON MANAGERS.ID_MANAGER = COMPANY.ID_MANAGER
 WHERE
     TRASH = 0
-    AND COMPANY.COMPANY_NAME LIKE \'%' . $name . '%\'
+    AND (COMPANY.ID_COMPANY LIKE \'%' . $name . '%\' OR COMPANY.COMPANY_NAME LIKE \'%' . $name . '%\')
 ORDER BY COMPANY_NAME';
 
         return Yii::$app->db_mssql->createCommand($query_text)->queryAll();

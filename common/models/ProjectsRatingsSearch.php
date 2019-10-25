@@ -121,7 +121,7 @@ class ProjectsRatingsSearch extends ProjectsRatings
                 'rate' => 'AVG(rate)',
                 'ratesCount' => 'COUNT(id)',
             ]);
-            $query->groupBy('ca_id');
+            $query->where(['is not', 'rate', null])->groupBy('ca_id');
             $this->searchProjectIds = null;
             $this->ca_id = null;
         }

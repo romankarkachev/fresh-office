@@ -56,7 +56,7 @@ class CorrespondencePackagesHistory extends \yii\db\ActiveRecord
             'cp_id' => 'Пакет корреспонденции',
             'description' => 'Суть события',
             // вычисляемые поля
-            'createdByProfileName' => 'Автор',
+            'createdByProfileName' => 'Инициатор',
         ];
     }
 

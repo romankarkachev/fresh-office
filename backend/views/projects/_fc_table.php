@@ -28,6 +28,8 @@ if ($is_detailed) {
         'data',
         'address',
         'cityName',
+        'cost',
+        'amount',
     ];
 }
 else {

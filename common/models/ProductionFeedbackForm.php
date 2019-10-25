@@ -15,8 +15,6 @@ use yii\imagine\Image;
  * @property string $message_body
  * @property array $tp
  * @property array $files
- *
- * @property PostDeliveryKinds $pd
  */
 class ProductionFeedbackForm extends Model
 {
@@ -57,6 +55,14 @@ class ProductionFeedbackForm extends Model
     public $message_body;
 
     /**
+     * @var float дополнительные поля с весом и объемом в ТТН и фактически
+     */
+    public $weightTtn;
+    public $volumeTtn;
+    public $weightFact;
+    public $volumeFact;
+
+    /**
      * Табличная часть документа для ввода фактических данных.
      * @var array
      */
@@ -74,8 +80,10 @@ class ProductionFeedbackForm extends Model
     public function rules()
     {
         return [
+            [['weightTtn', 'weightFact'], 'required'],
             [['action', 'project_id', 'ca_id'], 'integer'],
             [['ca_name', 'message_subject'], 'string'],
+            [['weightTtn', 'volumeTtn', 'weightFact', 'volumeFact'], 'double'],
             [['message_body', 'tp'], 'safe'],
             [['files'], 'file', 'skipOnEmpty' => true, 'maxFiles' => 100],
         ];
@@ -95,6 +103,10 @@ class ProductionFeedbackForm extends Model
             'message_subject' => 'Тема письма',
             'message_body' => 'Текст письма',
             'files' => 'Файлы',
+            'weightTtn' => 'ТТН вес',
+            'volumeTtn' => 'ТТН объем',
+            'weightFact' => 'Факт вес',
+            'volumeFact' => 'Факт объем',
         ];
     }
 
@@ -123,7 +135,10 @@ class ProductionFeedbackForm extends Model
                 $thumbFn = 'thumb_' . $fileAttached_fn;
                 $thumbFfp = $pifp . '/' . $thumbFn;
 
-                if ($file->saveAs($fileAttached_ffp) && Image::thumbnail($fileAttached_ffp, 160, 120)->save($thumbFfp, ['quality' => 80])) {
+                if ($file->saveAs($fileAttached_ffp) &&
+                    Image::thumbnail($fileAttached_ffp, 800, 600)->save($fileAttached_ffp, ['quality' => 90]) &&
+                    Image::thumbnail($fileAttached_ffp, 160, 120)->save($thumbFfp, ['quality' => 80])
+                ) {
                     // заполняем поля записи в базе о загруженном успешно файле
                     $fileAttachedmodel = new ProductionFeedbackFiles([
                         'action' => $this->action,

@@ -19,69 +19,92 @@ use kartik\file\FileInput;
 $this->title = $model->name . HtmlPurifier::process(' &mdash; Перевозчики | ') . Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => 'Перевозчики', 'url' => ['/ferrymen']];
 $this->params['breadcrumbs'][] = $model->name;
+
+$baCount = $dpBankDetails->getTotalCount();
+$bcCount = $dpBankCards->getTotalCount();
+$driversCount = $dpDrivers->getTotalCount();
+$transportCount = $dpTransport->getTotalCount();
+$poCount = $dpPaymentOrders->getTotalCount();
+$freightsCount = $dpOrders->getTotalCount();
+$filesCount = $dpFiles->getTotalCount();
 ?>
 <div class="ferrymen-update">
-    <?= $this->render('_form', [
-        'model' => $model,
-    ]) ?>
-
     <?php if (!$model->isNewRecord): ?>
-    <div class="row">
-        <div class="col-md-7">
+    <ul class="nav nav-tabs" role="tablist" style="margin-bottom: 15px;">
+        <li role="presentation" class="active"><a href="#common" aria-controls="common" role="tab" data-toggle="tab">Общие</a></li>
+        <li role="presentation"><a href="#ba" aria-controls="ba" role="tab" data-toggle="tab">Банковские счета<?= empty($baCount) ? '' : ' (' . $baCount . ')' ?></a></li>
+        <li role="presentation"><a href="#bc" aria-controls="bc" role="tab" data-toggle="tab">Банковские карты<?= empty($bcCount) ? '' : ' (' . $bcCount . ')' ?></a></li>
+        <li role="presentation"><a href="#drivers" aria-controls="drivers" role="tab" data-toggle="tab">Водители<?= empty($driversCount) ? '' : ' (' . $driversCount . ')' ?></a></li>
+        <li role="presentation"><a href="#transport" aria-controls="transport" role="tab" data-toggle="tab">Транспорт<?= empty($transportCount) ? '' : ' (' . $transportCount . ')' ?></a></li>
+        <li role="presentation"><a href="#payment_orders" aria-controls="payment_orders" role="tab" data-toggle="tab">Платежные ордеры<?= empty($poCount) ? '' : ' (' . $poCount . ')' ?></a></li>
+        <li role="presentation"><a href="#freights" aria-controls="freights" role="tab" data-toggle="tab">Рейсы<?= empty($freightsCount) ? '' : ' (' . $freightsCount . ')' ?></a></li>
+        <li role="presentation"><a href="#files" aria-controls="files" role="tab" data-toggle="tab">Файлы<?= empty($filesCount) ? '' : ' (' . $filesCount . ')' ?></a></li>
+    </ul>
+    <div class="tab-content">
+        <div role="tabpanel" class="tab-pane active" id="common">
+            <?php endif; ?>
+            <?= $this->render('_form', [
+                'model' => $model,
+            ]) ?>
+
+        <?php if (!$model->isNewRecord): ?>
+        </div>
+        <div role="tabpanel" class="tab-pane" id="ba">
             <?= $this->render('_bank_details', [
                 'model' => $model,
-                'dpBankDetails' => $dpBankDetails
+                'dpBankDetails' => $dpBankDetails,
             ]) ?>
 
         </div>
-        <div class="col-md-5">
+        <div role="tabpanel" class="tab-pane" id="bc">
             <?= $this->render('_bank_cards', [
                 'model' => $model,
-                'dpBankCards' => $dpBankCards
+                'dpBankCards' => $dpBankCards,
             ]) ?>
 
         </div>
-    </div>
-    <div class="row">
-        <div class="col-md-5">
+        <div role="tabpanel" class="tab-pane" id="drivers">
             <?= $this->render('_drivers', [
                 'model' => $model,
-                'dpDrivers' => $dpDrivers
+                'dpDrivers' => $dpDrivers,
             ]) ?>
 
         </div>
-        <div class="col-md-7">
+        <div role="tabpanel" class="tab-pane" id="transport">
             <?= $this->render('_transport', [
                 'model' => $model,
-                'dpTransport' => $dpTransport
+                'dpTransport' => $dpTransport,
+            ]) ?>
+
+        </div>
+        <div role="tabpanel" class="tab-pane" id="payment_orders">
+            <?= $this->render('_payment_orders', ['dataProvider' => $dpPaymentOrders, 'totalAmount' => $poTotalAmount]); ?>
+
+        </div>
+        <div role="tabpanel" class="tab-pane" id="freights">
+            <?= $this->render('_freights', ['dataProvider' => $dpOrders, 'totalAmount' => $ordersTotalAmount]); ?>
+
+        </div>
+        <div role="tabpanel" class="tab-pane" id="files">
+            <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
+
+            <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('logist')): ?>
+            <?= FileInput::widget([
+                'id' => 'new_files',
+                'name' => 'files[]',
+                'options' => ['multiple' => true],
+                'pluginOptions' => [
+                    'maxFileCount' => 10,
+                    'uploadAsync' => false,
+                    'uploadUrl' => Url::to(['/ferrymen/upload-files']),
+                    'uploadExtraData' => [
+                        'obj_id' => $model->id,
+                    ],
+                ]
             ]) ?>
 
         </div>
     </div>
-    <div class="page-header"><h3>Платежные ордеры</h3></div>
-    <?= $this->render('_payment_orders', ['dataProvider' => $dpPaymentOrders, 'totalAmount' => $poTotalAmount]); ?>
-
-    <div class="page-header"><h3>Рейсы</h3></div>
-    <?= $this->render('_freights', ['dataProvider' => $dpOrders, 'totalAmount' => $ordersTotalAmount]); ?>
-
-    <div class="page-header"><h3>Файлы</h3></div>
-    <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>
-
-    <?php if (Yii::$app->user->can('root')): ?>
-    <?= FileInput::widget([
-        'id' => 'new_files',
-        'name' => 'files[]',
-        'options' => ['multiple' => true],
-        'pluginOptions' => [
-            'maxFileCount' => 10,
-            'uploadAsync' => false,
-            'uploadUrl' => Url::to(['/ferrymen/upload-files']),
-            'uploadExtraData' => [
-                'obj_id' => $model->id,
-            ],
-        ]
-    ]) ?>
-
     <?php endif; ?>
     <div id="mw_preview" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-info" role="document">

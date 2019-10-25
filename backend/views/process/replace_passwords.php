@@ -116,7 +116,7 @@ $this->params['breadcrumbs'][] = 'Замена паролей пользоват
     ]); ?>
 
     <?php if ($dataProvider->totalCount > 0): ?>
-    <p>В таблице всего <?= common\models\foProjects::declension($dataProvider->totalCount, ['пользователя','пользователей','пользователей']) ?>.</p>
+    <p>В таблице всего <?= common\models\foProjects::declension($dataProvider->totalCount, ['пользователь','пользователя','пользователей']) ?>.</p>
     <?= Html::submitButton('<i class="fa fa-cog"></i> Выполнить замену', ['class' => 'btn btn-success btn-lg']) ?>
 
     <?php endif; ?>

@@ -7,6 +7,8 @@ use yii\widgets\MaskedInput;
 use yii\bootstrap\ActiveForm;
 use kartik\select2\Select2;
 use common\models\User;
+use common\models\Departments;
+use common\models\PoEi;
 
 /* @var yii\web\View $this */
 /* @var common\models\User $user */
@@ -64,6 +66,54 @@ use common\models\User;
         <input type="text" id="profile-role" class="form-control" value="<?= $profile->user->getRoleDescription() ?>" readonly>
     </div>
 </div>
+
+<?= $form->field($profile, 'departments')->widget(Select2::class, [
+    'data' => Departments::arrayMapForSelect2(),
+    'theme' => Select2::THEME_BOOTSTRAP,
+    'options' => ['placeholder' => '- выберите отдел -', 'multiple' => 'true'],
+]); ?>
+
+<?= $form->field($profile, 'poEis')->widget(Select2::class, [
+    'data' => PoEi::arrayMapByGroupsForSelect2(),
+    'theme' => Select2::THEME_BOOTSTRAP,
+    'options' => ['placeholder' => '- выберите статьи -', 'multiple' => 'true'],
+]); ?>
+
+<?php if (Yii::$app->getAuthManager()->getAssignment('accountant_b', $profile->user_id)): ?>
+<div class="row">
+    <div class="col-md-9">
+        <?= $form->field($profile, 'poEiForApproving', [
+            'horizontalCssClasses' => [
+                'wrapper' => 'col-sm-8',
+            ],
+        ])->widget(Select2::class, [
+            'data' => PoEi::arrayMapByGroupsForSelect2(),
+            'theme' => Select2::THEME_BOOTSTRAP,
+            'options' => ['placeholder' => '- выберите статьи -', 'multiple' => 'true'],
+        ])->label(null, ['class' => 'control-label col-sm-4']); ?>
+
+    </div>
+    <div class="col-md-2">
+        <?= $form->field($profile, 'po_maa', [
+            'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
+        ])->widget(MaskedInput::className(), [
+            'clientOptions' => [
+                'alias' =>  'numeric',
+                'groupSeparator' => ' ',
+                'autoUnmask' => true,
+                'autoGroup' => true,
+                'removeMaskOnSubmit' => true,
+            ],
+        ])->textInput([
+            'maxlength' => true,
+            'placeholder' => '0',
+            'title' => 'Введите сумму ограничения (платежи свыше этой суммы невозможно будет провести, несмотря на доступ к статье)',
+            'required' => 'required',
+        ])->label(false) ?>
+
+    </div>
+</div>
+<?php endif; ?>
 <div class="form-group">
     <div class="col-lg-offset-3 col-lg-9">
         <?= Html::submitButton(Yii::t('user', 'Update'), ['class' => 'btn btn-block btn-success']) ?>

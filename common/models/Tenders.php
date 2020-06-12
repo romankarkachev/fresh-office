@@ -535,7 +535,7 @@ class Tenders extends \yii\db\ActiveRecord
      * Возвращает массив с возможными интерпретациями поля "Номер закона".
      * @return array
      */
-    public function fetchLaws()
+    public static function fetchLaws()
     {
         return [
             [
@@ -569,14 +569,17 @@ class Tenders extends \yii\db\ActiveRecord
             [
                 'id' => 1,
                 'name' => 'I',
+                'caption' => 'I уровень',
             ],
             [
                 'id' => 2,
                 'name' => 'II',
+                'caption' => 'II уровень',
             ],
             [
                 'id' => 3,
                 'name' => 'III',
+                'caption' => 'III уровень',
             ],
         ];
     }
@@ -1643,9 +1646,37 @@ class Tenders extends \yii\db\ActiveRecord
      */
     public function getLawName()
     {
-        $sourceTable = $this->fetchLaws();
+        $sourceTable = self::fetchLaws();
         $key = array_search($this->law_no, array_column($sourceTable, 'id'));
         if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
+    }
+
+    /**
+     * Возвращает наименование закона, по которому проводится тендер.
+     * @param integer $value шифр закона
+     * @return string
+     */
+    public static function getLawCaption($value)
+    {
+        $sourceTable = self::fetchLaws();
+        $key = array_search($value, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
+    }
+
+    /**
+     * Возвращает представление уровня сложности тендера.
+     * @param integer $value уровень сложности
+     * @return string
+     */
+    public static function getComplexityCaption($value)
+    {
+        $sourceTable = self::fetchComplexityLevels();
+        $key = array_search($value, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['caption'];
 
         return '';
     }

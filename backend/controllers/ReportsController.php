@@ -724,15 +724,44 @@ class ReportsController extends Controller
     public function actionTendersAnalytics()
     {
         $searchModel = new TendersAnalytics();
-        $appeals_array = $searchModel->search(Yii::$app->request->queryParams);
-        $totalAppealsPeriod = count($appeals_array);
+        $dataArray = $searchModel->search(Yii::$app->request->queryParams);
 
-        // Таблица 1. Всего обращений по ответственным за период.
-        $dpTable1 = $searchModel->makeDataProviderForTable1($appeals_array);
+        // Таблицы 1 и 2 Тендеры по статусам.
+        list($dpTable1, $dpTable2) = $searchModel->makeDataProvidersForTables1_2($dataArray);
+
+        // Таблица 3. Тендеры за период по организациям.
+        $dpTable3 = $searchModel->makeDataProviderForTable3($dataArray);
+
+        // Таблица 4. Тендеры за период по сложности.
+        $dpTable4 = $searchModel->makeDataProviderForTable4($dataArray);
+
+        // Таблица 5. Проигранные за период тендеры в разрезе причин.
+        $dpTable5 = $searchModel->makeDataProviderForTable5($dataArray);
+
+        // Таблица 6. Тендеры за период в разрезе законов.
+        $dpTable6 = $searchModel->makeDataProviderForTable6($dataArray);
+
+        // Таблица 7. Тендеры за период по исполнителям.
+        $dpTable7 = $searchModel->makeDataProviderForTable7($dataArray);
+
+        // Таблица 8. Тендеры за период в разрезе площадок.
+        $dpTable8 = $searchModel->makeDataProviderForTable8($dataArray);
+
+        // Таблица 9. Тендеры за период по ответственным.
+        $dpTable9 = $searchModel->makeDataProviderForTable9($dataArray);
 
         return $this->render('tenders-analytics/index', [
             'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
+            'totalCount' => count($dataArray),
+            'dpTable1' => $dpTable1,
+            'dpTable2' => $dpTable2,
+            'dpTable3' => $dpTable3,
+            'dpTable4' => $dpTable4,
+            'dpTable5' => $dpTable5,
+            'dpTable6' => $dpTable6,
+            'dpTable7' => $dpTable7,
+            'dpTable8' => $dpTable8,
+            'dpTable9' => $dpTable9,
         ]);
     }
 }

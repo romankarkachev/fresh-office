@@ -5,7 +5,7 @@ use yii\widgets\Pjax;
 use common\models\ReportEdfAnalytics;
 
 /* @var $this yii\web\View */
-/* @var $searchModel common\models\ReportAnalytics */
+/* @var $searchModel common\models\ReportEdfAnalytics */
 /* @var $searchApplied bool */
 /* @var $totalCount integer общее количество документов */
 /* @var $dpTable1 yii\data\ArrayDataProvider */

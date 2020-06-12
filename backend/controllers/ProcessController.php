@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\FoCaDi;
 use Yii;
 use yii\helpers\ArrayHelper;
 use yii\web\BadRequestHttpException;
@@ -35,13 +36,24 @@ use common\models\ProductsImport;
 class ProcessController extends Controller
 {
     /**
+     * Корневой URL
+     */
+    const URL_ROOT = 'process';
+
+    /**
+     * URL для пометки контрагентов как игнорируемых при выводе дубликатов
+     */
+    const URL_TOGGLE_MARK_IGNORE = 'toggle-mark-ignore';
+    const URL_TOGGLE_MARK_IGNORE_AS_ARRAY = ['/' . self::URL_ROOT . '/' . self::URL_TOGGLE_MARK_IGNORE];
+
+    /**
      * @inheritdoc
      */
     public function behaviors()
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['import-invoices'],
@@ -49,7 +61,10 @@ class ProcessController extends Controller
                         'roles' => ['root', 'operator_head'],
                     ],
                     [
-                        'actions' => ['freights-payments', 'closing-milestones', 'closing-invoices', 'merge-customers', 'replace-passwords'],
+                        'actions' => [
+                            'freights-payments', 'closing-milestones', 'closing-invoices', 'merge-customers',
+                            'replace-passwords', self::URL_TOGGLE_MARK_IGNORE,
+                        ],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -328,6 +343,39 @@ class ProcessController extends Controller
             }
             else throw new BadRequestHttpException('Инструментом можно пользоваться только из отчета по дубликатам контрагентов.');
         }
+    }
+
+    /**
+     * toggle-mark-ignore
+     */
+    public function actionToggleMarkIgnore()
+    {
+        if (Yii::$app->request->isPost) {
+            $existing = FoCaDi::find()->column();
+            $cas = Yii::$app->request->post('cas');
+            if (!empty($cas)) {
+                $ids = explode(',', $cas);
+                if (count($ids) > 0) {
+                    foreach ($ids as $index => $id) {
+                        if (ArrayHelper::isIn($id, $existing)) {
+                            // убираем дубликаты
+                            // на случай, если в список игнорируемых добавляется уже размещенный там
+                            unset($ids[$index]);
+                        }
+                        else {
+                            $ids[$index] = [$id];
+                        }
+                    }
+                }
+
+                if (count($ids) > 0) {
+                    Yii::$app->db->createCommand()->batchInsert(FoCaDi::tableName(), ['id'], $ids)->execute();
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

@@ -24,6 +24,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
     const CLAUSE_STATE_DELIVERED = 6; // только доставленные
     const CLAUSE_STATE_FINISHED = 7; // только завершенные
     const CLAUSE_STATE_ALL = 8; // все статусы
+    const CLAUSE_STATE_UNCLAIMED = 9; // невостребовано
 
     /**
      * Возможные значения для отбора по способу создания пакета
@@ -145,6 +146,10 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                 'name' => 'Завершенные',
             ],
             [
+                'id' => self::CLAUSE_STATE_UNCLAIMED,
+                'name' => 'Невостребованные',
+            ],
+            [
                 'id' => self::CLAUSE_STATE_ALL,
                 'name' => 'Все',
             ],
@@ -218,53 +223,29 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
             'id' => $tableName . '.id',
             'created_at' => $tableName . '.created_at',
             'state_id' => $tableName . '.state_id',
+            'manager_id' => $tableName . '.manager_id',
         ]);
 
-        if (Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head')) {
-            // для начала проверяем наличие отделов у данного пользователя
-            // если он не включен ни в один отдел, то будет произведен отбор только его собственных документов
-            $departments = UsersDepartments::find()->select('department_id')->where(['user_id' => Yii::$app->user->id])->column();
-            if (empty($departments)) {
-                $query->orWhere([$tableName . '.manager_id' => Yii::$app->user->id]);
-            } else {
-                $query->orWhere([$tableName . '.manager_id' => UsersDepartments::find()->select('user_id')->distinct('user_id')->where(['department_id' => $departments])]);
+        if (Yii::$app->user->can('sales_department_head') || Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head')) {
+            // пользователи могут видеть только свои пакеты (поле "Ответственный")
+            $query->where([$tableName . '.`manager_id`' => Yii::$app->user->id]);
+            // начальники отделов продаж и экологии - дополнительно своих подчиненных
+            if (Yii::$app->user->can('sales_department_head')) {
+                $query->joinWith(['managerRole']);
+                $query->orWhere(['item_name' => 'sales_department_manager']);
             }
-        }
-
-        if (Yii::$app->user->can('sales_department_manager')) {
-            $query->andWhere([
-                // выполнен переход на отбор по отделу, данное условие утратило смысл:
-                //$tableName . '.manager_id' => Yii::$app->user->id,
-                'is_manual' => true,
-                'cps_id' => [
-                    CorrespondencePackagesStates::STATE_ЧЕРНОВИК,
-                    CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ,
-                    CorrespondencePackagesStates::STATE_УТВЕРЖДЕН,
-                    CorrespondencePackagesStates::STATE_ОТКАЗ,
-                ]
-            ]);
+            if (Yii::$app->user->can('ecologist_head')) {
+                $query->joinWith(['managerRole']);
+                $query->orWhere(['item_name' => 'ecologist']);
+            }
+            // также в выборку включаются пакеты всех лиц, кто доверил отображение текущему пользователю
+            $query->orWhere([$tableName . '.`manager_id`' => UsersTrusted::find()->select(['user_id'])->where(['section' => UsersTrusted::SECTION_ПАКЕТЫ_КОРРЕСПОНДЕНЦИИ, 'trusted_id' => Yii::$app->user->id])]);
         }
 
         if (Yii::$app->user->can('dpc_head')) {
             $query->andWhere([
                 'is_manual' => false,
             ]);
-        }
-
-        if (Yii::$app->user->can('ecologist_head') || Yii::$app->user->can('ecologist')) {
-            $query->andWhere([
-                // выполнен переход на отбор по отделу, данное условие утратило смысл:
-                //$tableName . '.manager_id' => Yii::$app->user->id,
-                'is_manual' => true,
-            ]);
-            if (Yii::$app->user->can('ecologist_head')) {
-                // для начальника экологии отбор тех пакетов, где менеджером указан пользователь с ролью эколога
-                $query->joinWith(['managerRole']);
-                $query->orWhere([
-                    'item_name' => 'ecologist',
-                    'is_manual' => true,
-                ]);
-            }
         }
 
         $dataProvider = new ActiveDataProvider([
@@ -325,7 +306,7 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
         ]);
 
         $this->load($params);
-        $query->joinWith(['cps', 'state', 'type', 'pd', 'managerProfile', 'edf']);
+        $query->joinWith(['cps', 'state', 'type', 'pd', 'managerProfile', 'edf', 'lastCpsChange']);
 
         // по умолчанию все видят пакеты документов только в статусах "Формирование документов на отправку" и "Ожидает отправки"
         if ($this->searchGroupProjectStates == null) {
@@ -360,6 +341,9 @@ class CorrespondencePackagesSearch extends CorrespondencePackages
                 break;
             case self::CLAUSE_STATE_DELIVERED:
                 $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_ДОСТАВЛЕНО]);
+                break;
+            case self::CLAUSE_STATE_UNCLAIMED:
+                $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_НЕВОСТРЕБОВАНО]);
                 break;
             case self::CLAUSE_STATE_FINISHED:
                 $query->andWhere([$tableName . '.state_id' => ProjectsStates::STATE_ЗАВЕРШЕНО]);

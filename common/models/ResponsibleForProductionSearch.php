@@ -43,10 +43,6 @@ class ResponsibleForProductionSearch extends ResponsibleForProduction
     public function search($params)
     {
         $query = ResponsibleForProduction::find();
-        $query->select([
-            '*',
-            'typeName' => new Expression('CASE type WHEN 1 THEN "Всегда" ELSE "При несовпадении" END'),
-        ]);
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
             'pagination' => [

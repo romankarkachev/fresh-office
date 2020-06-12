@@ -111,6 +111,8 @@ class PackingTypesController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => 'Виды упаковки',
                     'buttonUrl' => ['/packing-types'],
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

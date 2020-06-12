@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use common\models\foProjects;
 use Yii;
 use common\models\CorrespondencePackages;
 use common\models\CorrespondencePackagesSearch;
@@ -34,21 +35,37 @@ use yii\filters\VerbFilter;
 class CorrespondencePackagesController extends Controller
 {
     /**
+     * URL, применяемый для сортировки и постраничного перехода
+     */
+    const URL_ROOT_FOR_SORT_PAGING = 'correspondence-packages';
+
+    /**
+     * URL, ведущий в список записей без отбора
+     */
+    const ROOT_URL_AS_ARRAY = ['/' . self::URL_ROOT_FOR_SORT_PAGING];
+
+    /**
+     * URL для удаления нескольких выделенных пакетов корреспонденции
+     */
+    const URL_DELETE_SELECTED = 'delete-selected';
+    const URL_DELETE_SELECTED_AS_ARRAY = ['/' . self::URL_ROOT_FOR_SORT_PAGING . '/' . self::URL_DELETE_SELECTED];
+
+    /**
      * @inheritdoc
      */
     public function behaviors()
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
-                        'actions' => ['download-file'],
+                        'actions' => ['download-file', 'counteragent-casting-by-name'],
                         'allow' => true,
                         'roles' => ['?', '@'],
                     ],
                     [
-                        'actions' => ['delete', 'temp'],
+                        'actions' => ['delete', 'temp', self::URL_DELETE_SELECTED],
                         'allow' => true,
                         'roles' => ['root'],
                     ],
@@ -56,7 +73,7 @@ class CorrespondencePackagesController extends Controller
                         'actions' => [
                             'index', 'create', 'update',
                             'compose-package-by-selection', 'compose-package', 'compose-envelope',
-                            'create-address-form', 'counteragent-casting-by-name',
+                            'create-address-form',
                             'fetch-contact-persons', 'fetch-contact-emails', 'normalize-empty-addresses',
                             'upload-files', 'preview-file', 'delete-file',
                         ],
@@ -66,9 +83,10 @@ class CorrespondencePackagesController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    self::URL_DELETE_SELECTED => ['POST'],
                 ],
             ],
         ];
@@ -180,7 +198,7 @@ class CorrespondencePackagesController extends Controller
             elseif (Yii::$app->request->post('order_cancel') !== null) $model->cps_id = CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ;
 
             // если нажата кнопка "Подать повторно"
-            elseif (Yii::$app->request->post('order_try_again') !== null) {
+            elseif (Yii::$app->request->post('rollback') !== null) {
                 $model->cps_id = CorrespondencePackagesStates::STATE_ЧЕРНОВИК;
                 $returnHere = true;
             }
@@ -235,6 +253,32 @@ class CorrespondencePackagesController extends Controller
         $this->findModel($id)->delete();
 
         return $this->redirect(['/correspondence-packages']);
+    }
+
+    /**
+     * Выполняет удаление нескольких, выбранных пользователем, пакетов корреспонденции.
+     * @return mixed
+     * @throws \Throwable
+     * @throws \yii\db\StaleObjectException
+     */
+    public function actionDeleteSelected()
+    {
+        if (Yii::$app->request->post('ids') !== null) {
+            $counter = 0;
+            $ids = Yii::$app->request->post('ids');
+            foreach (CorrespondencePackages::find()->where(['id' => $ids])->all() as $cp) {
+                if ($cp->delete() > 0) { $counter++; }
+            }
+
+            if ($counter > 0) {
+                Yii::$app->session->setFlash('success', 'Успешно удалено ' . foProjects::declension($counter, ['пакет','пакета','пакетов']) . '.');
+            }
+            else {
+                Yii::$app->session->setFlash('info', 'Процесс завершился, но ни один пакет удалить не удалось.');
+            }
+
+            return $this->redirect(self::ROOT_URL_AS_ARRAY);
+        }
     }
 
     /**
@@ -522,6 +566,7 @@ class CorrespondencePackagesController extends Controller
 
     /**
      * Выполняет подбор контрагентов по части наименования, переданной в параметрах.
+     * counteragent-casting-by-name
      * @param $q string подстрока поиска
      * @return array
      */

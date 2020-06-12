@@ -53,6 +53,8 @@ use yii\web\UploadedFile;
  * @property string $files_full_path Полный путь к папке для хранения файлов электронного документа
  * @property string $comment Комментарий
  * @property string $reject_reason Причина отказа
+ * @property int $ppdq Количество дней постоплаты
+ * @property int $deferral_type Тип дней отсрочки (1 - банковские, 2 - календарные)
  *
  * @property string $createdByProfileName
  * @property string $typeName
@@ -65,6 +67,7 @@ use yii\web\UploadedFile;
  *
  * @property User $createdBy
  * @property Profile $createdByProfile
+ * @property AuthAssignment $createdByRoles
  * @property DocumentsTypes $type
  * @property Edf $parent
  * @property ContractTypes $contractType
@@ -73,6 +76,7 @@ use yii\web\UploadedFile;
  * @property OrganizationsBas $bankAccount
  * @property User $manager
  * @property Profile $managerProfile
+ * @property AuthAssignment $managerRoles
  * @property CorrespondencePackages $cp
  * @property EdfFiles[] $edfFiles
  * @property EdfStatesHistory[] $edfStatesHistories
@@ -80,6 +84,15 @@ use yii\web\UploadedFile;
  */
 class Edf extends \yii\db\ActiveRecord
 {
+    /**
+     * Возможные значения для поля "Тип дней острочки"
+     */
+    const DEFERRAL_TYPE_БАНКОВСКИЕ = 1;
+    const DEFERRAL_TYPE_КАЛЕНДАРНЫЕ = 2;
+
+    /**
+     * Возможные значения для полей отбора
+     */
     const FILTER_TYPICAL_ТИПОВЫЕ = 1;
     const FILTER_TYPICAL_КАСТОМНЫЕ = 2;
 
@@ -88,6 +101,14 @@ class Edf extends \yii\db\ActiveRecord
 
     const FILTER_ORIGINAL_ЕСТЬ = 1;
     const FILTER_ORIGINAL_НЕТ = 2;
+
+    /**
+     * Псевдонимы присоединяемых таблиц
+     */
+    const JOIN_CREATOR_PROFILE_ALIAS = 'createdByProfile';
+    const JOIN_CREATOR_ROLES_ALIAS = 'createdByRoles';
+    const JOIN_MANAGER_PROFILE_ALIAS = 'managerProfile';
+    const JOIN_MANAGER_ROLES_ALIAS = 'managerRoles';
 
     /**
      * @var array табличная часть
@@ -138,7 +159,8 @@ class Edf extends \yii\db\ActiveRecord
             //[['parent_id'], 'required', 'on' => 'creatingAgreement'],
             // обязательно для передачи на согласование менеджеру
             [['req_bik', 'req_bn'], 'required', 'on' => 'approvingDocument'],
-            [['created_at', 'created_by', 'type_id', 'parent_id', 'ct_id', 'state_id', 'org_id', 'ba_id', 'manager_id', 'cp_id', 'fo_ca_id', 'is_typical_form', 'is_received_scan', 'is_received_original'], 'integer'],
+            [['created_at', 'created_by', 'type_id', 'parent_id', 'ct_id', 'state_id', 'org_id', 'ba_id', 'manager_id', 'cp_id', 'fo_ca_id', 'ppdq', 'deferral_type'], 'integer'],
+            [['is_typical_form', 'is_received_scan', 'is_received_original'], 'boolean'],
             [['doc_date', 'doc_date_expires'], 'safe'],
             [['files_full_path', 'comment', 'reject_reason'], 'string'],
             [['doc_num', 'basis', 'req_name_full', 'req_name_short', 'req_ogrn', 'req_inn', 'req_kpp', 'req_address_j', 'req_address_f', 'req_bn', 'req_phone', 'req_email', 'req_dir_post', 'req_dir_name', 'req_dir_name_of', 'req_dir_name_short', 'req_dir_name_short_of'], 'string', 'max' => 255],
@@ -150,15 +172,15 @@ class Edf extends \yii\db\ActiveRecord
                 'req_an', 'req_bik', 'req_bn', 'req_ca', 'req_phone', 'req_email', 'req_dir_post', 'req_dir_name',
                 'req_dir_name_of', 'req_dir_name_short', 'req_dir_name_short_of'
             ], 'default', 'value' => null],
-            [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['manager_id' => 'id']],
-            [['cp_id'], 'exist', 'skipOnError' => true, 'targetClass' => CorrespondencePackages::className(), 'targetAttribute' => ['cp_id' => 'id']],
-            [['parent_id'], 'exist', 'skipOnError' => true, 'targetClass' => Edf::className(), 'targetAttribute' => ['parent_id' => 'id']],
-            [['ba_id'], 'exist', 'skipOnError' => true, 'targetClass' => OrganizationsBas::className(), 'targetAttribute' => ['ba_id' => 'id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
-            [['ct_id'], 'exist', 'skipOnError' => true, 'targetClass' => ContractTypes::className(), 'targetAttribute' => ['ct_id' => 'id']],
-            [['org_id'], 'exist', 'skipOnError' => true, 'targetClass' => Organizations::className(), 'targetAttribute' => ['org_id' => 'id']],
-            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => EdfStates::className(), 'targetAttribute' => ['state_id' => 'id']],
-            [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => DocumentsTypes::className(), 'targetAttribute' => ['type_id' => 'id']],
+            [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['manager_id' => 'id']],
+            [['cp_id'], 'exist', 'skipOnError' => true, 'targetClass' => CorrespondencePackages::class, 'targetAttribute' => ['cp_id' => 'id']],
+            [['parent_id'], 'exist', 'skipOnError' => true, 'targetClass' => Edf::class, 'targetAttribute' => ['parent_id' => 'id']],
+            [['ba_id'], 'exist', 'skipOnError' => true, 'targetClass' => OrganizationsBas::class, 'targetAttribute' => ['ba_id' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['ct_id'], 'exist', 'skipOnError' => true, 'targetClass' => ContractTypes::class, 'targetAttribute' => ['ct_id' => 'id']],
+            [['org_id'], 'exist', 'skipOnError' => true, 'targetClass' => Organizations::class, 'targetAttribute' => ['org_id' => 'id']],
+            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => EdfStates::class, 'targetAttribute' => ['state_id' => 'id']],
+            [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => DocumentsTypes::class, 'targetAttribute' => ['type_id' => 'id']],
             [['initialFiles'], 'file', 'skipOnEmpty' => true, 'skipOnError' => false, 'maxFiles' => 10],
             // собственные правила валидации
             ['type_id', 'validateType'],
@@ -214,9 +236,11 @@ class Edf extends \yii\db\ActiveRecord
             'files_full_path' => 'Полный путь к папке для хранения файлов электронного документа',
             'comment' => 'Комментарий',
             'reject_reason' => 'Причина отказа',
+            'ppdq' => 'Количество дней постоплаты',
+            'deferral_type' => 'Тип дней отсрочки (1 - банковские, 2 - календарные)',
+            // виртуальные поля
             'tp' => 'Отходы',
             'initialFiles' => 'Файлы',
-            // виртуальные поля
             'stateChangedAt' => 'Статус приобретен',
             // вычисляемые поля
             'createdByProfileName' => 'Автор создания',
@@ -726,6 +750,24 @@ class Edf extends \yii\db\ActiveRecord
     }
 
     /**
+     * Возвращает набор значений для поля "Тип дней отсрочки платежа".
+     * @return array
+     */
+    public static function fetchDeferralTypes()
+    {
+        return [
+            [
+                'id' => self::DEFERRAL_TYPE_БАНКОВСКИЕ,
+                'name' => 'Банковские',
+            ],
+            [
+                'id' => self::DEFERRAL_TYPE_КАЛЕНДАРНЫЕ,
+                'name' => 'Календарные',
+            ],
+        ];
+    }
+
+    /**
      * @return array
      */
     public static function fetchFilterTypical()
@@ -774,6 +816,16 @@ class Edf extends \yii\db\ActiveRecord
                 'name' => 'Оригиналов нет',
             ],
         ];
+    }
+
+    /**
+     * Делает выборку разновидностей дней для отсрочки платежа и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfDeferralTypesForSelect2()
+    {
+        return ArrayHelper::map(self::fetchDeferralTypes(), 'id', 'name');
     }
 
     /**
@@ -828,7 +880,15 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getCreatedBy()
     {
-        return $this->hasOne(User::className(), ['id' => 'created_by']);
+        return $this->hasOne(User::class, ['id' => 'created_by']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedByRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATOR_ROLES_ALIAS => AuthAssignment::tableName()]);
     }
 
     /**
@@ -836,7 +896,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'created_by'])->from(['createdProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATOR_PROFILE_ALIAS => Profile::tableName()]);
     }
 
     /**
@@ -845,7 +905,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfileName()
     {
-        return $this->createdByProfile != null ? ($this->createdByProfile->name != null ? $this->createdByProfile->name : $this->createdBy->username) : '';
+        return !empty($this->createdByProfile) ? (!empty($this->createdByProfile->name) ? $this->createdByProfile->name : $this->createdBy->username) : '';
     }
 
     /**
@@ -853,7 +913,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getType()
     {
-        return $this->hasOne(DocumentsTypes::className(), ['id' => 'type_id']);
+        return $this->hasOne(DocumentsTypes::class, ['id' => 'type_id']);
     }
 
     /**
@@ -870,7 +930,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getParent()
     {
-        return $this->hasOne(Edf::className(), ['id' => 'parent_id'])->from(['parentEdf' => Edf::tableName()]);
+        return $this->hasOne(Edf::class, ['id' => 'parent_id'])->from(['parentEdf' => Edf::tableName()]);
     }
 
     /**
@@ -888,7 +948,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getContractType()
     {
-        return $this->hasOne(ContractTypes::className(), ['id' => 'ct_id']);
+        return $this->hasOne(ContractTypes::class, ['id' => 'ct_id']);
     }
 
     /**
@@ -905,7 +965,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getState()
     {
-        return $this->hasOne(EdfStates::className(), ['id' => 'state_id']);
+        return $this->hasOne(EdfStates::class, ['id' => 'state_id']);
     }
 
     /**
@@ -922,7 +982,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getOrganization()
     {
-        return $this->hasOne(Organizations::className(), ['id' => 'org_id']);
+        return $this->hasOne(Organizations::class, ['id' => 'org_id']);
     }
 
     /**
@@ -939,7 +999,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getBankAccount()
     {
-        return $this->hasOne(OrganizationsBas::className(), ['id' => 'ba_id']);
+        return $this->hasOne(OrganizationsBas::class, ['id' => 'ba_id']);
     }
 
     /**
@@ -956,7 +1016,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getManager()
     {
-        return $this->hasOne(User::className(), ['id' => 'manager_id']);
+        return $this->hasOne(User::class, ['id' => 'manager_id']);
     }
 
     /**
@@ -971,17 +1031,9 @@ class Edf extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
-    public function getManagerRole()
-    {
-        return $this->hasOne(AuthAssignment::className(), ['user_id' => 'manager_id']);
-    }
-
-    /**
-     * @return \yii\db\ActiveQuery
-     */
     public function getManagerProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'manager_id'])->from(['managerProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'manager_id'])->from([self::JOIN_MANAGER_PROFILE_ALIAS => Profile::tableName()]);
     }
 
     /**
@@ -990,7 +1042,15 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getManagerProfileName()
     {
-        return $this->managerProfile != null ? ($this->managerProfile->name != null ? $this->managerProfile->name : $this->manager->username) : '';
+        return !empty($this->managerProfile) ? (!empty($this->managerProfile->name) ? $this->managerProfile->name : $this->manager->username) : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getManagerRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'manager_id'])->from([self::JOIN_MANAGER_ROLES_ALIAS => AuthAssignment::tableName()]);
     }
 
     /*
@@ -998,7 +1058,7 @@ class Edf extends \yii\db\ActiveRecord
     */
     public function getCp()
     {
-        return $this->hasOne(CorrespondencePackages::className(), ['id' => 'cp_id']);
+        return $this->hasOne(CorrespondencePackages::class, ['id' => 'cp_id']);
     }
 
     /**
@@ -1006,7 +1066,7 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getTablePart()
     {
-        return $this->hasMany(EdfTp::className(), ['ed_id' => 'id']);
+        return $this->hasMany(EdfTp::class, ['ed_id' => 'id']);
     }
 
     /*
@@ -1014,7 +1074,7 @@ class Edf extends \yii\db\ActiveRecord
     */
     public function getEdfFiles()
     {
-        return $this->hasMany(EdfFiles::className(), ['ed_id' => 'id']);
+        return $this->hasMany(EdfFiles::class, ['ed_id' => 'id']);
     }
 
     /**
@@ -1022,6 +1082,6 @@ class Edf extends \yii\db\ActiveRecord
      */
     public function getEdfStatesHistories()
     {
-        return $this->hasMany(EdfStatesHistory::className(), ['ed_id' => 'id']);
+        return $this->hasMany(EdfStatesHistory::class, ['ed_id' => 'id']);
     }
 }

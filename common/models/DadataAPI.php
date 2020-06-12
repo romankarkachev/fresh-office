@@ -441,4 +441,83 @@ class DadataAPI extends Model
 
         return $array;
     }
+
+    /**
+     * Выполняет попытку идентификации контрагента по реквизитам, переданным в параметрах.
+     * @param $query string ИНН или ОГРН контрагента
+     * @param $specifyingValue string КПП для уточнения
+     * @param bool $cleanDir признак необходимости обработать директора
+     * @return array|bool
+     */
+    public static function fetchCounteragentsInfo($query, $specifyingValue = null, $cleanDir = null)
+    {
+        $details = DadataAPI::postRequestToApi($query, $specifyingValue);
+        if (false !== $details) {
+            $caName = DadataAPI::mb_ucwords(mb_strtolower($details['name']['full']));
+            $caNameFull = '';
+            $caNameShort = '';
+
+            if (!empty($details['opf'])) {
+                if ($details['opf']['code'] == '50102') {
+                    // для ИП без кавычек
+                    $caNameFull = $details['opf']['full'] . ' ' . $caName;
+                    $caNameShort = $details['opf']['short'] . ' ' . $caName;
+                }
+                else {
+                    $caNameFull = $details['opf']['full'] . ' "' . $caName . '"';
+                    $caNameShort = $details['opf']['short'] . ' "' . $caName . '"';
+                }
+            }
+
+            $result = [
+                /*
+                'name' => $details['name']['full'],
+                'name_full' => $details['name']['full_with_opf'],
+                'name_short' => $details['name']['short_with_opf'],
+                */
+                'name' => $caName,
+                'name_full' => $caNameFull,
+                'name_short' => $caNameShort,
+                'inn' => $details['inn'],
+                'ogrn' => $details['ogrn'],
+            ];
+            if (!empty($details['kpp'])) $result['kpp'] = $details['kpp'];
+            $result['address'] = $details['address']['unrestricted_value'];
+            if (isset($details['management'])) {
+                // полные ФИО директора
+                $result['dir_name'] = $details['management']['name'];
+                if (intval($cleanDir) == true) {
+                    $cleanName = DadataAPI::cleanName($result['dir_name']);
+                    if (!empty($cleanName)) {
+                        $result['dir_name_of'] = $cleanName['result_genitive'];
+                        // сокращенные ФИО директора в именительном падеже
+                        $result['dir_name_short'] = $cleanName['surname'] .
+                            (!empty($cleanName['name']) ? ' ' . mb_substr($cleanName['name'], 0, 1) . '.' : '') .
+                            (!empty($cleanName['patronymic']) ? ' ' . mb_substr($cleanName['patronymic'], 0, 1) . '.' : '');
+
+                        // просклоняем сокращенные ФИО
+                        $cleanShortName = DadataAPI::cleanName($result['dir_name_short']);
+                        if (!empty($cleanShortName) && isset($cleanShortName['result_genitive'])) {
+                            $result['dir_name_short_of'] = $cleanShortName['result_genitive'];
+                        }
+                        else {
+                            // не удалось просклонять, просто берем сокращенные ФИО
+                            $result['dir_name_short_of'] = $result['dir_name_short'];
+                        }
+                    }
+                    else {
+                        // не удалось просклонять, просто берем полные ФИО
+                        $result['dir_name_of'] = $result['dir_name'];
+                    }
+                }
+            }
+            if (isset($details['management'])) {
+                $result['dir_post'] = $details['management']['post'];
+            }
+
+            return $result;
+        }
+
+        return false;
+    }
 }

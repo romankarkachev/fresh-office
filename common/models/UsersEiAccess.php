@@ -32,8 +32,8 @@ class UsersEiAccess extends \yii\db\ActiveRecord
         return [
             [['user_id', 'ei_id'], 'required'],
             [['user_id', 'ei_id'], 'integer'],
-            [['ei_id'], 'exist', 'skipOnError' => true, 'targetClass' => PoEi::className(), 'targetAttribute' => ['ei_id' => 'id']],
-            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['user_id' => 'id']],
+            [['ei_id'], 'exist', 'skipOnError' => true, 'targetClass' => PoEi::class, 'targetAttribute' => ['ei_id' => 'id']],
+            [['user_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['user_id' => 'id']],
         ];
     }
 
@@ -54,7 +54,7 @@ class UsersEiAccess extends \yii\db\ActiveRecord
      */
     public function getEi()
     {
-        return $this->hasOne(PoEi::className(), ['id' => 'ei_id']);
+        return $this->hasOne(PoEi::class, ['id' => 'ei_id']);
     }
 
     /**
@@ -62,6 +62,6 @@ class UsersEiAccess extends \yii\db\ActiveRecord
      */
     public function getUser()
     {
-        return $this->hasOne(User::className(), ['id' => 'user_id']);
+        return $this->hasOne(User::class, ['id' => 'user_id']);
     }
 }

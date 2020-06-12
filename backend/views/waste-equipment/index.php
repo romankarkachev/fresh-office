@@ -21,6 +21,33 @@ $this->params['breadcrumbs'][] = WasteEquipmentController::ROOT_LABEL;
         'layout' => '{items}{pager}',
         'columns' => [
             'name',
+            'description',
+            [
+                'attribute' => 'amort_percent',
+                'label' => 'Износ',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\WasteEquipment */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $value = $model->{$column->attribute};
+                    if (!empty($value)) {
+                        return $model->{$column->attribute} . ' %';
+                    }
+                    else {
+                        return '';
+                    }
+                },
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+                'options' => ['width' => '80'],
+            ],
+            [
+                'attribute' => 'year',
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+                'options' => ['width' => '80'],
+            ],
             ['class' => 'backend\components\grid\ActionColumn'],
         ],
     ]); ?>

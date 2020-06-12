@@ -4,7 +4,7 @@
  * Выполняет суммирование значения колонки для вывода в подвале таблицы в качестве итога.
  */
 
-namespace backend\components;
+namespace backend\components\grid;
 
 use yii\grid\DataColumn;
 

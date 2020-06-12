@@ -3,14 +3,17 @@
 namespace common\models;
 
 use Yii;
+use yii\db\Expression;
 use yii\helpers\ArrayHelper;
 use dektrium\user\helpers\Password;
-use common\models\Profile;
 use dektrium\user\models\User as BaseUser;
 
 /**
- * @property AuthItem $role
+ * @property string $roleName
+ * @property float $advanceBalanceStored
+ * @property float $advanceBalanceCalculated
  *
+ * @property AuthItem $role
  * @property Profile $profile
  * @property EcoProjects $ecoProjects
  * @property EcoProjectsAccess $ecoProjectsAccesses
@@ -28,10 +31,16 @@ class User extends BaseUser
      * Признаки, определяющие способ отбора пользователей в зависимости от роли
      */
     const ARRAY_MAP_OF_USERS_BY_ALL_ROLES = 1; // все пользователи
+    const ARRAY_MAP_OF_ALL_EXCEPT_SELF = 7; // все пользователи, кроме себя самого
+    const ARRAY_MAP_OF_ALL_EXCEPT_SPECIAL = 8; // все пользователи, кроме переданных
     const ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE = 2; // отбор по роли менеджера
     const ARRAY_MAP_OF_USERS_BY_ECOLOGIST_ROLE = 3; // только экологи
     const ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE = 4; // только менеджеры и экологи
     const ARRAY_MAP_OF_USERS_BY_LOGIST_ROLE = 5; // только логисты
+    const USERS_ALL_JOIN_FINANCE_BALANCE = 6; // все пользователи с балансом по подотчету
+    const USERS_ALL_WEB_APP = 9; // все пользователи, имеющие непосредственное отношение к веб-приложению (кроме водителей, перевозчиков, заказчиков)
+    const USERS_TENDERS = 10; // специалисты отдела тендеров
+    const USERS_FO_ATTACHED = 11; // все пользователи, которые имеют привязку к CRM Fresh Office
 
     /**
      * Имя.
@@ -93,7 +102,7 @@ class User extends BaseUser
         $rules[] = ['password_confirm', 'required', 'on' => 'create'];
         $rules[] = ['password_confirm', 'compare', 'skipOnEmpty' => false, 'compareAttribute' => 'password', 'message' => 'Пароли не совпадают', 'on' => 'create'];
         $rules[] = [['name'], 'string', 'max' => 255];
-        $rules[] = [['departments'], 'safe'];
+        $rules[] = [['departments', 'poEis'], 'safe'];
 
         return $rules;
     }
@@ -147,12 +156,22 @@ class User extends BaseUser
             DriversFiles::updateAll(['uploaded_by' => 1], ['uploaded_by' => $this->id]);
             TransportFiles::updateAll(['uploaded_by' => 1], ['uploaded_by' => $this->id]);
 
-            // очищаем поле user_id таблицы drivers
+            // удаляем отделы, в которых состоит пользователь
             UsersDepartments::deleteAll(['user_id' => $this->id]);
 
+            // удаляем записи о том, кому доверял разделы учета этот пользователь, и о том, кто ему доверял
+            UsersTrusted::deleteAll([
+                'or',
+                ['user_id' => $this->id],
+                ['trusted_id' => $this->id],
+            ]);
+
+            // удаляем записи о статьях расходов, к которым имел доступ пользователь
+            UsersEiAccess::deleteAll(['user_id' => $this->id]);
 
             return true;
-        } else {
+        }
+        else {
             return false;
         }
     }
@@ -302,16 +321,36 @@ class User extends BaseUser
      * Делает выборку пользователей веб-приложения и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
      * @param $roleFilter integer признак, определяющий необходимость отбора только по роли
+     * @param $exclude array массив идентификаторов пользователей для исключения
      * @return array
      */
-    public static function arrayMapForSelect2($roleFilter = self::ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE)
+    public static function arrayMapForSelect2($roleFilter = self::ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE, $exclude = null)
     {
+        $assignTop = true;
         $roleName = 'sales_department_manager';
+
+        // если пользователь не авторизован, то ничего не отдаем
+        if (Yii::$app->user->isGuest) { $roleFilter = 'restricted'; }
 
         switch ($roleFilter) {
             case self::ARRAY_MAP_OF_USERS_BY_ALL_ROLES:
-                return ArrayHelper::map(self::find()->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
-                    ->orderBy('profile.name')->all(), 'id', 'profile.name');
+                return ArrayHelper::map(self::find()->where(['blocked_at' => null])->joinWith('profile')->orderBy('profile.name')->all(), 'id', 'profile.name');
+
+            case self::ARRAY_MAP_OF_ALL_EXCEPT_SELF:
+                // все пользователи, кроме самого себя
+                return ArrayHelper::map(self::find()->select([
+                    self::tableName() . '.*',
+                    'id' => self::tableName() . '.id',
+                    'profileName' => Profile::tableName() . '.name',
+                ])->joinWith('profile')->where(self::tableName() . '.id <> ' . Yii::$app->user->id)->orderBy(['profileName' => SORT_ASC])->all(), 'id', 'profileName');
+
+            case self::ARRAY_MAP_OF_ALL_EXCEPT_SPECIAL:
+                // все пользователи, кроме переданных в параметрах
+                return ArrayHelper::map(self::find()->select([
+                    self::tableName() . '.*',
+                    'id' => self::tableName() . '.id',
+                    'profileName' => Profile::tableName() . '.name',
+                ])->joinWith('profile')->where(['not in', self::tableName() . '.id', $exclude])->orderBy(['profileName' => SORT_ASC])->all(), 'id', 'profileName');
                 break;
             case self::ARRAY_MAP_OF_USERS_BY_MANAGER_ROLE:
                 // default case
@@ -325,15 +364,75 @@ class User extends BaseUser
             case self::ARRAY_MAP_OF_USERS_BY_LOGIST_ROLE:
                 $roleName = ['logist'];
                 break;
+            case self::USERS_ALL_JOIN_FINANCE_BALANCE:
+                // массив всех пользователей с дополнением в виде баланса по подотчету
+                $result = self::find()->select([
+                    self::tableName() . '.`id`',
+                    'username',
+                    'name' => Profile::tableName() . '.`name`',
+                    'balance' => FinanceAdvanceHolders::tableName() . '.`balance`',
+                ])
+                    ->leftJoin(Profile::tableName(), Profile::tableName() . '.`user_id` = `user`.`id`')
+                    ->leftJoin(FinanceAdvanceHolders::tableName(), FinanceAdvanceHolders::tableName() . '.`user_id` = `user`.`id`')
+                    ->orderBy(Profile::tableName() . '.name')->asArray()->all();
+
+                foreach ($result as $index => $user) {
+                    $balance = '';
+
+                    // если в профиле задано имя, берем его, а если не задано, то берем имя учетной записи
+                    if (!empty($user['name'])) {
+                        $name = trim($user['name']);
+                    }
+                    else {
+                        $name = trim($user['username']);
+                    }
+
+                    // если пользователю когда-либо выдавались деньги подотчет, то дополним его наименование балансом
+                    // даже если он нулевой (чтобы понимать, что он ничего не должен)
+                    if ($user['balance'] !== null) {
+                        $balance = ' (<span class="text-bold ' . ($user['balance'] < 0 ? 'text-info' : 'text-warning') . '" title="' . ($user['balance'] < 0 ? 'Задложенность перед сотрудником' : 'Задолженность сотрудника') . '">' . FinanceTransactions::getPrettyAmount($user['balance']) . '</span> &#8381;)';
+                    }
+
+                    $result[$index]['name'] = $name . $balance;
+                }
+
+                return ArrayHelper::map($result, 'id', 'name');
+            case self::USERS_ALL_WEB_APP:
+                // все пользователи, кто работает в веб-приложении
+                return ArrayHelper::map(self::find()->where([
+                    'not in', AuthAssignment::tableName() . '.`item_name`', ['ferryman', 'foreignDriver', 'customer'],
+                ])->joinWith(['profile', 'userRoles'])->orderBy('profile.name')->all(), 'id', 'profile.name');
+            case self::USERS_TENDERS:
+                $roleName = ['tenders_manager'];
+                $assignTop = false;
+                break;
+            case self::USERS_FO_ATTACHED:
+                // все пользователи, кто имеет привязку к Fresh Office
+                return ArrayHelper::map(self::find()->where([
+                    'not in', AuthAssignment::tableName() . '.`item_name`', ['ferryman', 'foreignDriver', 'customer'],
+                ])->andWhere([
+                    'is not', 'profile.fo_id', null
+                ])->joinWith(['profile', 'userRoles'])->orderBy('profile.name')->all(), 'id', 'profile.name');
+                break;
         }
 
-        return ArrayHelper::merge([
-            1 => 'Алексей Бугров',
-            17 => 'Текучева Елена', // исправить когда-нибудь, сделать, чтобы выбирался пользователь и его роль, а не вот это вот все
-        ], ArrayHelper::map(self::find()->select(self::tableName() . '.*')
+        $result = ArrayHelper::map(self::find()->select(self::tableName() . '.*')
             ->leftJoin('`auth_assignment`', '`auth_assignment`.`user_id`=' . self::tableName().'.`id`')
             ->leftJoin('`profile`', '`profile`.`user_id` = `user`.`id`')
-            ->where(['in', '`auth_assignment`.`item_name`', $roleName])->orderBy('profile.name')->all(), 'id', 'profile.name'));
+            ->where(['in', '`auth_assignment`.`item_name`', $roleName])->orderBy('profile.name')->all(), 'id', 'profile.name');
+
+        if ($assignTop) {
+            // убираем из списка Текучеву
+            if (isset($result[145])) unset($result[145]);
+
+            return ArrayHelper::merge([
+                1 => 'Алексей Бугров',
+                145 => 'Текучева Елена', // исправить когда-нибудь, сделать, чтобы выбирался пользователь и его роль, а не вот это вот все
+            ], $result);
+        }
+        else {
+            return $result;
+        }
     }
 
     /**
@@ -360,6 +459,28 @@ class User extends BaseUser
     }
 
     /**
+     * Возвращает значение состояния взаиморасчетов с подотчетным лицом, хранящееся явно.
+     * @return float|bool
+     */
+    public function getAdvanceBalanceStored()
+    {
+        $result = FinanceAdvanceHolders::find()->select('balance')->where(['user_id' => $this->id])->scalar();
+        if (false !== $result) floatval($result);
+        return $result;
+    }
+
+    /**
+     * Рассчитывает и возвращает текущую сумму взаиморасчетов с подотчетным лицом.
+     * @return float|bool
+     */
+    public function getAdvanceBalanceCalculated()
+    {
+        $result = FinanceTransactions::find()->select(new Expression('SUM(amount)'))->where(['user_id' => $this->id])->groupBy('user_id')->scalar();
+        if (false !== $result) floatval($result);
+        return $result;
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getProfile()
@@ -381,7 +502,7 @@ class User extends BaseUser
      */
     public function getUserRoles()
     {
-        return $this->hasMany(AuthAssignment::className(), ['user_id' => 'id']);
+        return $this->hasMany(AuthAssignment::class, ['user_id' => 'id']);
     }
 
     /**
@@ -389,8 +510,7 @@ class User extends BaseUser
      */
     public function getRole()
     {
-        return $this->hasOne(AuthItem::className(), ['name' => 'item_name'])
-            ->via('userRoles');
+        return $this->hasOne(AuthItem::class, ['name' => 'item_name'])->via('userRoles');
     }
 
     /**
@@ -399,7 +519,7 @@ class User extends BaseUser
      */
     public function getRoleName()
     {
-        return $this->role != null ? $this->role->name : '';
+        return !empty($this->role) ? $this->role->name : '';
     }
 
     /**
@@ -408,7 +528,7 @@ class User extends BaseUser
      */
     public function getRoleDescription()
     {
-        return $this->role != null ? $this->role->description : '';
+        return !empty($this->role) ? $this->role->description : '';
     }
 
     /**
@@ -416,7 +536,7 @@ class User extends BaseUser
      */
     public function getEcoProjects()
     {
-        return $this->hasMany(EcoProjects::className(), ['created_by' => 'id']);
+        return $this->hasMany(EcoProjects::class, ['created_by' => 'id']);
     }
 
     /**
@@ -424,13 +544,13 @@ class User extends BaseUser
      */
     public function getEcoProjectsAccesses()
     {
-        return $this->hasMany(EcoProjectsAccess::className(), ['user_id' => 'id']);
+        return $this->hasMany(EcoProjectsAccess::class, ['user_id' => 'id']);
     }
     /**
      * @return \yii\db\ActiveQuery
      */
     public function getEcoProjectsMilestonesFiles()
     {
-        return $this->hasMany(EcoProjectsMilestonesFiles::className(), ['uploaded_by' => 'id']);
+        return $this->hasMany(EcoProjectsMilestonesFiles::class, ['uploaded_by' => 'id']);
     }
 }

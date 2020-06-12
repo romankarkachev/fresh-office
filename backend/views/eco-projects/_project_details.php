@@ -12,7 +12,8 @@
     <br/>
     Заказчик <strong><?= $model->customerName ?></strong>
     <?php if (empty($model->closed_at)): ?>
-    должен получить результат не позднее <strong><?= Yii::$app->formatter->asDate(strtotime($model->date_close_plan . ' 00:00:00'), 'php:d F Y г.') ?></strong>
+    должен получить результат не позднее <strong><?= Yii::$app->formatter->asDate(strtotime($model->date_close_plan . ' 00:00:00'), 'php:d F Y г.') ?></strong><?php if (!empty($model->organizationShortName)): ?>,
+    исполнением работ занимается <?= $model->organizationShortName ?>.<?php endif; ?>
     <?php else: ?>
     , проект завершен <strong><?= Yii::$app->formatter->asDate(strtotime(date('Y-m-d 00:00:00', $model->closed_at)), 'php:d F Y г.') ?></strong>
     <?php endif; ?>

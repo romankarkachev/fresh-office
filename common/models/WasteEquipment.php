@@ -11,11 +11,23 @@ use yii\helpers\Html;
  *
  * @property int $id
  * @property string $name Наименование
+ * @property string $description Пр-тель, страна пр-ва, марка, модель, тех. х-ки
+ * @property int $year Год выпуска
+ * @property int $amort_percent % амортизации
+ * @property int $ownership Принадлежность (1 - собственность, 2 - арендованный)
+ *
+ * @property string $ownershipName
  *
  * @property TendersWe[] $tendersWasteEquipment
  */
 class WasteEquipment extends \yii\db\ActiveRecord
 {
+    /**
+     * Возможные значения для поля "Принадлежность"
+     */
+    const OWNERSHIP_СОБСТВЕННОСТЬ = 1;
+    const OWNERSHIP_АРЕНДА = 2;
+
     /**
      * {@inheritdoc}
      */
@@ -31,29 +43,26 @@ class WasteEquipment extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
+            [['description'], 'string'],
+            [['amort_percent', 'ownership'], 'integer'],
+            ['year', 'integer', 'min' => 1900, 'max' => 2100],
             [['name'], 'string', 'max' => 100],
         ];
     }
 
     /**
-     * Выполняет проверку, используется ли запись в других элементах.
-     * @return bool
+     * {@inheritdoc}
      */
-    public function checkIfUsed()
+    public function attributeLabels()
     {
-        if ($this->getTendersWasteEquipment()->count() > 0) return true;
-
-        return false;
-    }
-
-    /**
-     * Делает выборку видов оборудования для утилизации и возвращает в виде массива.
-     * Применяется для вывода в виджетах Select2.
-     * @return array
-     */
-    public static function arrayMapForSelect2()
-    {
-        return ArrayHelper::map(self::find()->orderBy('name')->all(), 'id', 'name');
+        return [
+            'id' => 'ID',
+            'name' => 'Наименование',
+            'description' => 'Описание',
+            'year' => 'Год выпуска',
+            'amort_percent' => '% амортизации',
+            'ownership' => 'Принадлежность', // 1 - собственность, 2 - арендованный
+        ];
     }
 
     /**
@@ -78,14 +87,64 @@ class WasteEquipment extends \yii\db\ActiveRecord
     }
 
     /**
-     * {@inheritdoc}
+     * Выполняет проверку, используется ли запись в других элементах.
+     * @return bool
      */
-    public function attributeLabels()
+    public function checkIfUsed()
+    {
+        if ($this->getTendersWasteEquipment()->count() > 0) return true;
+
+        return false;
+    }
+
+    /**
+     * Делает выборку видов оборудования для утилизации и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapForSelect2()
+    {
+        return ArrayHelper::map(self::find()->orderBy('name')->all(), 'id', 'name');
+    }
+
+    /**
+     * @return array
+     */
+    public static function fetchOwnerships()
     {
         return [
-            'id' => 'ID',
-            'name' => 'Наименование',
+            [
+                'id' => self::OWNERSHIP_СОБСТВЕННОСТЬ,
+                'name' => 'Собственность',
+            ],
+            [
+                'id' => self::OWNERSHIP_АРЕНДА,
+                'name' => 'Арендованный',
+            ],
         ];
+    }
+
+    /**
+     * Делает выборку разновидностей принадлежности и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfOwnershipForSelect2()
+    {
+        return ArrayHelper::map(self::fetchOwnerships(), 'id', 'name');
+    }
+
+    /**
+     * Возвращает принадлежность.
+     * @return string
+     */
+    public function getOwnershipName()
+    {
+        $sourceTable = self::fetchOwnerships();
+        $key = array_search($this->ownership, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
     }
 
     /**

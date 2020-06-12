@@ -147,6 +147,7 @@ class ReportCorrespondenceAnalytics extends Model
             else {
                 // если имени суммирумоей колонки нет в результирующем массиве, то просто добавляем его с единицей
                 $result[] = [
+                    'table' . $tableNum . '_id' => $row['id'],
                     'table' . $tableNum . '_name' => $row[$columnName],
                     'table' . $tableNum . '_count' => 1,
                 ];
@@ -178,6 +179,7 @@ class ReportCorrespondenceAnalytics extends Model
             else {
                 // если имени суммирумоей колонки нет в результирующем массиве, то просто добавляем его с единицей
                 $result[] = [
+                    'table' . $tableNum . '_id' => $row['id'],
                     'table' . $tableNum . '_name' => $row[$columnName],
                     'table' . $tableNum . '_count' => 1,
                     'table' . $tableNum . '_rejects_count' => 0,
@@ -218,11 +220,16 @@ class ReportCorrespondenceAnalytics extends Model
     public function makeDataProviderForTable2()
     {
         $query = CorrespondencePackages::find()->select([
+            'pd_id',
             'table2_id' => 'pd_id',
             'table2_name' => 'post_delivery_kinds.name',
             'table2_value' => new Expression('AVG(`delivered_at` - `created_at`)'),
         ]);
-        $query->joinWith(['pd'])->where('delivered_at IS NOT NULL')->groupBy('pd_id');
+        $query->joinWith(['pd'])->where([
+            'and',
+            ['is not', 'delivered_at', null],
+            ['<>', 'state_id', ProjectsStates::STATE_НЕВОСТРЕБОВАНО],
+        ])->groupBy('pd_id');
         $this->addConditionIfPeriodFilterIs($query);
 
         return new ArrayDataProvider([
@@ -268,7 +275,11 @@ class ReportCorrespondenceAnalytics extends Model
         unset($query);
 
         // Документы доставляются в среднем за
-        $query = CorrespondencePackages::find()->where('delivered_at IS NOT NULL');
+        $query = CorrespondencePackages::find()->where([
+            'and',
+            ['is not', 'delivered_at', null],
+            ['<>', 'state_id', ProjectsStates::STATE_НЕВОСТРЕБОВАНО],
+        ]);
         $this->addConditionIfPeriodFilterIs($query);
         $result[] = [
             'table3_name' => 'Доставка документов',
@@ -356,12 +367,12 @@ class ReportCorrespondenceAnalytics extends Model
         return new ArrayDataProvider([
             'modelClass' => 'common\models\ReportCorrespondenceAnalytics',
             'allModels' => $this->collapseTableByField($dataArray, 23, 'cpsName'),
-            'key' => 'table1_id', // поле, которое заменяет primary key
+            'key' => 'table23_id', // поле, которое заменяет primary key
             'pagination' => false,
             'sort' => [
                 'defaultOrder' => ['table23_count' => SORT_DESC],
                 'attributes' => [
-                    'table3_id',
+                    'table23_id',
                     'table23_name',
                     'table23_count',
                 ],
@@ -376,11 +387,12 @@ class ReportCorrespondenceAnalytics extends Model
     public function makeDataProviderForTable24()
     {
         $query = CorrespondencePackages::find()->select([
+            'manager_id',
             'table24_id' => 'manager_id',
-            'table24_name' => 'profile.name',
+            'table24_name' => 'managerProfile.name',
             'table24_value' => new Expression('AVG(`ready_at` - `created_at`)'),
         ]);
-        $query->joinWith(['managerProfile'])->where('ready_at IS NOT NULL')->andWhere(['is_manual' => true])->groupBy('manager_id');
+        $query->joinWith(['managerProfile'])->where('ready_at IS NOT NULL')->andWhere(['is_manual' => true])->groupBy('table24_id');
         $this->addConditionIfPeriodFilterIs($query);
 
         return new ArrayDataProvider([
@@ -407,15 +419,17 @@ class ReportCorrespondenceAnalytics extends Model
      */
     public function search($params)
     {
+        $tableName = CorrespondencePackages::tableName();
         $this->load($params);
 
         $query = CorrespondencePackages::find()->select([
-            'correspondence_packages.id',
+            $tableName . '.id',
+            $tableName . '.cps_id',
             'pd_id',
-            'ca_id' => 'correspondence_packages.fo_id_company',
-            'ca_name' => 'correspondence_packages.customer_name',
+            'ca_id' => $tableName . '.fo_id_company',
+            'ca_name' => $tableName . '.customer_name',
             'cpsName' => 'correspondence_packages_states.name',
-            'correspondence_packages.rejects_count',
+            $tableName . '.rejects_count',
             'pdName' => 'post_delivery_kinds.name',
         ]);
         $query->joinWith(['cps', 'pd']);

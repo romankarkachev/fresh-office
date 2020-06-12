@@ -32,8 +32,8 @@ class TendersWe extends \yii\db\ActiveRecord
         return [
             [['we_id'], 'required'],
             [['tender_id', 'we_id'], 'integer'],
-            [['we_id'], 'exist', 'skipOnError' => true, 'targetClass' => WasteEquipment::className(), 'targetAttribute' => ['we_id' => 'id']],
-            [['tender_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tenders::className(), 'targetAttribute' => ['tender_id' => 'id']],
+            [['we_id'], 'exist', 'skipOnError' => true, 'targetClass' => WasteEquipment::class, 'targetAttribute' => ['we_id' => 'id']],
+            [['tender_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tenders::class, 'targetAttribute' => ['tender_id' => 'id']],
         ];
     }
 
@@ -54,7 +54,7 @@ class TendersWe extends \yii\db\ActiveRecord
      */
     public function getWe()
     {
-        return $this->hasOne(WasteEquipment::className(), ['id' => 'we_id']);
+        return $this->hasOne(WasteEquipment::class, ['id' => 'we_id']);
     }
 
     /**
@@ -62,6 +62,6 @@ class TendersWe extends \yii\db\ActiveRecord
      */
     public function getTender()
     {
-        return $this->hasOne(Tenders::className(), ['id' => 'tender_id']);
+        return $this->hasOne(Tenders::class, ['id' => 'tender_id']);
     }
 }

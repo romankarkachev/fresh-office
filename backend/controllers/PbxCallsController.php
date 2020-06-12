@@ -15,7 +15,9 @@ use common\models\YandexSpeechKitRecognitionQueueSearch;
 use common\models\foListPhones;
 use common\models\foCompany;
 use common\models\YandexServices;
+use yii\helpers\Json;
 use yii\web\Controller;
+use yii\web\ForbiddenHttpException;
 use yii\web\NotFoundHttpException;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
@@ -64,6 +66,24 @@ class PbxCallsController extends Controller
     const URL_RECOGNITION_QUEUE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_RECOGNITION_QUEUE];
 
     /**
+     * URL для скачивания результатов распознавания
+     */
+    const URL_DOWNLOAD_RECOGNITION_RESULT = 'download-recognition-result';
+    const URL_DOWNLOAD_RECOGNITION_RESULT_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DOWNLOAD_RECOGNITION_RESULT];
+
+    /**
+     * URL для удаления из очереди распознавания
+     */
+    const URL_DELETE_FROM_RECOGNITION_QUEUE = 'delete-from-recognition-queue';
+    const URL_DELETE_FROM_RECOGNITION_QUEUE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DELETE_FROM_RECOGNITION_QUEUE];
+
+    /**
+     * URL для очищения очереди распознавания
+     */
+    const URL_CLEAR_RECOGNITION_QUEUE = 'clear-recognition-queue';
+    const URL_CLEAR_RECOGNITION_QUEUE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_CLEAR_RECOGNITION_QUEUE];
+
+    /**
      * Наименование параметра, сохраняемого в сессии при привязке внутреннего номера телефона
      */
     const SESSION_PARAM_NAME_CREATE_INTERNAL_NUMBER = 'pbx_calls_phone_number_';
@@ -75,7 +95,7 @@ class PbxCallsController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['identify-counteragent-by-phone'],
@@ -87,7 +107,8 @@ class PbxCallsController extends Controller
                             'create-internal-number', 'toggle-new', 'preview-file', 'show-comments', 'get-counteragents-name',
                             'identify-counteragent-form', 'validate-identification', 'apply-identification',
                             'render-comments-list', 'validate-comment', 'temp',
-                            self::URL_TRANSCRIBE_SELECTED_FILES, self::URL_RECOGNITION_QUEUE,
+                            self::URL_TRANSCRIBE_SELECTED_FILES, self::URL_RECOGNITION_QUEUE, self::URL_DOWNLOAD_RECOGNITION_RESULT,
+                            self::URL_DELETE_FROM_RECOGNITION_QUEUE, self::URL_CLEAR_RECOGNITION_QUEUE,
                         ],
                         'allow' => true,
                         'roles' => ['root', 'pbx', 'sales_department_head', 'operator_head'],
@@ -102,15 +123,30 @@ class PbxCallsController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'toggle-new' => ['POST'],
                     'validate-comment' => ['POST'],
                     'place-new-comment' => ['POST'],
                     'delete' => ['POST'],
+                    self::URL_DELETE_FROM_RECOGNITION_QUEUE => ['POST'],
+                    self::URL_CLEAR_RECOGNITION_QUEUE => ['POST'],
                 ],
             ],
         ];
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    public function beforeAction($action)
+    {
+        if (Yii::$app->user->can('operator_head') && Yii::$app->user->id != 38) {
+            // из старших операторов доступ есть только у г-жи Лукониной
+            throw new ForbiddenHttpException('Доступ запрещен.');
+        }
+
+        return parent::beforeAction($action);
     }
 
     /**
@@ -292,9 +328,7 @@ class PbxCallsController extends Controller
         $model = new pbxCallsComments();
 
         if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            echo json_encode(\yii\widgets\ActiveForm::validate($model));
-            Yii::$app->end();
+            return json_encode(\yii\widgets\ActiveForm::validate($model));
         }
     }
 
@@ -328,7 +362,8 @@ class PbxCallsController extends Controller
      * Показывает окно воспроизведения записи разговора.
      * @param integer $id
      * @return mixed
-     * @throws NotFoundHttpException если файл не будет обнаружен
+     * @throws NotFoundHttpException
+     * @throws \yii\base\InvalidConfigException
      */
     public function actionPreviewFile($id)
     {
@@ -450,9 +485,7 @@ class PbxCallsController extends Controller
         $model = new pbxIdentifyCounteragentForm();
 
         if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            echo json_encode(\yii\widgets\ActiveForm::validate($model));
-            Yii::$app->end();
+            return Json::encode(\yii\widgets\ActiveForm::validate($model));
         }
     }
 
@@ -488,10 +521,123 @@ class PbxCallsController extends Controller
      * готовность распознания.
      * transcribe-selected-files
      * @return mixed
+     * @throws \yii\base\InvalidConfigException
      */
     public function actionTranscribeSelectedFiles()
     {
-        return true;
+        \Yii::$app->response->format = \yii\web\Response::FORMAT_JSON;
+
+        $errors = [];
+        $ids = [];
+        if (Yii::$app->request->post('ids') !== null) {
+            $calls = PbxCalls::find()->where(['id' => Yii::$app->request->post('ids')])->all();
+            if (count($calls) > 0) {
+                $client = new \yii\httpclient\Client([
+                    'baseUrl' => YandexServices::URL_SPEECHKIT_RECOGNITION_RUN_LONG,
+                    'transport' => 'yii\httpclient\CurlTransport'
+                ]);
+                foreach ($calls as $call) {
+                    $ffp = '';
+                    $recordsPath = '/mnt/voipnfs/' . Yii::$app->formatter->asDate($call->calldate, 'php:Y.m.d');
+                    foreach (glob("$recordsPath/*$call->uniqueid*") as $filename) {
+                        if (!empty($filename)) {
+                            $ffp = $filename;
+                            break;
+                        }
+                    }
+
+                    if (!empty($ffp) && file_exists($ffp)) {
+                        /** @var $result \chemezov\yii2\yandex\cloud\Service */
+                        /** @var $result \Aws\ResultInterface */
+                        $result = Yii::$app->yandexCloud->upload($call->id . '.wav', $ffp);
+                        if (isset($result->toArray()['ObjectURL'])) {
+                            // файл успешно загружен в бакет Yandex Cloud
+                            $objectUrl = $result->toArray()['ObjectURL'];
+
+                            // отправим его на распознавание
+                            $response = $client->createRequest()
+                                ->setMethod('POST')
+                                ->setFormat(\yii\httpclient\Client::FORMAT_JSON)
+                                ->setData([
+                                    'config' => [
+                                        'specification' => [
+                                            'languageCode' => 'ru-RU',
+                                            'audioEncoding' => 'LINEAR16_PCM',
+                                            'sampleRateHertz' => 8000,
+                                            'audioChannelCount' => 1,
+                                        ],
+                                    ],
+                                    'audio' => [
+                                        'uri' => $objectUrl,
+                                    ],
+                                ])
+                                ->setHeaders([
+                                    'Authorization' => 'Api-Key ' . YandexServices::SPEECHKIT_API_KEY,
+                                ])->send();
+
+                            if ($response->isOk) {
+                                // помещаем файл в очередь на распознавание
+                                if (!(new YandexSpeechKitRecognitionQueue([
+                                    'check_after' => (time() + max(10, 10 * round($call->duration / 60, 0, PHP_ROUND_HALF_UP))),
+                                    'call_id' => $call->id,
+                                    'url_bucket' => $objectUrl,
+                                    'operation_id' => $response->data['id'],
+                                ]))->save()) {
+                                    $ids[] = $call->id;
+                                    $errors[] = 'Не удалось поставить в очередь (' . $call->id . ')!';
+                                    Yii::$app->yandexCloud->delete($call->id . '.wav');
+                                }
+                            }
+                            else {
+                                // что-то не задалось, удаляем файл из хранилища
+                                $result = Yii::$app->yandexCloud->delete($call->id . '.wav');
+                                // отмечаем проблемную аудиодорожку
+                                $ids[] = $call->id;
+                                $errors[] = 'Не удалось отправить на распознавание (' . $call->id . ')!';
+                            }
+                        }
+                        else {
+                            $ids[] = $call->id;
+                            $errors[] = 'Не удалось отправить в бакет (' . $call->id . ')!';
+                        }
+                    }
+                    else {
+                        $ids[] = $call->id;
+                        $errors[] = 'Файл аудиодорожки звонка ' . $call->id . ' не найден!';
+                    }
+                }
+            }
+            else $errors[] = 'Звонки не идентифицированы!';
+        }
+        else $errors[] = 'Неверно переданы параметры';
+
+        if (!empty($errors)) {
+            return [
+                'result' => false,
+                'errors' => $errors,
+                'ids' => $ids,
+            ];
+        }
+        else return true;
+    }
+
+    /**
+     * Отдает на скачивание файл с результатами распознавания.
+     * download-recognition-result
+     * @param $id
+     * @return mixed
+     * @throws NotFoundHttpException
+     */
+    public function actionDownloadRecognitionResult($id)
+    {
+        if (is_numeric($id)) if ($id > 0) {
+            $model = $this->findModel($id);
+
+            if (!empty($model->recognitionFfp) && file_exists($model->recognitionFfp))
+                return Yii::$app->response->sendFile($model->recognitionFfp, 'Запись абонент ' . $model->src . '.txt');
+            else
+                throw new NotFoundHttpException('Файл не обнаружен.');
+        };
     }
 
     /**
@@ -507,20 +653,48 @@ class PbxCallsController extends Controller
         return $this->render('/recognition-queue/index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
-            'predefinedPeriods' => pbxCallsSearch::fetchPredefinedPeriods(),
-            'callsDirections' => pbxCallsSearch::fetchFilterCallDirection(),
-            'isNewVariations' => pbxCallsSearch::fetchFilterIsNew(),
         ]);
+    }
+
+    /**
+     * Выполняет удаление из очереди.
+     * delete-from-recognition-queue
+     * @param $id
+     * @return mixed
+     * @throws \Throwable
+     * @throws \yii\db\StaleObjectException
+     */
+    public function actionDeleteFromRecognitionQueue($id)
+    {
+        (YandexSpeechKitRecognitionQueue::findOne($id))->delete();
+
+        return $this->redirect(PbxCallsController::URL_RECOGNITION_QUEUE_AS_ARRAY);
+    }
+
+    /**
+     * Выполняет удаление всех записей.
+     * clear-recognition-queue
+     * @return mixed
+     */
+    public function actionClearRecognitionQueue()
+    {
+        if (false !== YandexSpeechKitRecognitionQueue::deleteAll()) {
+            Yii::$app->getSession()->setFlash('success', 'Все записи были удалены.');
+        }
+
+        return $this->redirect(PbxCallsController::URL_RECOGNITION_QUEUE_AS_ARRAY);
     }
 
     public function actionTemp()
     {
+        /*
+        // делает запрос, не выполнено ли распознавание
         $client = new \yii\httpclient\Client([
             'baseUrl' => YandexServices::URL_SPEECHKIT_RECOGNITION_RESULTS,
             'transport' => 'yii\httpclient\CurlTransport'
         ]);
         $response = $client->createRequest()
-            ->setUrl('e03tn9vrnoojvud7at2l')
+            ->setUrl('e03v4m6v1meg04qpkqsi')
             ->setMethod('GET')
             ->setHeaders([
                 'Authorization' => 'Api-Key AQVNyyn6FCwYKpNIYEkg6UFq-wYn_L5ocLKzp7F6',
@@ -533,7 +707,9 @@ class PbxCallsController extends Controller
             var_dump($response->statusCode, $response->content);
         }
         return;
+        */
 
+        /*
         //$model = pbxCalls::findOne(675388);
         //if ($model) {
             $client = new \yii\httpclient\Client([
@@ -567,5 +743,6 @@ class PbxCallsController extends Controller
                 var_dump($response->statusCode, $response->content);
             }
         //}
+        */
     }
 }

@@ -112,7 +112,8 @@ class Transport extends \yii\db\ActiveRecord
         return [
             [['ferryman_id', 'brand_id'], 'required'],
             [['osago_expires_at', 'loadTypes'], 'safe'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id', 'is_dopog'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'ferryman_id', 'state_id', 'tt_id', 'brand_id'], 'integer'],
+            [['is_deleted', 'is_dopog'], 'boolean'],
             [['comment'], 'string'],
             [['vin', 'vin_index'], 'string', 'max' => 50],
             [['rn', 'rn_index', 'trailer_rn'], 'string', 'max' => 30],
@@ -323,6 +324,15 @@ class Transport extends \yii\db\ActiveRecord
         $result = trim($result);
 
         return $result;
+    }
+
+    /**
+     * Возвращает представление транспортного средства.
+     * @return string
+     */
+    public function getTransportRep()
+    {
+        return !empty($this->ferryman) ? 'Перевозчик: ' . $this->ferryman->name . ', ' . $this->brandName . ' ' . $this->ttName : '';
     }
 
     /**

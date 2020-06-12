@@ -3,6 +3,8 @@
 namespace backend\controllers;
 
 use common\models\CorrespondencePackages;
+use common\models\PaymentOrders;
+use common\models\ProjectsStates;
 use Yii;
 use yii\helpers\Json;
 use yii\web\Controller;
@@ -60,11 +62,12 @@ class TrackingController extends Controller
      * движений по отправлению. Если не передается, то будет выполнена проверка вручения и результат типа timestamp.
      * @param $track_num string трек-номер отправления
      * @param $full bool при наличии значения в переменной будет возвращен полный спиок движений по отправлению
-     * @param $cp CorrespondencePackages
-     * @return bool|false|int|string
+     * @param $object CorrespondencePackages|PaymentOrders
+     * @return mixed
+     * @throws \SoapFault
      * @throws \yii\base\InvalidConfigException
      */
-    public static function trackPochtaRu($track_num, $full = null, $cp = null)
+    public static function trackPochtaRu($track_num, $full = null, $object = null)
     {
         $client2 = new \SoapClient(self::POCHTA_RU_API_URL, ['trace' => 1, 'soap_version' => SOAP_1_2]);
 
@@ -87,7 +90,7 @@ class TrackingController extends Controller
             return false;
         }
 
-        if ($full != null) {
+        if (!empty($full)) {
             $tracking = '';
             if (is_array($history)) foreach ($history as $record) {
                 $tracking .= sprintf("<p><strong>%s</strong></br>  %s, %s: %s</p>",
@@ -103,21 +106,61 @@ class TrackingController extends Controller
         else
             if (is_array($history)) foreach ($history as $record) {
                 // коды операций: https://tracking.pochta.ru/support/dictionaries/operation_codes
-                if (!empty($cp) && empty($cp->delivery_notified_at) && $record->OperationParameters->OperType->Id == 8 && $record->OperationParameters->OperAttr->Id == 2) {
-                    // 8 - операция Обработка, 2 - Прибыло в место вручения
-                    // отправим уведомление контактному лицу о том, что посылка прибыла в почтовое отделение
-                    if ($cp->sendClientNotification(CorrespondencePackages::NF_ARRIVED)) {
-                        // и пометим, что отправили такое уведомление (чтобы это было один раз в жизни)
-                        $cp->updateAttributes([
-                            'delivery_notified_at' => strtotime($record->OperationParameters->OperDate),
-                        ]);
+                if (!empty($object)) {
+                    if ($record->OperationParameters->OperType->Id == 2) {
+                        // 2 - операция Вручение на Почте России
+                        return strtotime($record->OperationParameters->OperDate);
+                    }
+
+                    if (
+                        // 8 - операция Обработка, 2 - Прибыло в место вручения
+                        $record->OperationParameters->OperType->Id == 8 &&
+                        $record->OperationParameters->OperAttr->Id == 2
+                    ) {
+                        if (
+                            $object instanceof CorrespondencePackages &&
+                            $object->hasAttribute('delivery_notified_at') &&
+                            empty($object->delivery_notified_at)
+                        ) {
+                            // это пакет корреспонденции
+                            // отправим уведомление контактному лицу о том, что посылка прибыла в почтовое отделение
+                            if ($object->sendClientNotification(CorrespondencePackages::NF_ARRIVED)) {
+                                // и пометим, что отправили такое уведомление (чтобы это было один раз в жизни)
+                                $object->updateAttributes([
+                                    'delivery_notified_at' => strtotime($record->OperationParameters->OperDate),
+                                ]);
+                            }
+                        }
+
+                        if ($object instanceof PaymentOrders) {
+                            // это платежный ордер
+                            $object->updateAttributes([
+                                'imt_state' => PaymentOrders::INCOMING_MAIL_STATE_В_ОТДЕЛЕНИИ,
+                            ]);
+                        }
+                    }
+
+                    if (
+                        // 4 - Досылка почты, 6 - Передача в невостребованные
+                        ($record->OperationParameters->OperType->Id == 4 && $record->OperationParameters->OperAttr->Id == 6) ||
+                        // 7 - Временное хранение, 2 - Невостребовано
+                        ($record->OperationParameters->OperType->Id == 7 && $record->OperationParameters->OperAttr->Id == 2)
+                    ) {
+                        // за отправлением никто не пришел
+                        if ($object instanceof CorrespondencePackages) {
+                            // помечаем его как невостребованное, чтобы исключить из подсчета сроков исполнения в аналитике
+                            $object->updateAttributes([
+                                'state_id' => ProjectsStates::STATE_НЕВОСТРЕБОВАНО,
+                            ]);
+                        }
+                        elseif ($object instanceof PaymentOrders) {
+                            $object->updateAttributes([
+                                'imt_state' => PaymentOrders::INCOMING_MAIL_STATE_НЕВОСТРЕБОВАНО,
+                            ]);
+                        }
                     }
                 }
-
-                if ($record->OperationParameters->OperType->Id == 2) { // 2 - операция Вручение на Почте России
-                    return strtotime($record->OperationParameters->OperDate);
-                }
-            };
+            }
 
         return false;
     }

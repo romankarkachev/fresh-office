@@ -12,6 +12,7 @@ use common\models\User;
 use backend\models\FerrymanReplacingForm;
 use dektrium\user\helpers\Password;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -412,9 +413,7 @@ class FerrymenDriversController extends Controller
         $model = new FerrymanReplacingForm();
 
         if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            echo json_encode(\yii\widgets\ActiveForm::validate($model));
-            Yii::$app->end();
+            return Json::encode(\yii\widgets\ActiveForm::validate($model));
         }
     }
 

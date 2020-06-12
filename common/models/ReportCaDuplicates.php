@@ -20,6 +20,11 @@ class ReportCaDuplicates extends Model
     const DUPLICATING_FIELD_EMAIL = 3;
 
     /**
+     * @var bool признак, позволяющий отбирать только тех контргагентов, которые не помечены пользователем
+     */
+    public $searchTrueDuplicates;
+
+    /**
      * Ответственный.
      * @var integer
      */
@@ -38,7 +43,7 @@ class ReportCaDuplicates extends Model
     public function rules()
     {
         return [
-            [['id', 'searchResponsibleId', 'searchPerPage'], 'integer'],
+            [['id', 'searchTrueDuplicates', 'searchResponsibleId', 'searchPerPage'], 'integer'],
             [['name', 'parameter', 'owners'], 'string'],
         ];
     }
@@ -54,6 +59,7 @@ class ReportCaDuplicates extends Model
             'parameter' => 'Значение совпадения',
             'owners' => 'Собственники',
             // для отбора
+            'searchTrueDuplicates' => 'Исключая отмеченные',
             'searchResponsibleId' => 'Ответственный',
             'searchPerPage' => 'Записей', // на странице
         ];
@@ -234,6 +240,18 @@ class ReportCaDuplicates extends Model
         // записей на странице - все
         if (!isset($this->searchPerPage)) $this->searchPerPage = false;
 
+        // отбор только не помеченных пользователем контрагентов
+        if (!isset($this->searchTrueDuplicates)) $this->searchTrueDuplicates = true;
+
+        $conditionTrueDuplicates = '';
+        if (!empty($this->searchTrueDuplicates)) {
+            $ignoreIds = FoCaDi::find()->column();
+            if (!empty($ignoreIds)) {
+                $conditionTrueDuplicates = ' AND COMPANY.ID_COMPANY NOT IN (' . implode(',', $ignoreIds) . ')';
+            }
+            unset($ignoreIds);
+        }
+
         // уточняем условие
         $searchResponsibleId_name_condition = '';
         if ($this->searchResponsibleId != null) {
@@ -269,7 +287,7 @@ SELECT
             SELECT \', \' + COMPANY_NAME + \' (\' + CAST(t2.ID_COMPANY AS VARCHAR) + \')\'
             FROM LIST_TELEPHONES t2
             LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = t2.ID_COMPANY
-            WHERE t1.TELEPHONE = t2.TELEPHONE
+            WHERE t1.TELEPHONE = t2.TELEPHONE' . $conditionTrueDuplicates . '
             GROUP BY t2.ID_COMPANY, COMPANY_NAME
             FOR XML PATH(\'\')
             )
@@ -294,7 +312,7 @@ SELECT
             SELECT \', \' + COMPANY_NAME + \' (\' + CAST(t2.ID_COMPANY AS VARCHAR) + \')\'
             FROM LIST_EMAIL_CLIENT t2
             LEFT JOIN COMPANY ON COMPANY.ID_COMPANY = t2.ID_COMPANY
-            WHERE t1.EMAIL = t2.EMAIL
+            WHERE t1.EMAIL = t2.EMAIL' . $conditionTrueDuplicates . '
             GROUP BY t2.ID_COMPANY, COMPANY_NAME
             FOR XML PATH(\'\') 
             )
@@ -307,6 +325,31 @@ HAVING COUNT(DISTINCT t1.ID_COMPANY) > 1';
 
         $subresult = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
         $result = ArrayHelper::merge($result, $subresult);
+
+        // извлечем идентификаторы каждой строки и поместим их в специальное поле
+        foreach ($result as $index => $row) {
+            if (empty($row['owners'])) {
+                unset($result[$index]);
+                continue;
+            }
+
+            $ids = [];
+            $cas = explode(', ', $row['owners']);
+            if (count($cas) <= 20) {
+                // слишком большие объемы не интересуют
+                foreach ($cas as $ca) {
+                    preg_match('#\(([0-9]*[.]?[0-9]+)\)#', $ca, $m);
+                    if (!empty($m) && is_numeric($m[1])) {
+                        $ids[] = $m[1];
+                    }
+                }
+            }
+            else {
+                $ids[] = 'пометка';
+            }
+            $result[$index]['ids'] = implode(',', $ids);
+            $result[$index]['idsc'] = implode(', ', $ids);
+        }
 
         $dataProvider = new ArrayDataProvider([
             'modelClass' => 'common\models\ReportCaDuplicates',

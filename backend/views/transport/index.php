@@ -79,6 +79,24 @@ $this->params['breadcrumbs'][] = 'Транспорт';
                 }
             ],
             [
+                'label' => 'ДОПОГ',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Transport */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $options = ['disabled' => true];
+                    if (!empty($model->is_dopog)) {
+                        $options['checked'] = 'checked';
+                    }
+
+                    return Html::input('checkbox', 'Transport[is_dopog]', 1, $options);
+                },
+                'options' => ['width' => '30'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
                 'template' => '{checkTransport} {inspections} {update} {delete}',
@@ -118,3 +136,9 @@ $this->params['breadcrumbs'][] = 'Транспорт';
     ]); ?>
 
 </div>
+<?php
+$this->registerJs(<<<JS
+$("input[type='checkbox']").iCheck({checkboxClass: "icheckbox_square-green"});
+JS
+, \yii\web\View::POS_READY);
+?>

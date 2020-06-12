@@ -27,6 +27,14 @@ use yii\widgets\Pjax;
             'contentOptions' => ['class' => 'text-center'],
         ],
         [
+            'attribute' => 'date_fact',
+            'label' => 'Дата подачи',
+            'format' => 'date',
+            'options' => ['width' => '130'],
+            'headerOptions' => ['class' => 'text-center'],
+            'contentOptions' => ['class' => 'text-center'],
+        ],
+        [
             'class' => 'backend\components\grid\ActionColumn',
             'template' => '{delete}',
             'buttons' => [

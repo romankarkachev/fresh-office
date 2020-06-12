@@ -68,6 +68,17 @@ class Regions extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает выборку регионов России и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * Поле name в идентификаторе и наименовании!
+     * @return array
+     */
+    public static function arrayMapOfRussiaRegionsNamesForSelect2()
+    {
+        return ArrayHelper::map(self::find()->select(['id' => 'region_id', 'name'])->where(['country_id' => self::COUNTRY_RUSSIA_ID])->orderBy('name')->all(), 'name', 'name');
+    }
+
+    /**
      * Делает выборку регионов России и возвращает в виде массива, в котором поиск удобно осуществлять по наименованию.
      * Применяется для вывода в виджетах Select2.
      * @return array

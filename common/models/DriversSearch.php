@@ -19,12 +19,17 @@ class DriversSearch extends Drivers
     public $searchEntire;
 
     /**
+     * @var integer поле для отбора по реквизиту ДОПОГ
+     */
+    public $searchDopog;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
-            [['id', 'ferryman_id', 'is_deleted', 'state_id', 'has_smartphone'], 'integer'],
+            [['id', 'ferryman_id', 'is_deleted', 'state_id', 'has_smartphone', 'is_dopog', 'searchDopog'], 'integer'],
             [['surname', 'name', 'patronymic', 'driver_license', 'dl_issued_at', 'phone', 'pass_serie', 'pass_num', 'pass_issued_at', 'pass_issued_by', 'searchEntire'], 'safe'],
         ];
     }
@@ -37,6 +42,7 @@ class DriversSearch extends Drivers
         return [
             'ferryman_id' => 'Перевозчик',
             'searchEntire' => 'Универсальный поиск',
+            'searchDopog' => 'Есть ДОПОГ',
         ];
     }
 
@@ -126,6 +132,10 @@ class DriversSearch extends Drivers
             return $dataProvider;
         }
 
+        if (empty($this->searchDopog)) {
+            $this->searchDopog = TransportSearch::FILTER_DOPOG_IGNORE;
+        }
+
         // если запрос выполняет перевозчик, то ограничим выборку только по нему
         if (Yii::$app->user->can('ferryman')) {
             $ferryman = Ferrymen::findOne(['user_id' => Yii::$app->user->id]);
@@ -144,6 +154,24 @@ class DriversSearch extends Drivers
 
         // для любых пользователей отбор, который невозможно отменить - записи не должны быть помечены на удаление
         if (!Yii::$app->user->can('root')) $query->andWhere(['is_deleted' => false]);
+
+        // дополним текст запроса возможным отбором по полю ДОПОГ
+        if (!empty($this->searchDopog)) {
+            switch ($this->searchDopog) {
+                case TransportSearch::FILTER_DOPOG_YES:
+                    $query->andFilterWhere([
+                        'is_dopog' => true,
+                    ]);
+                    break;
+                case TransportSearch::FILTER_DOPOG_NO:
+                    $query->andFilterWhere([
+                        'is_dopog' => false,
+                    ]);
+                    break;
+                case TransportSearch::FILTER_DOPOG_IGNORE:
+                    break;
+            }
+        }
 
         if ($this->searchEntire != null && $this->searchEntire != '')
             $query->andFilterWhere([

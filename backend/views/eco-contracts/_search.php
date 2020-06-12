@@ -24,6 +24,16 @@ use common\models\User;
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
             <div class="row">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'org_id')->widget(Select2::className(), [
+                        'data' => \common\models\Organizations::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'hideSearch' => true,
+                        'pluginOptions' => ['allowClear' => true],
+                    ]) ?>
+
+                </div>
                 <div class="col-md-3">
                     <?= $form->field($model, 'fo_ca_id')->widget(Select2::class, [
                         'initValueText' => TransportRequests::getCustomerName($model->fo_ca_id),

@@ -272,7 +272,7 @@ class pbxCallsSearch extends pbxCalls
         ]);
 
         $this->load($params);
-        $query->joinWith(['website', 'number']);
+        $query->joinWith(['website', 'number', 'recognition'], false);
 
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails

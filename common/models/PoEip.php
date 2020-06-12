@@ -40,7 +40,8 @@ class PoEip extends \yii\db\ActiveRecord
     {
         return [
             [['ei_id', 'property_id'], 'required'],
-            [['ei_id', 'property_id', 'is_required'], 'integer'],
+            [['ei_id', 'property_id'], 'integer'],
+            ['is_required', 'boolean'],
             [['property_id'], 'exist', 'skipOnError' => true, 'targetClass' => PoProperties::class, 'targetAttribute' => ['property_id' => 'id']],
             [['ei_id'], 'exist', 'skipOnError' => true, 'targetClass' => PoEi::class, 'targetAttribute' => ['ei_id' => 'id']],
         ];

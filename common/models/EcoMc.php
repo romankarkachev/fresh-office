@@ -7,11 +7,12 @@ use yii\db\ActiveRecord;
 use yii\helpers\Html;
 
 /**
- * This is the model class for table "eco_mc".
+ * Таблица договоров сопровождения по экологическим отчетам.
  *
  * @property int $id
  * @property int $created_at Дата и время создания
  * @property int $created_by Автор создания
+ * @property int $org_id Организация-исполнитель
  * @property int $fo_ca_id Контрагент из Fresh Office
  * @property int $manager_id Ответственный по договору
  * @property string $amount Сумма
@@ -20,16 +21,29 @@ use yii\helpers\Html;
  * @property string $comment Комментарий
  *
  * @property string $createdByProfileName
+ * @property string $organizationName
+ * @property string $organizationShortName
  * @property string $managerProfileName
  *
  * @property User $createdBy
  * @property Profile $createdByProfile
+ * @property AuthAssignment $createdByRoles
+ * @property Organizations $organization
  * @property User $manager
  * @property Profile $managerProfile
+ * @property AuthAssignment $managerRoles
  * @property EcoMcTp[] $ecoMcTps
  */
 class EcoMc extends \yii\db\ActiveRecord
 {
+    /**
+     * Псевдонимы присоединяемых таблиц
+     */
+    const JOIN_CREATOR_PROFILE_ALIAS = 'createdByProfile';
+    const JOIN_CREATOR_ROLES_ALIAS = 'createdByRoles';
+    const JOIN_MANAGER_PROFILE_ALIAS = 'managerProfile';
+    const JOIN_MANAGER_ROLES_ALIAS = 'managerRoles';
+
     /**
      * @var array массив отчетов, добавленных при создании договора обслуживания
      */
@@ -55,12 +69,13 @@ class EcoMc extends \yii\db\ActiveRecord
     {
         return [
             [['fo_ca_id', 'manager_id'], 'required'],
-            [['created_at', 'created_by', 'fo_ca_id', 'manager_id'], 'integer'],
+            [['created_at', 'created_by', 'org_id', 'fo_ca_id', 'manager_id'], 'integer'],
             [['amount'], 'number'],
             [['date_start', 'date_finish'], 'safe'],
             [['comment'], 'string'],
-            [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['manager_id' => 'id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
+            [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['manager_id' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['org_id'], 'exist', 'skipOnError' => true, 'targetClass' => Organizations::class, 'targetAttribute' => ['org_id' => 'id']],
         ];
     }
 
@@ -73,6 +88,7 @@ class EcoMc extends \yii\db\ActiveRecord
             'id' => 'ID',
             'created_at' => 'Дата и время создания',
             'created_by' => 'Автор создания',
+            'org_id' => 'Исполнитель',
             'fo_ca_id' => 'Контрагент из Fresh Office',
             'manager_id' => 'Ответственный по договору',
             'amount' => 'Сумма',
@@ -83,6 +99,7 @@ class EcoMc extends \yii\db\ActiveRecord
             'crudeReports' => 'Отчеты',
             // вычисляемые поля
             'createdByProfileName' => 'Автор',
+            'orgName' => 'Исполнитель',
             'managerProfileName' => 'Ответственный',
         ];
     }
@@ -169,7 +186,7 @@ class EcoMc extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from(['createdByProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATOR_PROFILE_ALIAS => Profile::tableName()]);
     }
 
     /**
@@ -179,6 +196,40 @@ class EcoMc extends \yii\db\ActiveRecord
     public function getCreatedByProfileName()
     {
         return !empty($this->createdByProfile) ? (!empty($this->createdByProfile->name) ? $this->createdByProfile->name : $this->createdBy->username) : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedByRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATOR_ROLES_ALIAS => AuthAssignment::tableName()]);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getOrganization()
+    {
+        return $this->hasOne(Organizations::class, ['id' => 'org_id']);
+    }
+
+    /**
+     * Возвращает наименование (внутреннее) организации-исполнителя.
+     * @return string
+     */
+    public function getOrganizationName()
+    {
+        return !empty($this->organization) ? $this->organization->name : '';
+    }
+
+    /**
+     * Возвращает наименование (сокращенное) организации-исполнителя.
+     * @return string
+     */
+    public function getOrganizationShortName()
+    {
+        return !empty($this->organization) ? $this->organization->name_short : '';
     }
 
     /**
@@ -194,7 +245,7 @@ class EcoMc extends \yii\db\ActiveRecord
      */
     public function getManagerProfile()
     {
-        return $this->hasOne(Profile::class, ['user_id' => 'manager_id'])->from(['managerProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'manager_id'])->from([self::JOIN_MANAGER_PROFILE_ALIAS => Profile::tableName()]);
     }
 
     /**
@@ -204,6 +255,14 @@ class EcoMc extends \yii\db\ActiveRecord
     public function getManagerProfileName()
     {
         return !empty($this->managerProfile) ? (!empty($this->managerProfile->name) ? $this->managerProfile->name : $this->manager->username) : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getManagerRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'manager_id'])->from([self::JOIN_MANAGER_ROLES_ALIAS => AuthAssignment::tableName()]);
     }
 
     /**

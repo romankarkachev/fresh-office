@@ -18,6 +18,7 @@ romankarkachev\coreui\CoreUIAsset::register($this);
 
 $items = [
     ['label' => 'Рейсы', 'icon' => 'fa fa-list-ol', 'url' => ['/freights']],
+    ['label' => 'Оплата', 'icon' => 'fa fa-money', 'url' => \ferryman\controllers\PaymentsController::URL_ROOT],
     ['label' => 'Транспорт', 'icon' => 'fa fa-truck', 'url' => ['/transport']],
     ['label' => 'Водители', 'icon' => 'fa fa-id-card-o', 'url' => ['/drivers']],
     ['label' => 'Банковские счета', 'icon' => 'fa fa-university', 'url' => ['/bank-accounts']],

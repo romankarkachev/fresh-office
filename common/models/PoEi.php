@@ -14,10 +14,12 @@ use yii\helpers\ArrayHelper;
  *
  * @property PoEig $group
  * @property PoEip[] $poEips
+ * @property Po[] $pos
  */
 class PoEi extends \yii\db\ActiveRecord
 {
     const СТАТЬЯ_ПЕРЕВОЗЧИКИ = 93;
+    const СТАТЬЯ_БЛАГОДАРНОСТИ = 18;
 
     /**
      * {@inheritdoc}
@@ -60,44 +62,18 @@ class PoEi extends \yii\db\ActiveRecord
      */
     public function checkIfUsed()
     {
-        if ($this->getPoEips()->count() > 0) return true;
+        if ($this->getPoEips()->count() > 0 || $this->getPos()->count() > 0) return true;
 
         return false;
     }
 
     /**
-     * Делает выборку статей расходов и возвращает в виде массива.
-     * Применяется для вывода в виджетах Select2.
+     * Обработаем массив, чтобы можно было его использовать в виджете select2 (typeahead) с группами.
+     * @param array $array входящий массив, который должен быть преобразован
      * @return array
      */
-    public static function arrayMapForSelect2()
+    public static function arrangeWithGroups($array)
     {
-        return ArrayHelper::map(self::find()->all(), 'id', 'name');
-    }
-
-    /**
-     * Делает выборку статей расходов по группам и возвращает в виде массива.
-     * Применяется для вывода в виджетах Select2.
-     * @return array
-     */
-    public static function arrayMapByGroupsForSelect2()
-    {
-        $query = self::find()->select([
-            self::tableName() . '.id',
-            self::tableName() . '.name',
-            'groupName' => PoEig::tableName() . '.name',
-        ])->joinWith(['group'])->orderBy(PoEig::tableName() . '.name, ' . self::tableName() . '.name');
-
-        // дополним запрос условием отбора только лишь доступных статей, если они заданы
-        if (!Yii::$app->user->can('root')) {
-            // это не распространяется на пользователей с полными правами
-            $query->where([self::tableName() . '.id' => UsersEiAccess::find()->select('ei_id')->where(['user_id' => Yii::$app->user->id])]);
-        }
-
-        $array = $query->asArray()->all();
-        if (empty($array)) return [];
-
-        // обработаем массив, чтобы можно было его использовать в виджете select2 с группами
         $result = [];
         $current_group = -1;
         $children = [];
@@ -119,11 +95,53 @@ class PoEi extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает выборку статей расходов и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @param $filter array массив условий для отбора
+     * @return array
+     */
+    public static function arrayMapForSelect2($filter = null)
+    {
+        $query = self::find();
+        if (!empty($filter)) {
+            $query->andWhere($filter);
+        }
+
+        return ArrayHelper::map($query->all(), 'id', 'name');
+    }
+
+    /**
+     * Делает выборку статей расходов по группам и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapByGroupsForSelect2()
+    {
+        $query = self::find()->select([
+            self::tableName() . '.id',
+            self::tableName() . '.name',
+            self::tableName() . '.group_id',
+            'groupName' => PoEig::tableName() . '.name',
+        ])->joinWith(['group'])->orderBy(PoEig::tableName() . '.name, ' . self::tableName() . '.name');
+
+        // дополним запрос условием отбора только лишь доступных статей, если они заданы
+        if (!Yii::$app->user->can('root')) {
+            // это не распространяется на пользователей с полными правами
+            $query->where([self::tableName() . '.id' => UsersEiAccess::find()->select('ei_id')->where(['user_id' => Yii::$app->user->id])]);
+        }
+
+        $array = $query->asArray()->all();
+        if (empty($array)) return [];
+
+        return self::arrangeWithGroups($array);
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getGroup()
     {
-        return $this->hasOne(PoEig::className(), ['id' => 'group_id']);
+        return $this->hasOne(PoEig::class, ['id' => 'group_id']);
     }
 
     /**
@@ -140,6 +158,14 @@ class PoEi extends \yii\db\ActiveRecord
      */
     public function getPoEips()
     {
-        return $this->hasMany(PoEip::className(), ['ei_id' => 'id']);
+        return $this->hasMany(PoEip::class, ['ei_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getPos()
+    {
+        return $this->hasMany(Po::class, ['ei_id' => 'id']);
     }
 }

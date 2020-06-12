@@ -16,16 +16,13 @@ $this->params['breadcrumbs'][] = $this->title;
 
 <?= $this->render('/_alert', ['module' => Yii::$app->getModule('user')]) ?>
 
-<div class="page-header text-center">
-    <?= Html::img('/images/logo-login2.png', ['height' => 128]) ?>
+<div class="form-group text-center">
+    <?= Html::img('/images/logo-waste480.png', ['height' => 128, 'alt' => 'Логотип компании']) ?>
 
 </div>
 <div class="row">
     <div class="col-md-4 col-md-offset-4 col-sm-6 col-sm-offset-3">
         <div class="panel panel-info">
-            <div class="panel-heading">
-                <h3 class="panel-title"><?= Html::encode($this->title) ?></h3>
-            </div>
             <div class="panel-body">
                 <?php $form = ActiveForm::begin([
                     'id' => 'login-form',
@@ -74,8 +71,6 @@ $this->params['breadcrumbs'][] = $this->title;
                                 . ')' : '')
                         ) ?>
                 <?php endif ?>
-
-                <?= $form->field($model, 'rememberMe')->checkbox(['tabindex' => '3']) ?>
 
                 <?= Html::submitButton(
                     Yii::t('user', 'Sign in'),

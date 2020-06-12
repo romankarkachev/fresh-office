@@ -20,6 +20,8 @@ class PaymentOrdersStates extends \yii\db\ActiveRecord
     const PAYMENT_STATE_УТВЕРЖДЕН = 3;
     const PAYMENT_STATE_ОПЛАЧЕН = 4;
     const PAYMENT_STATE_ОТКАЗ = 5;
+    const PAYMENT_STATE_АВАНСОВЫЙ_ОТЧЕТ = 6;
+    const PAYMENT_STATE_ОТКЛОНЕННЫЙ_АВАНСОВЫЙ_ОТЧЕТ = 7;
 
     /**
      * Набор статусов по-умолчанию для бухгалтера.
@@ -52,6 +54,14 @@ class PaymentOrdersStates extends \yii\db\ActiveRecord
         PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ,
         PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН,
         PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ,
+    ];
+
+    /**
+     * Набор статусов, имеющих отношение к авансовым отчетам
+     */
+    const PAYMENT_STATES_SET_АВАНСОВЫЕ_ОТЧЕТЫ = [
+        self::PAYMENT_STATE_АВАНСОВЫЙ_ОТЧЕТ,
+        self::PAYMENT_STATE_ОТКЛОНЕННЫЙ_АВАНСОВЫЙ_ОТЧЕТ,
     ];
 
     /**
@@ -91,7 +101,7 @@ class PaymentOrdersStates extends \yii\db\ActiveRecord
      */
     public static function arrayMapForSelect2()
     {
-        return ArrayHelper::map(self::find()->all(), 'id', 'name');
+        return ArrayHelper::map(self::find()->where(['not in', 'id', PaymentOrdersStates::PAYMENT_STATES_SET_АВАНСОВЫЕ_ОТЧЕТЫ])->all(), 'id', 'name');
     }
 
     /**

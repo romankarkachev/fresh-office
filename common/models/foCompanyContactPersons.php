@@ -69,7 +69,7 @@ class foCompanyContactPersons extends \yii\db\ActiveRecord
         return [
             'ID_CONTACT_MAN' => 'Id  Contact  Man',
             'ID_COMPANY' => 'Id  Company',
-            'CONTACT_MAN_NAME' => 'Contact  Man  Name',
+            'CONTACT_MAN_NAME' => 'Имя',
             'DISCRIPTION_CONTACT_MAN' => 'Discription  Contact  Man',
             'DISCRIPTION_CONTACT_MAN2' => 'Discription  Contact  Man2',
             'DATA_HAPY' => 'Data  Hapy',
@@ -87,6 +87,22 @@ class foCompanyContactPersons extends \yii\db\ActiveRecord
             'CABINET_PASS' => 'Cabinet  Pass',
             'IS_DEFAULT' => 'Is  Default',
         ];
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEmail()
+    {
+        return $this->hasMany(foListEmailClient::class, ['ID_COMPANY' => 'ID_COMPANY', 'ID_CONTACT_MAN' => 'ID_CONTACT_MAN']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getPhone()
+    {
+        return $this->hasMany(foListPhones::class, ['ID_COMPANY' => 'ID_COMPANY', 'ID_CONTACT_MAN' => 'ID_CONTACT_MAN']);
     }
 
     /**

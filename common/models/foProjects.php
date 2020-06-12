@@ -42,11 +42,14 @@ use Yii;
  * @property string $companyManagerId ответственный за контрагента
  * @property string $companyManagerName ответственный за контрагента
  * @property string $companyManagerCreatorEmailValue E-mail ответственного за контрагента
+ * @property string $stateName
  * @property string $contactPersonName имя контактного лица
  * @property string $paramAddressValue
  *
  * @property foCompany $company
  * @property foManagers $companyManager
+ * @property foProjectsStates $state
+ * @property foProjectsTypes $type
  * @property foCompanyContactPersons $contactPerson
  * @property foProjectsParameters $paramAddress
  */
@@ -126,14 +129,19 @@ class foProjects extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
+            'ID_LIST_PROJECT_COMPANY' => 'ID',
             'id' => 'ID',
+            'DATE_CREATE_PROGECT' => 'Создан',
             'created_at' => 'Создан',
+            'ID_LIST_SPR_PROJECT' => 'Тип',
             'type_id' => 'Тип',
+            'ID_PRIZNAK_PROJECT' => 'Статус',
             'state_id' => 'Статус',
             'manager_id' => 'Менеджер',
             'ca_id' => 'Контрагент',
             'amount' => 'Стоимость',
             'cost' => 'Себестоимость',
+            'ADD_vivozdate' => 'Дата вывоза',
             'vivozdate' => 'Дата вывоза',
             'date_start' => 'Начало',
             'date_end' => 'Завершение',
@@ -148,6 +156,9 @@ class foProjects extends \yii\db\ActiveRecord
             'state_name' => 'Статус',
             'manager_name' => 'Менеджер',
             'ca_name' => 'Контрагент',
+            // вычисляемые поля
+            'typeName' => 'Тип',
+            'stateName' => 'Статус',
             // поля для электронной очереди транспорта, следующего на склад
             'state_acquired_at' => 'Уехал',
             'address' => 'Адрес',
@@ -273,7 +284,7 @@ class foProjects extends \yii\db\ActiveRecord
      */
     public function getCompany()
     {
-        return $this->hasOne(foCompany::className(), ['ID_COMPANY' => 'ID_COMPANY']);
+        return $this->hasOne(foCompany::class, ['ID_COMPANY' => 'ID_COMPANY']);
     }
 
     /**
@@ -387,9 +398,43 @@ class foProjects extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getState()
+    {
+        return $this->hasOne(foProjectsStates::class, ['ID_PRIZNAK_PROJECT' => 'ID_PRIZNAK_PROJECT']);
+    }
+
+    /**
+     * Возвращает наименование статуса проекта.
+     * @return string
+     */
+    public function getStateName()
+    {
+        return !empty($this->state) ? $this->state->PRIZNAK_PROJECT : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getType()
+    {
+        return $this->hasOne(foProjectsTypes::class, ['ID_LIST_SPR_PROJECT' => 'ID_LIST_SPR_PROJECT']);
+    }
+
+    /**
+     * Возвращает наименование типа проекта.
+     * @return string
+     */
+    public function getTypeName()
+    {
+        return !empty($this->type) ? $this->type->NAME_PROJECT : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getParamAddress()
     {
-        return $this->hasOne(foProjectsParameters::className(), ['ID_LIST_PROJECT_COMPANY' => 'ID_LIST_PROJECT_COMPANY'])->andWhere(['PROPERTIES_PROGECT' => 'Адрес']);
+        return $this->hasOne(foProjectsParameters::class, ['ID_LIST_PROJECT_COMPANY' => 'ID_LIST_PROJECT_COMPANY'])->andWhere(['PROPERTIES_PROGECT' => 'Адрес']);
     }
 
     /**

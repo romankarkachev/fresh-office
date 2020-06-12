@@ -35,7 +35,8 @@ class EcoTypesMilestones extends \yii\db\ActiveRecord
     {
         return [
             [['type_id', 'milestone_id', 'time_to_complete_required'], 'required'],
-            [['type_id', 'milestone_id', 'is_file_reqiured', 'is_affects_to_cycle_time', 'time_to_complete_required', 'order_no'], 'integer'],
+            [['type_id', 'milestone_id', 'time_to_complete_required', 'order_no'], 'integer'],
+            [['is_file_reqiured', 'is_affects_to_cycle_time'], 'boolean'],
             [['milestone_id'], 'exist', 'skipOnError' => true, 'targetClass' => EcoMilestones::className(), 'targetAttribute' => ['milestone_id' => 'id']],
             [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => EcoTypes::className(), 'targetAttribute' => ['type_id' => 'id']],
         ];

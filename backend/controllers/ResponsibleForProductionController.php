@@ -22,7 +22,7 @@ class ResponsibleForProductionController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'only' => ['index', 'create', 'update', 'delete'],
                 'rules' => [
                     [
@@ -32,7 +32,7 @@ class ResponsibleForProductionController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],

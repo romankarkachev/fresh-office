@@ -27,6 +27,9 @@ Yii::setAlias('@uploads-edf-fs', '@backend/../uploads/edf'); // файлы к э
 Yii::setAlias('@uploads-tenders-fs', '@backend/../uploads/tenders'); // файлы к тендерам, полный путь
 Yii::setAlias('@uploads-po-fs', '@backend/../uploads/po'); // файлы к бюджетным платежным ордерам, полный путь
 Yii::setAlias('@uploads-tasks-fs', '@backend/../uploads/tasks'); // файлы к задачам, полный путь
+Yii::setAlias('@uploads-yrr-fs', '@backend/../uploads/yrr'); // файлы распознанных яндексом аудиодорожек, полный путь
+Yii::setAlias('@uploads-incoming-mail-fs', '@backend/../uploads/incoming-mail'); // файлы входящей корреспонденции, полный путь
+Yii::setAlias('@uploads-ps-fs', '@backend/../uploads/ps'); // файлы к отправкам с производства, полный путь
 
 Yii::setAlias('uploads-appeals', '/uploads/appeals/'); // файлы к обращениям, относительный путь
 Yii::setAlias('uploads-ferrymen-drivers', '/uploads/ferrymen-drivers/'); // файлы к автомобилям перевозчиков, относительный путь
@@ -40,3 +43,6 @@ Yii::setAlias('uploads-edf', '/uploads/edf/'); // файлы к электрон
 Yii::setAlias('uploads-tenders', '/uploads/tenders/'); // файлы к тендерам, относительный путь
 Yii::setAlias('uploads-po', '/uploads/po/'); // файлы к бюджетным платежным ордерам, относительный путь
 Yii::setAlias('uploads-tasks', '/uploads/tasks/'); // файлы к задачам, относительный путь
+Yii::setAlias('uploads-yrr', '/uploads/yrr/'); // файлы распознанных яндексом аудиодорожек, относительный путь
+Yii::setAlias('uploads-incoming-mail', '/uploads/incoming-mail/'); // файлы входящей корреспонденции, относительный путь
+Yii::setAlias('uploads-ps', '/uploads/ps/'); // файлы к отправкам с производства, относительный путь

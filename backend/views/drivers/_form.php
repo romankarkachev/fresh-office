@@ -115,6 +115,11 @@ if (isset($files)) {
             ])->textInput(['maxlength' => true, 'placeholder' => 'Введите номер телефона']) ?>
 
         </div>
+        <div class="col-md-1" title="Есть допуск на перевозку опасных грузов">
+            <label for="<?= strtolower($model->formName()) ?>-is_dopog" class="control-label">ДОПОГ</label>
+            <?= $form->field($model, 'is_dopog')->checkbox()->label(false) ?>
+
+        </div>
         <div class="col-md-2">
             <label for="<?= strtolower($model->formName()) ?>-has_smartphone" class="control-label"><?= $model->getAttributeLabel('has_smartphone') ?></label>
             <?= $form->field($model, 'has_smartphone')->checkbox()->label(false) ?>

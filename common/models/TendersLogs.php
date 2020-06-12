@@ -30,6 +30,9 @@ class TendersLogs extends \yii\db\ActiveRecord
     const TYPE_ВНУТРЕННЯЯ = 1;
     const TYPE_ИСТОЧНИК = 2;
 
+    /**
+     * Идентификаторы элементов страницы
+     */
     const DOM_IDS = [
         // форма для интерактивного отбора по журналу событий
         'PJAX_SEARCH_FORM_ID' => 'frmSearchLogs',
@@ -55,8 +58,8 @@ class TendersLogs extends \yii\db\ActiveRecord
             [['created_at', 'created_by', 'tender_id', 'type'], 'integer'],
             [['description'], 'string'],
             ['type', 'default', 'value' => TendersLogs::TYPE_ВНУТРЕННЯЯ],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
-            [['tender_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tenders::className(), 'targetAttribute' => ['tender_id' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['tender_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tenders::class, 'targetAttribute' => ['tender_id' => 'id']],
         ];
     }
 
@@ -148,7 +151,7 @@ class TendersLogs extends \yii\db\ActiveRecord
      */
     public function getTender()
     {
-        return $this->hasOne(Tenders::className(), ['id' => 'tender_id']);
+        return $this->hasOne(Tenders::class, ['id' => 'tender_id']);
     }
 
 

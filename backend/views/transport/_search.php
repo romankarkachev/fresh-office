@@ -49,6 +49,15 @@ use common\models\LoadTypes;
                     ]) ?>
 
                 </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'searchDopog')->widget(Select2::className(), [
+                        'data' => \common\models\TransportSearch::arrayMapOfDopogForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
             </div>
             <div class="form-group">
                 <?= Html::submitButton('Выполнить', ['class' => 'btn btn-info']) ?>

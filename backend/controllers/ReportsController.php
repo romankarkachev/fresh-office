@@ -23,6 +23,8 @@ use common\models\ReportFileStorageStats;
 use common\models\ReportPbxAnalytics;
 use common\models\ReportEdfAnalytics;
 use common\models\ReportPoAnalytics;
+use common\models\ReportCompaniesCurator;
+use common\models\reports\TendersAnalytics;
 
 /**
  * Reports controller
@@ -36,7 +38,7 @@ class ReportsController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['turnover', 'edf-analytics'],
@@ -57,7 +59,8 @@ class ReportsController extends Controller
                         'actions' => [
                             'emptycustomers', 'nofinances', 'no-transport-has-projects', 'analytics', 'tr-analytics',
                             'correspondence-analytics', 'correspondence-manual-analytics', 'file-storage-stats',
-                            'pbx-analytics', 'pbx-calls-has-tasks-assigned', 'po-analytics',
+                            'pbx-analytics', 'pbx-calls-has-tasks-assigned', 'po-analytics', 'companies-curator',
+                            'tenders-analytics',
                         ],
                         'allow' => true,
                         'roles' => ['root'],
@@ -90,7 +93,7 @@ class ReportsController extends Controller
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Отчет по клиентам (сформирован '.date('Y-m-d в H i').').xlsx',
-                'format' => 'Excel2007',
+                'asAttachment' => true,
                 'columns' => [
                     [
                         'attribute' => 'id',
@@ -192,7 +195,7 @@ class ReportsController extends Controller
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Пустые клиенты (сформирован '.date('Y-m-d в H i').').xlsx',
-                'format' => 'Excel2007',
+                'asAttachment' => true,
                 'columns' => [
                     [
                         'attribute' => 'id',
@@ -244,7 +247,7 @@ class ReportsController extends Controller
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Отчет по дубликатам клиентов (сформирован '.date('Y-m-d в H i').').xlsx',
-                'format' => 'Excel2007',
+                'asAttachment' => true,
                 'columns' => [
                     [
                         'attribute' => 'name',
@@ -298,7 +301,7 @@ class ReportsController extends Controller
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Отчет по утилизации без транспорта (сформирован '.date('Y-m-d в H i').').xlsx',
-                'format' => 'Excel2007',
+                'asAttachment' => true,
                 'columns' => [
                     [
                         'attribute' => 'id',
@@ -593,7 +596,7 @@ class ReportsController extends Controller
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Незавершенные проекты и наличие задач по контрагентам на дату ' . Yii::$app->formatter->asDate($searchModel->searchPeriodEnd, 'php:d F Y') . ' (сформирован '.date('Y-m-d в H i').').xlsx',
-                'format' => 'Excel2007',
+                'asAttachment' => true,
                 'columns' => [
                     [
                         'attribute' => 'pbxht_id',
@@ -646,6 +649,9 @@ class ReportsController extends Controller
         // Таблица 3. Количество документов в разрезе признака "Типовой".
         $dpTable3 = $searchModel->makeDataProviderForTable3($cArray);
 
+        // Таблица 4. Количество документов в разрезе контрагентов.
+        $dpTable4 = $searchModel->makeDataProviderForTable4($cArray);
+
         $searchApplied = Yii::$app->request->get($searchModel->formName()) != null;
 
         return $this->render('edf', [
@@ -655,9 +661,15 @@ class ReportsController extends Controller
             'dpTable1' => $dpTable1,
             'dpTable2' => $dpTable2,
             'dpTable3' => $dpTable3,
+            'dpTable4' => $dpTable4,
         ]);
     }
 
+    /**
+     * Аналитика по платежным ордерам.
+     * po-analytics
+     * @return string
+     */
     public function actionPoAnalytics()
     {
         $searchModel = new ReportPoAnalytics();
@@ -685,6 +697,42 @@ class ReportsController extends Controller
             //'searchApplied' => $searchApplied,
             'dataProvider' => $dataProvider,
             'columns' => $columns,
+        ]);
+    }
+
+    /**
+     * Показывает контрагентов, где числится куратором выбранный пользователь.
+     * companies-curator
+     * @return string
+     */
+    public function actionCompaniesCurator()
+    {
+        $searchModel = new ReportCompaniesCurator();
+        $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
+
+        return $this->render('companies-curator/index', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Аналитика по тендерам.
+     * tenders-analytics
+     * @return string
+     */
+    public function actionTendersAnalytics()
+    {
+        $searchModel = new TendersAnalytics();
+        $appeals_array = $searchModel->search(Yii::$app->request->queryParams);
+        $totalAppealsPeriod = count($appeals_array);
+
+        // Таблица 1. Всего обращений по ответственным за период.
+        $dpTable1 = $searchModel->makeDataProviderForTable1($appeals_array);
+
+        return $this->render('tenders-analytics/index', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
         ]);
     }
 }

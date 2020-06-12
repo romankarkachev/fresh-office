@@ -19,6 +19,8 @@ use yii\helpers\ArrayHelper;
  * @property string $address_f Адрес фактический
  * @property string $address_ttn Адрес для ТТН
  * @property string $doc_num_tmpl Шаблон номера договора
+ * @property string $im_num_tmpl Шаблон номера входящей корреспонденции
+ * @property string $om_num_tmpl Шаблон номера исходящей корреспонденции
  * @property string $dir_post Должность директора для реквизитов
  * @property string $dir_name ФИО директора полностью
  * @property string $dir_name_short Сокращенные ФИО директора
@@ -28,10 +30,16 @@ use yii\helpers\ArrayHelper;
  * @property string $license_req Реквизиты лицензии
  * @property int $fo_dt_id Тип документа из Fresh Office
  *
+ * @property Documents[] $documents
+ * @property EcoMc[] $ecoMcs
+ * @property EcoProjects[] $ecoProjects
+ * @property Edf[] $edfs
+ * @property IncomingMail[] $incomingMail
  * @property LicensesFiles[] $licensesFiles
  * @property LicensesRequests[] $licensesRequests
  * @property OrganizationsBas[] $bankAccounts
  * @property Edf[] $edf
+ * @property Tenders[] $tenders
  */
 class Organizations extends \yii\db\ActiveRecord
 {
@@ -57,7 +65,7 @@ class Organizations extends \yii\db\ActiveRecord
             [['kpp'], 'string', 'max' => 9],
             [['ogrn'], 'string', 'max' => 15],
             [['inn', 'kpp', 'ogrn'], 'default', 'value' => null],
-            [['doc_num_tmpl'], 'string', 'max' => 30],
+            [['doc_num_tmpl', 'im_num_tmpl', 'om_num_tmpl'], 'string', 'max' => 30],
             [['license_req'], 'string', 'max' => 100],
         ];
     }
@@ -79,6 +87,8 @@ class Organizations extends \yii\db\ActiveRecord
             'address_f' => 'Адрес фактический',
             'address_ttn' => 'Адрес для ТТН',
             'doc_num_tmpl' => 'Шаблон номера договора',
+            'im_num_tmpl' => 'Шаблон номера входящей корреспонденции',
+            'om_num_tmpl' => 'Шаблон номера исходящей корреспонденции',
             'dir_post' => 'Должность директора',
             'dir_name' => 'ФИО директора',
             'dir_name_short' => 'Сокращенные ФИО директора',
@@ -188,5 +198,45 @@ class Organizations extends \yii\db\ActiveRecord
     public function getEdfs()
     {
         return $this->hasMany(Edf::class, ['org_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getIncomingMail()
+    {
+        return $this->hasMany(IncomingMail::className(), ['org_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getDocuments()
+    {
+        return $this->hasMany(Documents::className(), ['org_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEcoMcs()
+    {
+        return $this->hasMany(EcoMc::className(), ['org_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEcoProjects()
+    {
+        return $this->hasMany(EcoProjects::className(), ['org_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getTenders()
+    {
+        return $this->hasMany(Tenders::className(), ['org_id' => 'id']);
     }
 }

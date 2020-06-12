@@ -40,6 +40,7 @@ use yii\helpers\Html;
  * @property int $delivery_notified_at Дата и время отправки уведомления контактному лицу о поступлении почтового отправления в отделение
  *
  * @property string $cpsName
+ * @property int $lastCpsChangedAt
  * @property string $stateName
  * @property string $typeName
  * @property string $pdName
@@ -59,6 +60,7 @@ use yii\helpers\Html;
  * @property CorrespondencePackagesFiles[] $correspondencePackagesFiles
  * @property CorrespondencePackagesHistory[] $correspondencePackagesHistory
  * @property Edf $edf
+ * @property PoStatesHistory $lastCpsChanged
  * @property Edf[] $edfs
  */
 class CorrespondencePackages extends \yii\db\ActiveRecord
@@ -68,6 +70,11 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
      */
     const NF_PRIMARY = 1; // первичное уведомление (о том, что посылка была отправлена)
     const NF_ARRIVED = 2; // уведомление о том, что посылка прибыла в почтовое отделение
+
+    /**
+     * Шаблон для поля "Трек-номер" формы
+     */
+    const FORM_FIELD_TRACK_TEMPLATE = "{label}\n<div class=\"input-group\">\n{input}\n<span class=\"input-group-btn\"><button class=\"btn btn-default\" type=\"button\" id=\"btnTrackNumber\"><i class=\"fa fa-search\" aria-hidden=\"true\"></i> Отследить</button></span></div>\n{error}";
 
     /**
      * Табличная часть предоставленных видов документов.
@@ -99,7 +106,8 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             [['fo_id_company', 'manager_id'], 'required', 'on' => 'manual_creating'],
             // для одобрения менеджером обязательно нужно выбрать способ и адрес доставки, контактное лицо и E-mail для уведомлений
             [['pd_id', 'address_id', 'fo_contact_id'], 'required', 'on' => 'manager_approving'],
-            [['created_at', 'is_manual', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'pochta_ru_order_id', 'address_id', 'manager_id', 'fo_contact_id', 'rejects_count', 'delivery_notified_at'], 'integer'],
+            [['created_at', 'cps_id', 'ready_at', 'sent_at', 'delivered_at', 'paid_at', 'fo_project_id', 'fo_id_company', 'state_id', 'type_id', 'pd_id', 'pochta_ru_order_id', 'address_id', 'manager_id', 'fo_contact_id', 'rejects_count', 'delivery_notified_at'], 'integer'],
+            ['is_manual', 'boolean'],
             [['pad', 'other', 'comment'], 'string'],
             [['customer_name', 'contact_email'], 'string', 'max' => 255],
             [['contact_email'], 'trim'],
@@ -486,9 +494,11 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
             }
         }
 
+        /*
         if ($this->pd_id == PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ && empty($this->contact_email)) {
             $this->addError('contact_email', 'Для данного способа доставки необходимо указать E-mail для уведомлений.');
         }
+        */
     }
 
     /**
@@ -579,6 +589,7 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
 
         $siaButtons = [
             'save' => Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']),
+            'rollback' => Html::submitButton('<i class="fa fa-refresh" aria-hidden="true"></i> Вернуть в черновики', ['class' => 'btn btn-warning btn-lg', 'name' => 'rollback', 'title' => 'Вернуть пакет в черновики, чтобы исправить ошибки']),
         ];
 
         if ($this->is_manual) {
@@ -591,13 +602,13 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
                             Html::submitButton('Отправить на согласование <i class="fa fa-arrow-circle-right" aria-hidden="true"></i>', ['class' => 'btn btn-success btn-lg', 'name' => 'order_ready', 'title' => 'Отправить менеджеру на согласование']);
                         break;
                     case CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ:
-                        if (!Yii::$app->user->can('root')) $result .= Html::button('<i class="fa fa-spinner fa-pulse fa-fw"></i><span class="sr-only">Согласование...</span> Ожидайте согласования...', ['class' => 'btn btn-default btn-lg disabled']);
+                        $result .= Html::button('<i class="fa fa-spinner fa-pulse fa-fw"></i><span class="sr-only">Согласование...</span> Ожидайте согласования...', ['class' => 'btn btn-default btn-lg disabled']);
                         break;
                     case CorrespondencePackagesStates::STATE_УТВЕРЖДЕН:
-                        $result .= $siaButtons['save'];
+                        $result .= $siaButtons['save'] . ' ' . $siaButtons['rollback'];
                         break;
                     case CorrespondencePackagesStates::STATE_ОТКАЗ:
-                        $result .= Html::submitButton('<i class="fa fa-refresh" aria-hidden="true"></i> Вернуть в черновики', ['class' => 'btn btn-warning btn-lg', 'name' => 'order_try_again', 'title' => 'Вернуть пакет в черновики после отказа, чтобы исправить ошибки']);
+                        $result .= $siaButtons['rollback'];
                         break;
                 }
 
@@ -755,14 +766,6 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
-    public function getManagerRole()
-    {
-        return $this->hasOne(AuthAssignment::className(), ['user_id' => 'manager_id']);
-    }
-
-    /**
-     * @return \yii\db\ActiveQuery
-     */
     public function getManagerProfile()
     {
         return $this->hasOne(Profile::class, ['user_id' => 'manager_id'])->from(['managerProfile' => 'profile']);
@@ -775,6 +778,14 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function getManagerProfileName()
     {
         return !empty($this->managerProfile) ? (!empty($this->managerProfile->name) ? $this->managerProfile->name : $this->manager->username) : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getManagerRole()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'manager_id']);
     }
 
     /**
@@ -817,6 +828,23 @@ class CorrespondencePackages extends \yii\db\ActiveRecord
     public function getCorrespondencePackagesHistory()
     {
         return $this->hasMany(CorrespondencePackagesHistory::className(), ['cp_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getLastCpsChange()
+    {
+        return $this->hasOne(CorrespondencePackagesHistory::class, ['cp_id' => 'id'])->orderBy([CorrespondencePackagesHistory::tableName() . '.`created_at`' => SORT_DESC]);
+    }
+
+    /**
+     * Возвращает дату и время последнего изменения статуса.
+     * @return int
+     */
+    public function getLastCpsChangedAt()
+    {
+        return !empty($this->lastCpsChange) ? $this->lastCpsChange->created_at : '';
     }
 
     /**

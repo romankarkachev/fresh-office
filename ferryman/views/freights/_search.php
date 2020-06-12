@@ -35,14 +35,14 @@ $searchForFerryman = foProjectsSearch::fetchGroupSearchForFerryman();
 
                 </div>
                 <div class="col-md-2">
-                    <?= $form->field($model, 'searchVivozDateFrom')->widget(DateControl::className(), [
+                    <?= $form->field($model, 'searchVivozDateFrom')->widget(DateControl::class, [
                         'value' => $model->searchVivozDateFrom,
                         'type' => DateControl::FORMAT_DATE,
                         'language' => 'ru',
                         'displayFormat' => 'php:d.m.Y',
                         'saveFormat' => 'php:Y-m-d',
                         'widgetOptions' => [
-                            'options' => ['placeholder' => 'Начало периода', 'title' => 'Дата вывоза'],
+                            'options' => ['placeholder' => 'Начало периода', 'title' => 'Дата вывоза', 'autocomplete' => 'off'],
                             'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
                             'layout' => '<div class="input-group">{input}{picker}</div>',
                             'pickerButton' => '<span class="input-group-addon kv-date-calendar" title="Выбрать дату"><i class="fa fa-calendar" aria-hidden="true"></i></span>',
@@ -54,23 +54,21 @@ $searchForFerryman = foProjectsSearch::fetchGroupSearchForFerryman();
                                 'autoclose' => true,
                             ],
                             'pluginEvents' => [
-                                'changeDate' => 'function(e) {
-anyDateOnChange();
-                                }',
+                                'changeDate' => 'function(e) { anyDateOnChange(); }',
                             ],
                         ],
                     ]) ?>
 
                 </div>
                 <div class="col-md-2">
-                    <?= $form->field($model, 'searchVivozDateTo')->widget(DateControl::className(), [
+                    <?= $form->field($model, 'searchVivozDateTo')->widget(DateControl::class, [
                         'value' => $model->searchVivozDateTo,
                         'type' => DateControl::FORMAT_DATE,
                         'language' => 'ru',
                         'displayFormat' => 'php:d.m.Y',
                         'saveFormat' => 'php:Y-m-d',
                         'widgetOptions' => [
-                            'options' => ['placeholder' => 'Конец периода', 'title' => 'Дата вывоза'],
+                            'options' => ['placeholder' => 'Конец периода', 'title' => 'Дата вывоза', 'autocomplete' => 'off'],
                             'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
                             'layout' => '<div class="input-group">{input}{picker}</div>',
                             'pickerButton' => '<span class="input-group-addon kv-date-calendar" title="Выбрать дату"><i class="fa fa-calendar" aria-hidden="true"></i></span>',
@@ -82,9 +80,7 @@ anyDateOnChange();
                                 'autoclose' => true,
                             ],
                             'pluginEvents' => [
-                                'changeDate' => 'function(e) {
-anyDateOnChange();
-                                }',
+                                'changeDate' => 'function(e) { anyDateOnChange(); }',
                             ],
                         ],
                     ]) ?>

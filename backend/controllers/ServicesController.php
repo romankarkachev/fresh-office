@@ -2,10 +2,20 @@
 
 namespace backend\controllers;
 
+use common\models\EcoMcTp;
+use common\models\EcoProjects;
+use common\models\EcoProjectsSearch;
+use common\models\EcoReportsKinds;
+use common\models\PaymentOrders;
+use common\models\TransportRequests;
+use common\models\TransportRequestsStates;
 use Yii;
 use yii\db\Expression;
 use yii\helpers\ArrayHelper;
 use yii\helpers\FileHelper;
+use yii\helpers\Html;
+use yii\helpers\Json;
+use yii\helpers\Url;
 use yii\web\Controller;
 use yii\web\Response;
 use yii\httpclient\Client;
@@ -41,6 +51,19 @@ use common\models\CpBlContactEmails;
 use common\models\TendersStates;
 use common\models\Tenders;
 use common\models\TendersLogs;
+use common\models\TendersResults;
+use common\models\TendersStages;
+use common\models\PbxCallsRecognitions;
+use common\models\YandexSpeechKitRecognitionQueue;
+use common\models\CorrespondencePackagesHistory;
+use common\models\CorrespondencePackagesStates;
+use common\models\Po;
+use common\models\PoAt;
+use common\models\PoPop;
+use common\models\IncomingMail;
+use common\models\PaymentOrdersStates;
+use common\models\PoStatesHistory;
+use common\models\OutdatedObjectsReceivers;
 
 class ServicesController extends Controller
 {
@@ -597,7 +620,7 @@ class ServicesController extends Controller
     }
 
     /**
-     * Делает выборку из веб-приложения проектов в статусе "Отправлено", проверяет треки и отмечает доставленные.
+     * Делает выборку из веб-приложения пакетов в статусе "Отправлено", проверяет треки и отмечает доставленные.
      * correspondence-trackings
      */
     public function actionCorrespondenceTrackings()
@@ -635,6 +658,8 @@ class ServicesController extends Controller
                         $package->save();
                     }
                     else {
+                        $project = $package->project;
+
                         switch ($package->type_id) {
                             case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА:
                             case ProjectsTypes::PROJECT_TYPE_ДОКУМЕНТЫ:
@@ -652,16 +677,16 @@ class ServicesController extends Controller
                                 $package->save();
 
                                 // делаем две записи в истории проекта
-                                $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                                $package->project->save();
+                                $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                                $project->save();
 
-                                if ($package->project->type_id == ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА) {
-                                    $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ИСПОЛНЕН;
+                                if ($project->ID_LIST_SPR_PROJECT == ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПРЕДОПЛАТА) {
+                                    $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ИСПОЛНЕН;
                                 }
                                 else {
-                                    $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
+                                    $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ЗАВЕРШЕНО;
                                 }
-                                $package->project->save();
+                                $project->save();
 
                                 break;
                             case ProjectsTypes::PROJECT_TYPE_ЗАКАЗ_ПОСТОПЛАТА:
@@ -671,8 +696,8 @@ class ServicesController extends Controller
                                 $package->save();
 
                                 // делаем запись в истории проекта
-                                $package->project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
-                                $package->project->save();
+                                $project->ID_PRIZNAK_PROJECT = ProjectsStates::STATE_ДОСТАВЛЕНО;
+                                $project->save();
 
                                 // создаем задачу
                                 // временно отключено по решению заказчика (предварительно до 01.01.2018)
@@ -686,6 +711,47 @@ class ServicesController extends Controller
         }
 
         $this->checkFinancesPostPayment();
+    }
+
+    /**
+     * Делает выборку почтовых отправлений в статусе "Отправлено", проверяет треки и отмечает доставленные.
+     * in-out-mail-trackings
+     * @throws \SoapFault
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionInOutMailTrackings()
+    {
+        foreach (IncomingMail::find()->where([
+            'and',
+            ['state_id' => ProjectsStates::STATE_ОТПРАВЛЕНО],
+            ['is not', 'track_num', null],
+        ])->all() as $item) {
+            /* @var $item IncomingMail */
+
+            $delivered_at = TrackingController::trackPochtaRu($item->track_num, false);
+            if (!empty($delivered_at)) {
+                $item->updateAttributes([
+                    'state_id' => ProjectsStates::STATE_ДОСТАВЛЕНО,
+                ]);
+            }
+        }
+        if (isset($item)) unset($item);
+
+        // также проверим статус отправлений документов по платежным ордерам
+        foreach (PaymentOrders::find()->where([
+            'and',
+            ['is not', 'imt_num', null],
+            ['imt_state' => PaymentOrders::INCOMING_MAIL_STATE_В_ПУТИ],
+        ])->all() as $item) {
+            /* @var $item PaymentOrders */
+
+            $delivered_at = TrackingController::trackPochtaRu($item->imt_num, false, $item);
+            if (!empty($delivered_at)) {
+                $item->updateAttributes([
+                    'imt_state' => PaymentOrders::INCOMING_MAIL_STATE_ПОЛУЧЕНО,
+                ]);
+            }
+        }
     }
 
     /**
@@ -814,74 +880,7 @@ class ServicesController extends Controller
     {
         Yii::$app->response->format = Response::FORMAT_JSON;
 
-        $details = DadataAPI::postRequestToApi($query, $specifyingValue);
-        if (false !== $details) {
-            $caName = DadataAPI::mb_ucwords(mb_strtolower($details['name']['full']));
-            $caNameFull = '';
-            $caNameShort = '';
-
-            if (!empty($details['opf'])) {
-                if ($details['opf']['code'] == '50102') {
-                    // для ИП без кавычек
-                    $caNameFull = $details['opf']['full'] . ' ' . $caName;
-                    $caNameShort = $details['opf']['short'] . ' ' . $caName;
-                }
-                else {
-                    $caNameFull = $details['opf']['full'] . ' "' . $caName . '"';
-                    $caNameShort = $details['opf']['short'] . ' "' . $caName . '"';
-                }
-            }
-
-            $result = [
-                /*
-                'name' => $details['name']['full'],
-                'name_full' => $details['name']['full_with_opf'],
-                'name_short' => $details['name']['short_with_opf'],
-                */
-                'name' => $caName,
-                'name_full' => $caNameFull,
-                'name_short' => $caNameShort,
-                'inn' => $details['inn'],
-                'ogrn' => $details['ogrn'],
-            ];
-            if (!empty($details['kpp'])) $result['kpp'] = $details['kpp'];
-            $result['address'] = $details['address']['unrestricted_value'];
-            if (isset($details['management'])) {
-                // полные ФИО директора
-                $result['dir_name'] = $details['management']['name'];
-                if (intval($cleanDir) == true) {
-                    $cleanName = DadataAPI::cleanName($result['dir_name']);
-                    if (!empty($cleanName)) {
-                        $result['dir_name_of'] = $cleanName['result_genitive'];
-                        // сокращенные ФИО директора в именительном падеже
-                        $result['dir_name_short'] = $cleanName['surname'] .
-                            (!empty($cleanName['name']) ? ' ' . mb_substr($cleanName['name'], 0, 1) . '.' : '') .
-                            (!empty($cleanName['patronymic']) ? ' ' . mb_substr($cleanName['patronymic'], 0, 1) . '.' : '');
-
-                        // просклоняем сокращенные ФИО
-                        $cleanShortName = DadataAPI::cleanName($result['dir_name_short']);
-                        if (!empty($cleanShortName) && isset($cleanShortName['result_genitive'])) {
-                            $result['dir_name_short_of'] = $cleanShortName['result_genitive'];
-                        }
-                        else {
-                            // не удалось просклонять, просто берем сокращенные ФИО
-                            $result['dir_name_short_of'] = $result['dir_name_short'];
-                        }
-                    }
-                    else {
-                        // не удалось просклонять, просто берем полные ФИО
-                        $result['dir_name_of'] = $result['dir_name'];
-                    }
-                }
-            }
-            if (isset($details['management'])) {
-                $result['dir_post'] = $details['management']['post'];
-            }
-
-            return $result;
-        }
-
-        return false;
+        return DadataAPI::fetchCounteragentsInfo($query, $specifyingValue, $cleanDir);
     }
 
     /**
@@ -1156,20 +1155,22 @@ class ServicesController extends Controller
     }
 
     /**
-     * Выполняет отправку письма с просроченными проектами.
+     * Выполняет отправку письма с просроченными проектами (пакетами).
      * Пример: array(2) { [0]=> array(3) { ["stateName"]=> string(33) "Дежурный менеджер" ["time"]=> string(6) "604800" ["projects"]=> array(2) { [0]=> int(19776) [1]=> int(18746) } } [1]=> array(3) { ["stateName"]=> string(17) "На складе" ["time"]=> string(5) "28800" ["projects"]=> array(3) { [0]=> int(20726) [1]=> int(20743) [2]=> int(20571) } } } array(1) { [0]=> array(3) { ["stateName"]=> string(27) "Вывоз завершен" ["time"]=> string(6) "172800" ["projects"]=> array(5) { [0]=> int(19653) [1]=> int(19503) [2]=> int(20373) [3]=> int(18350) [4]=> int(20629) } } }
+     * @param $template string наименование шаблона письма
+     * @param $subject string тема письма
      * @param $receiver string E-mail получателя уведомления
      * @param $data array массив с просроченными проектами по статусам
      */
-    public function sendEmailNotificationAboutOudatedByCustomTime($receiver, $data)
+    public function sendEmailNotificationAboutOudatedByCustomTime($receiver, $data, $template = 'projectsStatesNotChangedByCustomTime', $subject = 'Обновите статусы в CRM')
     {
         Yii::$app->mailer->compose([
-            'html' => 'projectsStatesNotChangedByCustomTime-html',
+            'html' => $template . '-html',
         ], [
-            'projects' => $data,
+            'items' => $data,
         ])
             ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNashville']])
-            ->setSubject('Обновите статусы в CRM')
+            ->setSubject($subject)
             ->setTo($receiver)
             ->send();
         ;
@@ -1183,7 +1184,7 @@ class ServicesController extends Controller
     public function actionNotifyAboutProjectsOutdatedByCustomTime()
     {
         // получатели уведомлений по статусам и допустимым периодам
-        $receivers = NotifReceiversStatesNotChangedByTime::find()->orderBy('receiver')->asArray()->all();
+        $receivers = NotifReceiversStatesNotChangedByTime::find()->where(['section' => NotifReceiversStatesNotChangedByTime::SECTION_ПРОЕКТЫ])->orderBy('receiver')->asArray()->all();
 
         $query = foProjects::find()
             ->select([
@@ -1272,6 +1273,86 @@ class ServicesController extends Controller
     }
 
     /**
+     * Делает выборку пакетов, просматривает их статусы и сравнивает допустимые сроки нахождения в этих статусах.
+     * Если срок пребывания пакета в некотором статусе превышен, то пакет добавляется в письмо.
+     * notify-about-cp-outdated-by-custom-time
+     */
+    public function actionNotifyAboutCpOutdatedByCustomTime()
+    {
+        $template = 'сpStatesNotChangedByCustomTime';
+        $subject = 'Пакеты корреспоенденции без движения';
+
+        // получатели уведомлений по статусам и допустимым периодам
+        $receivers = NotifReceiversStatesNotChangedByTime::find()->where(['section' => NotifReceiversStatesNotChangedByTime::SECTION_ПАКЕТЫ])->orderBy('receiver')->asArray()->all();
+
+        // статусы пакетов
+        $statesCp = CorrespondencePackagesStates::arrayMapForSelect2();
+
+        $query = CorrespondencePackages::find()
+            ->select([
+                'id' => CorrespondencePackages::tableName() . '.`id`',
+                'customer_name' => CorrespondencePackages::tableName() . '.`customer_name`',
+                'cps_id' => CorrespondencePackages::tableName() . '.`cps_id`',
+                'obtainedAt' => CorrespondencePackagesHistory::find()->select('created_at')->where([CorrespondencePackagesHistory::tableName() . '.`cp_id`' => new Expression(CorrespondencePackages::tableName() . '.`id`')])->limit(1)->orderBy('created_at DESC'),
+            ])
+            ->where(['cps_id' => NotifReceiversStatesNotChangedByTime::НАБОР_СТАТУСОВ_ДЛЯ_ОПОВЕЩЕНИЯ_О_ПРОСРОЧЕННЫХ_ПАКЕТАХ]);
+
+        foreach ($query->asArray()->all() as $package) {
+            foreach ($receivers as $index => $receiver) {
+                if ($receiver['state_id'] != $package['cps_id']) continue;
+
+                // опишем статус именем, запрос делается только один раз
+                if (empty($receivers[$index]['stateName'])) {
+                    // если статус все еще обезличен, то узнаем его наименование
+                    $receivers[$index]['stateName'] = ArrayHelper::getValue($statesCp, $package['cps_id']);
+                }
+
+                // есть такой статус на контроле, проверим, не просрочен ли он
+                $changedAt = strtotime($package['obtainedAt']); // время приобретения статуса пакетом как число
+                $outdatedTermin = time() - $receivers[$index]['time'];
+                if ($changedAt < $outdatedTermin) {
+                    // статус просрочен, поместим пакет в списк проблемных
+                    $receivers[$index]['packages'][] = \yii\helpers\Html::a($package['id'] . (!empty($package['customer_name']) ? ' (' . trim($package['customer_name']) . ')' : ''), Yii::$app->urlManager->createAbsoluteUrl(['/correspondence-packages/update', 'id' => $package['id']]), ['class' => 'btn-link']);
+                }
+            }
+        }
+
+        $prevArray = [];
+        $currentReceiver = -1;
+        foreach ($receivers as $receiver) {
+            // если по статусу пакетов нет, переходим к следующему комплекту
+            if (empty($receiver['packages'])) continue;
+
+            if ($currentReceiver != $receiver['receiver'] && $currentReceiver != -1) {
+                // выполняем отправку сообщения
+                $this->sendEmailNotificationAboutOudatedByCustomTime($currentReceiver, $prevArray, $template, $subject);
+                $prevArray = [];
+            }
+
+            // найдем статус в подготовленном к отправке массиве
+            // если такой статус туда уже помещен, то дополним его пакетами
+            // а если нет, то создадим новый
+            $key = array_search($receiver['stateName'], array_column($prevArray, 'stateName'));
+            if (false !== $key) {
+                ArrayHelper::merge($prevArray[$key], $receiver['packages']);
+            }
+            else {
+                $record = [
+                    'stateName' => $receiver['stateName'],
+                    'time' => $receiver['time'],
+                    'packages' => $receiver['packages'],
+                ];
+                $prevArray[] = $record;
+            }
+
+            $currentReceiver = $receiver['receiver'];
+        }
+
+        // еще раз отправку для последней сборки пакетов
+        if (count($prevArray) > 0) $this->sendEmailNotificationAboutOudatedByCustomTime($currentReceiver, $prevArray, $template, $subject);
+    }
+
+    /**
      * Запускается один раз в день утром, отправляет файл Excel, созданный по алгоритму отчета "Наличие проектов и задач".
      * mailing-pbx-calls-has-projects-and-tasks-assigned
      */
@@ -1299,7 +1380,6 @@ class ServicesController extends Controller
             'asAttachment' => false,
             'savePath' => $savePath,
             'fileName' => $fn,
-            'format' => 'Excel2007',
             'columns' => [
                 [
                     'attribute' => 'pbxht_id',
@@ -1404,7 +1484,28 @@ class ServicesController extends Controller
 
     public function actionTemp()
     {
+        /*
+        // отправляем файл в бакет Yandex Cloud
+        $call = PbxCalls::findOne(678818);
+        if ($call) {
+            $ffp = '';
+            $recordsPath = '/mnt/voipnfs/' . Yii::$app->formatter->asDate($call->calldate, 'php:Y.m.d');
+            foreach (glob("$recordsPath/*$call->uniqueid*") as $filename) {
+                if (!empty($filename)) {
+                    $ffp = $filename;
+                    break;
+                }
+            }
+
+            if (!empty($ffp) && file_exists($ffp)) {
+                $result = Yii::$app->yandexCloud->upload($call->id . '.wav', $ffp);
+                if (isset($result->toArray()['ObjectURL'])) {
+                    echo $result->toArray()['ObjectURL'];
+                }
+            }
+        }
         return false;
+        */
     }
 
     /**
@@ -1414,14 +1515,52 @@ class ServicesController extends Controller
      */
     public function actionTrackTendersChanges()
     {
+        $tenders = []; // здесь будем хранить массив файлов, которые необходимо включить в письмо
+
         // тендеры в финальных статусах не берем!
-        foreach (Tenders::find()->where(Tenders::tableName() . '.`state_id` <= ' . TendersStates::STATE_ДОЗАПРОС)->all() as $tender) {
+        foreach (Tenders::find()->joinWith('winner')->where(['not in', Tenders::tableName() . '.`state_id`', TendersStates::НАБОР_ФИНАЛЬНЫЕ_СТАТУСЫ])->all() as $tender) {
+            $changes = [];
             $law_no = $tender->law_no;
 
             // проверяем изменения в общей информации
             $currentData = (new Tenders([
                 'oos_number' => $tender->oos_number,
             ]))->fetchTenderByNumber($law_no);
+            if (isset($currentData['pf_date_u'])) {
+                $changes[] = [
+                    'attributeName' => 'date_stop',
+                    'newValue' => $currentData['pf_date_u'],
+                    'oldFormatted' => Yii::$app->formatter->asDate($tender->date_stop, 'php:d.m.Y'),
+                    'newFormatted' => Yii::$app->formatter->asDate($currentData['pf_date_u'], 'php:d.m.Y'),
+                ];
+            }
+
+            // идентифицируем этап закупки
+            if (!empty($currentData['stage'])) {
+                $stage = TendersStages::findOne(['name' => $currentData['stage']]);
+                if ($stage) {
+                    $stage_id = $stage->id;
+                }
+                else {
+                    $stage = new TendersStages(['name' => $currentData['stage']]);
+                    if ($stage->save()) {
+                        $stage_id = $stage->id;
+                    }
+                }
+                if (!empty($stage_id)) {
+                    $changes[] = [
+                        'attributeName' => 'stage_id',
+                        'newValue' => $stage_id,
+                        'oldFormatted' => $tender->stageName,
+                        'newFormatted' => trim($currentData['stage']),
+                    ];
+                }
+            }
+
+            // журналируем изменения
+            $tender->logChangesCommon($changes);
+            unset($changes);
+            /*
             if ($currentData['pf_date_u'] != $tender->date_stop) {
                 if ($tender->updateAttributes([
                     'date_stop' => $currentData['pf_date_u'],
@@ -1433,8 +1572,10 @@ class ServicesController extends Controller
                     ]))->save();
                 };
             }
+            */
 
             // проверяем изменения в файлах
+            // сначала со страницы "Документы"
             $law_no++;
             $currentData = (new Tenders([
                 'oos_number' => $tender->oos_number,
@@ -1443,9 +1584,31 @@ class ServicesController extends Controller
             if (isset($currentData['law_no'])) {
                 unset($currentData['law_no']);
             }
-            if (count($currentData) > 0) {
+
+            // затем со страницы "Протоколы"
+            if ($tender->law_no == 10) {
+                // но только для 223го закона
+                $currentVata = (new Tenders([
+                    'oos_number' => $tender->oos_number,
+                ]))->fetchTenderByNumber(Tenders::TENDERS_223_PAGE_PROTOCOLS);
+                // удалим ненужный элемент массива
+                if (isset($currentVata['law_no'])) {
+                    unset($currentVata['law_no']);
+                }
+                $currentData = ArrayHelper::merge($currentData, $currentVata);
+            }
+
+            if (is_array($currentData) && count($currentData) > 0) {
                 // перебираем файлы, выкачивая отсутствующие у нас в системе
-                $tender->obtainAuctionFiles($currentData, true);
+                $files = $tender->obtainAuctionFiles($currentData, true);
+                if (!empty($files)) {
+                    $tenders[] = [
+                        'tender_id' => $tender->id,
+                        'oos_number' => $tender->oos_number,
+                        'title' => $tender->title,
+                        'files' => $files,
+                    ];
+                }
             }
 
             // удаляем имеющуюся историю, записываем текущую заново
@@ -1456,22 +1619,465 @@ class ServicesController extends Controller
             if (isset($currentData['law_no'])) {
                 unset($currentData['law_no']);
             }
-            if (count($currentData) > 0) {
+            if (is_array($currentData) && count($currentData) > 0) {
                 // удаляем все старые записи журнала событий
                 TendersLogs::deleteAll(['tender_id' => $tender->id, 'type' => TendersLogs::TYPE_ИСТОЧНИК]);
                 // извлекаем и сохраняем имеющиеся на странице записи
                 $tender->obtainAuctionLogs($currentData);
             }
+
+            // определим победителя в торгах
+            if (empty($tender->winner)) {
+                // если он не задан
+                $law_no++;
+                $currentData = (new Tenders([
+                    'oos_number' => $tender->oos_number,
+                ]))->fetchTenderByNumber($law_no); // 23
+                if (isset($currentData['law_no'])) {
+                    unset($currentData['law_no']);
+                }
+                if (is_array($currentData) && count($currentData) > 0) {
+                    $tenderResults = TendersResults::findOne(['tender_id' => $tender->id]);
+                    if ($tenderResults) {
+                        $tenderResults->updateAttributes([
+                            'placed_at' => $currentData['placed_at'],
+                            'name' => $currentData['name'],
+                            'price' => $currentData['price'],
+                        ]);
+                    } else {
+                        (new TendersResults([
+                            'tender_id' => $tender->id,
+                            'placed_at' => $currentData['placed_at'],
+                            'name' => $currentData['name'],
+                            'price' => $currentData['price'],
+                        ]))->save();
+                    }
+                }
+            }
+        }
+
+        if (!empty($tenders)) {
+            // если происходило обновление, то необходимо все новые файлы включить в письмо и выслать тендеристам
+            $letter = Yii::$app->mailer->compose([
+                'html' => 'tenderFilesHasBeenUpdated-html',
+            ], ['tenders' => $tenders])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo(['tender@1nok.ru', 'bugrovap@gmail.com'])
+                ->setSubject('Изменения в тендерах');
+
+            foreach ($tenders as $changedTender) {
+                foreach ($changedTender['files'] as $file) {
+                    $letter->attach($file['ffp'], ['fileName' => $file['fn']]);
+                }
+            }
+
+            $letter->send();
+        }
+    }
+
+    /**
+     * Выполняет рассылку информации о предстоящих аукционах специалистам тендерного отдела.
+     */
+    public function actionDispatchOnTheEve()
+    {
+        $tenders = []; // здесь будем хранить массив файлов, которые необходимо включить в письмо
+        $tomorrowStart = strtotime(date('Y-m-d', (time() + 24*3600)).' 00:00:00');
+        $tomorrowEnd = strtotime(date('Y-m-d', (time() + 24*3600)).' 23:59:59');
+
+        // тендеры в финальных статусах не берем!
+        foreach (
+            Tenders::find()
+                ->where(Tenders::tableName() . '.`state_id` <= ' . TendersStates::STATE_ДОЗАПРОС)
+                ->andWhere('date_auction IS NOT NULL')
+                ->andWhere(['between', 'date_auction', $tomorrowStart, $tomorrowEnd])
+                ->all() as $tender
+        ) {
+            $tenders[] = [
+                'tender_id' => $tender->id,
+                'oos_number' => $tender->oos_number,
+                'title' => $tender->title,
+            ];
+        }
+
+        if (!empty($tenders)) {
+            Yii::$app->mailer->compose([
+                'html' => 'tendersOnTheEve-html',
+            ], ['tenders' => $tenders, 'date' => Yii::$app->formatter->asDate($tomorrowStart, 'php:d.m.Y')])
+                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                ->setTo(['tender@1nok.ru', 'bugrovap@gmail.com'])
+                ->setSubject('Предстоящие аукционы')
+                ->send();
         }
     }
 
     /**
      * Проверяет готовность распознания поставленных в очередь записей разговоров.
      * check-transcribations
+     * @throws \yii\base\Exception
      * @throws \yii\base\InvalidConfigException
+     * @throws \yii\httpclient\Exception
      */
     public function actionCheckTranscribations()
     {
+        $operationsPending = YandexSpeechKitRecognitionQueue::find()->all();
+        if (count($operationsPending) > 0) {
+            $callsIds = ArrayHelper::getColumn($operationsPending, 'call_id');
+            $calls = PbxCalls::find()->where(['id' => $callsIds])->all();
 
+            $client = new \yii\httpclient\Client([
+                'baseUrl' => YandexServices::URL_SPEECHKIT_RECOGNITION_RESULTS,
+                'transport' => 'yii\httpclient\CurlTransport'
+            ]);
+
+            foreach ($operationsPending as $operationPending) {
+                if (!empty($operationPending->operation_id)) {
+                    $response = $client->createRequest()
+                        ->setUrl($operationPending->operation_id)
+                        ->setMethod('GET')
+                        ->setHeaders([
+                            'Authorization' => 'Api-Key ' . YandexServices::SPEECHKIT_API_KEY,
+                        ])->send();
+
+                    if ($response->isOk) {
+                        // идентифицируем звонок
+                        $key = array_search($operationPending->call_id, array_column($calls, 'id'));
+                        if (
+                            $key !== false &&
+                            isset($response->data['done']) && $response->data['done'] == true &&
+                            isset($response->data['response']) && isset($response->data['response']['chunks'])
+                        ) {
+                            // создаем файл, в которй будет производиться запись результата
+                            $recognitionResult = '';
+                            $pifp = YandexSpeechKitRecognitionQueue::getUploadsFilepath($calls[$key]);
+                            $fileAttachedFn = strtolower(Yii::$app->security->generateRandomString() . '.txt');
+                            $fileAttachedFfp = $pifp . '/' . $fileAttachedFn;
+                            try {
+                                $rrFile = fopen($fileAttachedFfp, 'a') or die("Unable to open file!");
+                                foreach ($response->data['response']['chunks'] as $chunk) {
+                                    $recognitionResult .= $chunk['alternatives'][0]['text'] . "\n";
+                                }
+                                $writeResult = fwrite($rrFile, $recognitionResult);
+                                fclose($rrFile);
+                                if (false !== $writeResult) {
+                                    // делаем запись в таблицу успешно распознанных звонков
+                                    if ((new PbxCallsRecognitions([
+                                        'call_id' => $operationPending->call_id,
+                                        'rr' => $recognitionResult,
+                                        'ffp' => $fileAttachedFfp,
+                                        'fn' => $fileAttachedFn,
+                                    ]))->save()) {
+                                        // удаляем из очереди
+                                        $operationPending->delete();
+                                        // удаляем сам файл из бакета
+                                        $result = Yii::$app->yandexCloud->delete($operationPending->call_id . '.wav');
+                                    }
+                                };
+
+                            } catch (\Exception $exception) {}
+
+                            unset($recognitionResult);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Функция "Автоплатежи".
+     * Выполняет создание платежных ордеров автоматически, по расписанию, на основании имеющихся шаблонов.
+     * create-po-from-templates
+     * @throws \Throwable
+     * @throws \yii\db\Exception
+     */
+    public function actionCreatePoFromTemplates()
+    {
+        $today = date('d');
+        foreach (PoAt::find()->where([
+            'is_active' => true,
+            'periodicity' => $today,
+        ])->all() as $template) {
+            $success = true;
+            $transaction = Yii::$app->db->beginTransaction();
+
+            try {
+                $model = new Po(['state_id' => PaymentOrdersStates::PAYMENT_STATE_СОГЛАСОВАНИЕ]);
+                $model->attributes = $template->attributes;
+                if ($model->save()) {
+                    // сразу запись в историю
+                    (new PoStatesHistory([
+                        'po_id' => $model->id,
+                        'state_id' => $model->state_id,
+                        'description' => 'Автоплатеж',
+                    ]))->save();
+
+                    $properties = Json::decode($template->properties, true);
+                    if (!empty($properties)) {
+                        foreach ($properties as $row) {
+                            if (!(new PoPop([
+                                'po_id' => $model->id,
+                                'ei_id' => $model->ei_id,
+                                'property_id' => $row['property_id'],
+                                'value_id' => $row['value_id'],
+                            ]))->save()) {
+                                $success = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                else {
+                    $success = false;
+                }
+            }
+            catch (\Exception $e) {
+                $transaction->rollBack();
+                throw $e;
+            }
+            catch (\Throwable $e) {
+                $transaction->rollBack();
+                throw $e;
+            }
+
+            $success ? $transaction->commit() : $transaction->rollBack();
+        }
+    }
+
+    /**
+     * Выполняет рассылку просроченных объектов.
+     * mailing-outdated-objects-by-schedule
+     */
+    public function actionMailingOutdatedObjectsBySchedule()
+    {
+        // здесь будем собирать данные для вывода в тексте письма
+        $letterContent = [];
+
+        // доступные разделы учета для этого механизма уведомлений
+        $sections = OutdatedObjectsReceivers::fetchSections();
+
+        // делаем выборку разделов учета в разрезе получателей
+        $sectionsReceivers = OutdatedObjectsReceivers::find()->select([
+            'section',
+            'receivers' => new Expression('GROUP_CONCAT(`receiver` SEPARATOR ",")'),
+        ])->groupBy('section')->asArray()->all();
+
+        // делаем выборку получателей в разрезе разделов учета
+        $receiversSections = OutdatedObjectsReceivers::find()->select([
+            'receiver',
+            'sections' => new Expression('GROUP_CONCAT(`section` SEPARATOR ",")'),
+        ])->groupBy('receiver')->asArray()->all();
+
+        /**
+         * 1 - проекты по экологии
+         */
+        $key = array_search(OutdatedObjectsReceivers::SECTION_ЭКО_ПРОЕКТЫ, array_column($sectionsReceivers, 'section'));
+        if (false !== $key) {
+            unset($key);
+            $key = array_search(OutdatedObjectsReceivers::SECTION_ЭКО_ПРОЕКТЫ, array_column($sections, 'id'));
+            if (false !== $key) {
+                $section = $sections[$key];
+                $name = $section['name'] . ' с нарушениями сроков завершения этапов'; // наименование раздела учета
+
+                $searchModel = new EcoProjectsSearch;
+                $query = $searchModel->search([
+                    $searchModel->formName() => [
+                        'searchProgress' => EcoProjectsSearch::FILTER_EXPIRED_FOR_MAILING,
+                    ],
+                ]);
+
+                $sample = $query->getModels();
+                if (count($sample) > 0) {
+                    $items = [];
+
+                    foreach ($sample as $record) {
+                        $items[] =
+                            $record->id .
+                            ' &mdash; ' .
+                            foProjects::downcounter(strtotime($record->currentMilestoneDatePlan . ' 00:00:00'), time(), true) . ' ' .
+                            Html::a('открыть', Yii::$app->urlManager->createAbsoluteUrl(['/' . EcoProjectsController::ROOT_URL_FOR_MILESTONES_SORT_PAGING, 'id' => $record->id]), ['title' => 'Открыть проект по экологии']) . ' или ' .
+                            Html::a('открыть локально', 'http://' . Yii::$app->params['serverLocalIp'] . Url::toRoute(['/' . EcoProjectsController::ROOT_URL_FOR_MILESTONES_SORT_PAGING, 'id' => $record->id]), ['title' => 'Если Вы работаете в одной сети с веб-приложением, нажмите здесь, чтобы открыть проект по экологии'])
+                        ;
+                    }
+
+                    $letterContent[] = [
+                        'id' => OutdatedObjectsReceivers::SECTION_ЭКО_ПРОЕКТЫ,
+                        'name' => trim($name) . ' (' . count($items) . ' всего):',
+                        'items' => $items,
+                    ];
+                    unset($name);
+                }
+            }
+        }
+
+        /**
+         * 2 - договоры по экологии
+         */
+        $key = array_search(OutdatedObjectsReceivers::SECTION_ЭКО_ДОГОВОРЫ, array_column($sectionsReceivers, 'section'));
+        if (false !== $key) {
+            unset($key);
+            $key = array_search(OutdatedObjectsReceivers::SECTION_ЭКО_ДОГОВОРЫ, array_column($sections, 'id'));
+            if (false !== $key) {
+                $section = $sections[$key];
+                $name = $section['name']; // наименование раздела учета
+
+                $query = EcoMcTp::find()->select([
+                    'id' => EcoMcTp::tableName() . '.`mc_id`',
+                    'report_id',
+                    'reportName' => EcoReportsKinds::tableName() . '.`name`',
+                    'date_deadline',
+                ])->joinWith('report')->where(['date_fact' => null])->andWhere('DATE_FORMAT(NOW(), "%Y-%m-%d") > `date_deadline`')->orderBy(['id' => SORT_ASC, 'report_id' => SORT_ASC]);
+
+                $sample = $query->asArray()->all();
+                unset($query);
+
+                if (count($sample) > 0) {
+                    $items = [];
+
+                    foreach ($sample as $record) {
+                        $items[] =
+                            'Договор № ' . $record['id'] .
+                            ' - ' .
+                            $record['reportName'] .
+                            ' &mdash; ' .
+                            foProjects::downcounter(strtotime($record['date_deadline'] . ' 00:00:00'), time(), true) . ' ' .
+                            Html::a('открыть', Yii::$app->urlManager->createAbsoluteUrl(['/' . EcoContractsController::ROOT_URL_FOR_SORT_PAGING . '/update', 'id' => $record['id']]), ['title' => 'Открыть договор сопровождения']) . ' или ' .
+                            Html::a('открыть локально', 'http://' . Yii::$app->params['serverLocalIp'] . Url::toRoute(['/' . EcoContractsController::ROOT_URL_FOR_SORT_PAGING . '/update', 'id' => $record['id']]), ['title' => 'Если Вы работаете в одной сети с веб-приложением, нажмите здесь, чтобы открыть договор сопровождения'])
+                        ;
+                    }
+
+                    $letterContent[] = [
+                        'id' => OutdatedObjectsReceivers::SECTION_ЭКО_ДОГОВОРЫ,
+                        'name' => trim($name) . ' (' . count($items) . ' всего):',
+                        'items' => $items,
+                    ];
+                    unset($name);
+                }
+            }
+        }
+
+        /**
+         * 3 - запросы на транспорт
+         */
+        $key = array_search(OutdatedObjectsReceivers::SECTION_ЗАПРОСЫ_ТРАНСПОРТА, array_column($sectionsReceivers, 'section'));
+        if (false !== $key) {
+            unset($key);
+            $key = array_search(OutdatedObjectsReceivers::SECTION_ЗАПРОСЫ_ТРАНСПОРТА, array_column($sections, 'id'));
+            if (false !== $key) {
+                $section = $sections[$key];
+                $name = $section['name']; // наименование раздела учета
+
+                $query = TransportRequests::find()->select([
+                    'id' => TransportRequests::tableName() . '.`id`',
+                    'customer_name' => TransportRequests::tableName() . '.`customer_name`',
+                    'created_at',
+                    'pending' => '(UNIX_TIMESTAMP() - `created_at`)',
+                ])->where(['state_id' => TransportRequestsStates::STATE_ОБРАБАТЫВАЕТСЯ]);
+
+                if (isset($section['time_limit'])) {
+                    // задан срок, применяем его в тексте запроса
+                    $query->andWhere('(UNIX_TIMESTAMP() - `created_at`) > ' . $section['time_limit'])->andWhere(['finished_at' => null]);
+                    $name .= ', период пребывания без движения которых превысил ' . foProjects::downcounter($section['time_limit']);
+                }
+                $sample = $query->asArray()->all();
+                unset($query);
+
+                if (count($sample) > 0) {
+                    $items = [];
+
+                    foreach ($sample as $record) {
+                        $items[] =
+                            $record['id'] .
+                            ' - ' .
+                            $record['customer_name'] .
+                            ' &mdash; ' .
+                            foProjects::downcounter($record['created_at'], time(), true) . ' ' .
+                            Html::a('открыть', Yii::$app->urlManager->createAbsoluteUrl(['/transport-requests/update', 'id' => $record['id']]), ['title' => 'Открыть запрос на транспорт']) . ' или ' .
+                            Html::a('открыть локально', 'http://' . Yii::$app->params['serverLocalIp'] . Url::toRoute(['/transport-requests/update', 'id' => $record['id']]), ['title' => 'Если Вы работаете в одной сети с веб-приложением, нажмите здесь, чтобы открыть запрос на транспорт'])
+                        ;
+                    }
+
+                    $letterContent[] = [
+                        'id' => OutdatedObjectsReceivers::SECTION_ЗАПРОСЫ_ТРАНСПОРТА,
+                        'name' => trim($name) . ' (' . count($items) . ' всего):',
+                        'items' => $items,
+                    ];
+                    unset($name);
+                }
+            }
+        }
+
+        /**
+         * 4 - пакеты корреспонденции
+         */
+        $key = array_search(OutdatedObjectsReceivers::SECTION_ПАКЕТЫ, array_column($sectionsReceivers, 'section'));
+        if (false !== $key) {
+            unset($key);
+            $key = array_search(OutdatedObjectsReceivers::SECTION_ПАКЕТЫ, array_column($sections, 'id'));
+            if (false !== $key) {
+                $section = $sections[$key];
+                $name = $section['name']; // наименование раздела учета
+
+                $query = CorrespondencePackages::find()->select([
+                    'id' => CorrespondencePackages::tableName() . '.`id`',
+                    'customer_name' => CorrespondencePackages::tableName() . '.`customer_name`',
+                    'ready_at',
+                    'pending' => '(UNIX_TIMESTAMP() - `ready_at`)',
+                ])->where(['state_id' => ProjectsStates::STATE_ОЖИДАЕТ_ОТПРАВКИ])->orderBy(['pending' => SORT_DESC]);
+
+                if (isset($section['time_limit'])) {
+                    // задан срок, применяем его в тексте запроса
+                    $query->andWhere('(UNIX_TIMESTAMP() - `ready_at`) > ' . $section['time_limit'])->andWhere(['sent_at' => null]);
+                    $name .= ', ожидающие отправки более ' . foProjects::downcounter($section['time_limit']);
+                }
+                $sample = $query->asArray()->all();
+                unset($query);
+
+                if (count($sample) > 0) {
+                    $items = [];
+
+                    foreach ($sample as $record) {
+                        $items[] =
+                            $record['id'] .
+                            ' - ' .
+                            $record['customer_name'] .
+                            ' &mdash; ' .
+                            foProjects::downcounter($record['ready_at'], time(), true) . ' ' .
+                            Html::a('открыть', Yii::$app->urlManager->createAbsoluteUrl(['/correspondence-packages/update', 'id' => $record['id']]), ['title' => 'Открыть пакет корреспонденции']) . ' или ' .
+                            Html::a('открыть локально', 'http://' . Yii::$app->params['serverLocalIp'] . Url::toRoute(['/correspondence-packages/update', 'id' => $record['id']]), ['title' => 'Если Вы работаете в одной сети с веб-приложением, нажмите здесь, чтобы открыть пакет корреспонденции'])
+                        ;
+                    }
+
+                    $letterContent[] = [
+                        'id' => OutdatedObjectsReceivers::SECTION_ПАКЕТЫ,
+                        'name' => trim($name) . ' (' . count($items) . ' всего):',
+                        'items' => $items,
+                    ];
+                    unset($name);
+                }
+            }
+        }
+
+        if (count($letterContent) > 0) {
+            foreach ($receiversSections as $receiver) {
+                $outdatedObjects = [];
+                if (!empty($receiver['sections'])) {
+                    foreach (explode(',', $receiver['sections']) as $receiverSection) {
+                        $key = array_search($receiverSection, array_column($letterContent, 'id'));
+                        if (false !== $key) {
+                            $outdatedObjects[] = $letterContent[$key];
+                        }
+                        unset($key);
+                    }
+                }
+
+                Yii::$app->mailer->compose([
+                    'html' => 'outdatedObjectsBySchedule-html',
+                ], ['outdatedObjects' => $letterContent])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderOutdatedObjects']])
+                    ->setSubject('Просроченные объекты, которые требуют внимания')
+                    ->setTo($receiver['receiver'])
+                    ->send();
+            }
+        }
     }
 }

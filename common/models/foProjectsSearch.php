@@ -497,9 +497,11 @@ class foProjectsSearch extends foProjects
             }
         }
         else {
-            $query->andFilterWhere([
-                'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $this->state_id,
-            ]);
+            if ($this->state_id > 0) {
+                $query->andFilterWhere([
+                    'LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => $this->state_id,
+                ]);
+            }
         }
 
         if ($this->searchGroupProjectTypes === null && $this->state_id === null) {
@@ -576,6 +578,113 @@ class foProjectsSearch extends foProjects
             ];
         else
             return $dataProvider;
+    }
+
+    /**
+     * Выполняет выбоку рейсов перевозчика. По факту выполняется выборка непомеченных на удаление проектов по перевозчику.
+     * @param $params array массив условий отбора
+     * @param $route string URL для сортировки и постраничного перехода
+     * @return mixed
+     */
+    public function searchFerrymanRaces($params, $route)
+    {
+        $tableName = foProjects::tableName();
+        $query = foProjects::find()->select([
+            $tableName . '.*',
+            'id' => $tableName . '.ID_LIST_PROJECT_COMPANY',
+            'payment.cost',
+            'dannie' => 'ADD_dannie',
+            'vivozdate' => 'ADD_vivozdate',
+            'oplata' => 'ADD_oplata',
+            'ttn' => 'ADD_ttn',
+            'adres' => 'ADD_adres',
+        ]);
+        $query->leftJoin('(
+	        SELECT ID_LIST_PROJECT_COMPANY, SUM(PRICE_TOVAR * KOLVO) AS amount, SUM(SS_PRICE_TOVAR * KOLVO) AS cost
+	        FROM CBaseCRM_Fresh_7x.dbo.LIST_TOVAR_PROJECT
+	        GROUP BY ID_LIST_PROJECT_COMPANY
+        ) AS payment', 'payment.ID_LIST_PROJECT_COMPANY = LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY');
+        $dataProvider = new ActiveDataProvider([
+            //'key' => 'id',
+            'query' => $query,
+            'pagination' => ['route' => $route],
+            'sort' => [
+                'defaultOrder' => ['DATE_CREATE_PROGECT' => SORT_DESC],
+                'route' => $route,
+                'attributes' => [
+                ],
+            ],
+        ]);
+
+        $this->load($params);
+        $query->joinWith(['type', 'state']);
+
+        if (!$this->validate()) {
+            return [$dataProvider, 0];
+        }
+
+        // значения по-умолчанию
+        // записей на странице - все
+        if (!isset($this->searchPerPage)) {
+            if (Yii::$app->user->can('ferryman') || Yii::$app->user->can('customer')) {
+                $this->searchPerPage = 100;
+            }
+            else {
+                $this->searchPerPage = false;
+            }
+        }
+
+        $dataProvider->pagination = [
+            'pageSize' => $this->searchPerPage,
+        ];
+
+        // только не удаленные проекты
+        $query->where([
+            'or',
+            ['LIST_PROJECT_COMPANY.TRASH' => null],
+            ['LIST_PROJECT_COMPANY.TRASH' => 0],
+        ]);
+
+        if ($this->searchId != null) {
+            $query->andFilterWhere([
+                'LIST_PROJECT_COMPANY.ID_LIST_PROJECT_COMPANY' => explode(',', $this->searchId),
+            ]);
+        }
+
+        // дополним условие отбора возможным значением, заданным заказчиком
+        switch ($this->searchForCustomerByState) {
+            case self::CLAUSE_FOR_CUSTOMER_STATE_ACTIVE:
+                $query->andWhere('LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT <> ' . ProjectsStates::STATE_ЗАВЕРШЕНО);
+                break;
+            case self::CLAUSE_FOR_CUSTOMER_STATE_DONE:
+                $query->andWhere(['LIST_PROJECT_COMPANY.ID_PRIZNAK_PROJECT' => ProjectsStates::STATE_ЗАВЕРШЕНО]);
+                break;
+        }
+
+        // отбор за период по дате вывоза
+        if (!empty($this->searchVivozDateFrom) && !empty($this->searchVivozDateTo)) {
+            // если указаны обе даты
+            $query->andFilterWhere(['between', 'LIST_PROJECT_COMPANY.ADD_vivozdate', new Expression('CONVERT(datetime, \''. $this->searchVivozDateFrom .'T00:00:00.000\', 126)'), new Expression('CONVERT(datetime, \''. $this->searchVivozDateTo .'T23:59:59.999\', 126)')]);
+        }
+        elseif (!empty($this->searchVivozDateFrom != null && empty($this->searchVivozDateTo))) {
+            // если указано только начало периода
+            $query->andFilterWhere(['>=', 'LIST_PROJECT_COMPANY.ADD_vivozdate', new Expression('CONVERT(datetime, \''. $this->searchVivozDateFrom .'T00:00:00.000\', 126)')]);
+        }
+        elseif (empty($this->searchVivozDateFrom) && !empty($this->searchVivozDateTo)) {
+            // если указан только конец периода
+            $query->andFilterWhere(['<=', 'LIST_PROJECT_COMPANY.ADD_vivozdate', new Expression('CONVERT(datetime, \''. $this->searchVivozDateTo .'T23:59:59.999\', 126)')]);
+        };
+
+        if ($route == 'freights') {
+            return $dataProvider;
+        }
+        else {
+            $totalAmount = $query->sum('cost');
+            return [
+                $dataProvider,
+                $totalAmount,
+            ];
+        }
     }
 
     /**

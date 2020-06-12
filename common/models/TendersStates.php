@@ -29,7 +29,20 @@ class TendersStates extends \yii\db\ActiveRecord
     const STATE_ПОБЕДА = 9;
     const STATE_ПРОИГРЫШ = 10;
     const STATE_БЕЗ_РЕЗУЛЬТАТОВ = 11;
+    const STATE_НЕ_ДОПУЩЕНЫ = 12;
+    const STATE_ПАС = 13;
+    const STATE_ОТМЕНЕН_ЗАКАЗЧИКОМ = 14;
+    const STATE_ОПОЗДАНИЕ = 15;
 
+    /**
+     * Набор финальных статусов
+     */
+    const НАБОР_ФИНАЛЬНЫЕ_СТАТУСЫ = [
+        self::STATE_ПОБЕДА,
+        self::STATE_ПРОИГРЫШ,
+        self::STATE_БЕЗ_РЕЗУЛЬТАТОВ,
+        self::STATE_ОТМЕНЕН_ЗАКАЗЧИКОМ,
+    ];
 
     /**
      * {@inheritdoc}
@@ -64,11 +77,20 @@ class TendersStates extends \yii\db\ActiveRecord
     /**
      * Делает выборку статусов тендеров и возвращает в виде массива.
      * Применяется для вывода в виджетах Select2.
+     * @param bool $includeDefault добавлять ли пункт "По умолчанию"
      * @return array
      */
-    public static function arrayMapForSelect2()
+    public static function arrayMapForSelect2($includeDefault = null)
     {
-        return ArrayHelper::map(self::find()->all(), 'id', 'name');
+        $result = ArrayHelper::map(self::find()->all(), 'id', 'name');
+        if (!empty($includeDefault)) {
+            $result = ArrayHelper::merge([
+                TendersSearch::FIELD_SEARCH_STATE_DEFAULT => 'По умолчанию',
+                TendersSearch::FIELD_SEARCH_STATE_IGNORE => 'Любой',
+            ], $result);
+        }
+
+        return $result;
     }
 
     /**
@@ -76,6 +98,6 @@ class TendersStates extends \yii\db\ActiveRecord
      */
     public function getTenders()
     {
-        return $this->hasMany(Tenders::className(), ['state_id' => 'id']);
+        return $this->hasMany(Tenders::class, ['state_id' => 'id']);
     }
 }

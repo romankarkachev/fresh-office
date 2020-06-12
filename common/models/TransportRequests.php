@@ -137,16 +137,19 @@ class TransportRequests extends \yii\db\ActiveRecord
     {
         return [
             [['customer_id', 'region_id', 'city_id', 'state_id'], 'required'],
-            [['created_at', 'created_by', 'finished_at', 'finished_by', 'computed_finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'is_favorite', 'our_loading', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
+            [['created_at', 'created_by', 'finished_at', 'finished_by', 'computed_finished_at', 'customer_id', 'region_id', 'city_id', 'state_id', 'periodicity_id', 'spec_free', 'closeRequest'], 'integer'],
+            [['is_favorite', 'our_loading', 'spec_free'], 'boolean'],
             [['comment_manager', 'comment_logist', 'special_conditions', 'spec_cond'], 'string'],
             [['customer_name', 'address'], 'string', 'max' => 255],
             [['spec_hose'], 'string', 'max' => 50],
-            [['periodicity_id'], 'exist', 'skipOnError' => true, 'targetClass' => PeriodicityKinds::className(), 'targetAttribute' => ['periodicity_id' => 'id']],
-            [['city_id'], 'exist', 'skipOnError' => true, 'targetClass' => Cities::className(), 'targetAttribute' => ['city_id' => 'city_id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
-            [['finished_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['finished_by' => 'id']],
-            [['region_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regions::className(), 'targetAttribute' => ['region_id' => 'region_id']],
-            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportRequestsStates::className(), 'targetAttribute' => ['state_id' => 'id']],
+            [['customer_name', 'address', 'comment_manager', 'comment_logist', 'special_conditions', 'spec_cond', 'spec_hose'], 'trim'],
+            [['customer_name', 'address', 'comment_manager', 'comment_logist', 'special_conditions', 'spec_cond', 'spec_hose'], 'default', 'value' => null],
+            [['periodicity_id'], 'exist', 'skipOnError' => true, 'targetClass' => PeriodicityKinds::class, 'targetAttribute' => ['periodicity_id' => 'id']],
+            [['city_id'], 'exist', 'skipOnError' => true, 'targetClass' => Cities::class, 'targetAttribute' => ['city_id' => 'city_id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['finished_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['finished_by' => 'id']],
+            [['region_id'], 'exist', 'skipOnError' => true, 'targetClass' => Regions::class, 'targetAttribute' => ['region_id' => 'region_id']],
+            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportRequestsStates::class, 'targetAttribute' => ['state_id' => 'id']],
             // собственные правила валидации
             ['tpWaste', 'validateWaste'],
             ['tpTransport', 'validateTransport'],
@@ -505,7 +508,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getCreatedBy()
     {
-        return $this->hasOne(User::className(), ['id' => 'created_by']);
+        return $this->hasOne(User::class, ['id' => 'created_by']);
     }
 
     /**
@@ -513,7 +516,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'created_by'])->from(['createdProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from(['createdProfile' => 'profile']);
     }
 
     /**
@@ -530,7 +533,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getFinishedBy()
     {
-        return $this->hasOne(User::className(), ['id' => 'finished_by']);
+        return $this->hasOne(User::class, ['id' => 'finished_by']);
     }
 
     /**
@@ -538,7 +541,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getFinishedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'finished_by'])->from(['finishedByProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'finished_by'])->from(['finishedByProfile' => 'profile']);
     }
 
     /**
@@ -567,7 +570,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getRegion()
     {
-        return $this->hasOne(Regions::className(), ['region_id' => 'region_id']);
+        return $this->hasOne(Regions::class, ['region_id' => 'region_id']);
     }
 
     /**
@@ -584,7 +587,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getCity()
     {
-        return $this->hasOne(Cities::className(), ['city_id' => 'city_id']);
+        return $this->hasOne(Cities::class, ['city_id' => 'city_id']);
     }
 
     /**
@@ -601,7 +604,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getState()
     {
-        return $this->hasOne(TransportRequestsStates::className(), ['id' => 'state_id']);
+        return $this->hasOne(TransportRequestsStates::class, ['id' => 'state_id']);
     }
 
     /**
@@ -618,7 +621,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getPeriodicity()
     {
-        return $this->hasOne(PeriodicityKinds::className(), ['id' => 'periodicity_id']);
+        return $this->hasOne(PeriodicityKinds::class, ['id' => 'periodicity_id']);
     }
 
     /**
@@ -635,7 +638,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getTransportRequestsDialogs()
     {
-        return $this->hasMany(TransportRequestsDialogs::className(), ['tr_id' => 'id']);
+        return $this->hasMany(TransportRequestsDialogs::class, ['tr_id' => 'id']);
     }
 
     /**
@@ -643,7 +646,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getTransportRequestsFiles()
     {
-        return $this->hasMany(TransportRequestsFiles::className(), ['tr_id' => 'id']);
+        return $this->hasMany(TransportRequestsFiles::class, ['tr_id' => 'id']);
     }
 
     /**
@@ -651,7 +654,7 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getTransportRequestsTransport()
     {
-        return $this->hasMany(TransportRequestsTransport::className(), ['tr_id' => 'id']);
+        return $this->hasMany(TransportRequestsTransport::class, ['tr_id' => 'id']);
     }
 
     /**
@@ -659,6 +662,6 @@ class TransportRequests extends \yii\db\ActiveRecord
      */
     public function getTransportRequestsWaste()
     {
-        return $this->hasMany(TransportRequestsWaste::className(), ['tr_id' => 'id']);
+        return $this->hasMany(TransportRequestsWaste::class, ['tr_id' => 'id']);
     }
 }

@@ -16,7 +16,7 @@ use backend\controllers\EcoReportsKindsController;
 
     <div class="row">
         <div class="col-md-3">
-            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование']) ?>
+            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование', 'autofocus' => true]) ?>
 
         </div>
         <div class="col-md-4">

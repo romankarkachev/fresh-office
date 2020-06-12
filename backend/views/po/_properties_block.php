@@ -38,7 +38,7 @@ $propertyValues = ArrayHelper::merge($propertyValues, [
 $currentProperty = $value['property_id'];
 $prevPropertyId = $value['property_id'];
 $prevPropertyName = $value['propertyName'];
-if ($value['selected']) {
+if (!empty($value['selected'])) {
     $currentValue = $value['id'];
     $linkId = $value['link_id'];
 }

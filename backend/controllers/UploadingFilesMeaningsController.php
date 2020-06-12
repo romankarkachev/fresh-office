@@ -108,6 +108,8 @@ class UploadingFilesMeaningsController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => 'Типы контента',
                     'buttonUrl' => ['/uploading-files-meanings'],
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

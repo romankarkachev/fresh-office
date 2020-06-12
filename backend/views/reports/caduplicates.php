@@ -37,6 +37,7 @@ $this->params['breadcrumbs'][] = 'Отчет по дубликатам в кон
             ],
             'parameter',
             'owners',
+            //'ids',
             [
                 'header' => 'Действия',
                 'format' => 'raw',
@@ -44,7 +45,18 @@ $this->params['breadcrumbs'][] = 'Отчет по дубликатам в кон
                     /* @var $model \common\models\ReportCaDuplicates */
                     /* @var $column \yii\grid\DataColumn */
 
-                    return Html::a('<i class="fa fa-copy"></i> Объединить', Url::to([
+                    return Html::a('<i class="fa fa-clone"></i> Пометить', '#', [
+                        'id' => 'btnToggleMarkIgnore-' . md5($model['ids']),
+                        'class' => 'btn btn-xs btn-default',
+                        'title' => 'Установить пометку о принадлежности к недубликатам',
+                        'data' => [
+                            'id' => $model['ids'],
+                            'idc' => $model['idsc'],
+                            'loading-text' => '<i class="fa fa-cog fa-spin fa-lg text-info"></i> Пометка выбранных контрагентов...',
+                            'autocomplete' => 'off',
+                        ]
+                    ]) .
+                        Html::a('<i class="fa fa-copy"></i> Объединить', Url::to([
                         '/process/merge-customers', 'field' => $model['field'], 'criteria' => trim($model['parameter'])
                     ]), [
                         'class' => 'btn btn-xs btn-info',
@@ -56,3 +68,38 @@ $this->params['breadcrumbs'][] = 'Отчет по дубликатам в кон
     ]); ?>
 
 </div>
+<?php
+$urlToggleMarkIgnore = Url::to(backend\controllers\ProcessController::URL_TOGGLE_MARK_IGNORE_AS_ARRAY);
+
+$this->registerJs(<<<JS
+
+// Функция-обработчик щелчка по кнопке Выполнить обработку.
+//
+function toggleMarkIgnoreOnClick() {
+    ids = $(this).attr("data-id");
+    idc = $(this).attr("data-idc");
+    if (confirm('Внимание! Помечены будут контрагенты со следующими идентификаторами. Проверьте внимательно и нажмите ОК, чтобы выполнить.\\r\\n' + idc)) {
+        var \$btn = $(this);
+
+        // делаем кнопку обычной
+        \$btn.removeClass().addClass("btn btn-default btn-xs");
+
+        // включаем индикацию на кнопке (preloader)
+        \$btn.button("loading");
+
+        $.post("$urlToggleMarkIgnore", {cas: ids}, function( data, status ) {
+            \$btn.button("reset");
+            if (data == false || status == "error")
+                \$btn.removeClass().addClass("btn btn-danger btn-xs");
+            else
+                \$btn.removeClass().addClass("btn btn-success btn-xs");
+        });
+    }
+
+    return false;
+} // toggleMarkIgnoreOnClick()
+
+$(document).on("click", "a[id ^= 'btnToggleMarkIgnore']", toggleMarkIgnoreOnClick);
+JS
+, \yii\web\View::POS_READY);
+?>

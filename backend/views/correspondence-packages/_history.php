@@ -5,11 +5,13 @@ use backend\components\grid\GridView;
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\CorrespondencePackagesHistorySearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
+/* @var $cpsName string наименование текущего статуса */
 ?>
 <div id="block-history" class="correspondence-package-history collapse">
+    <?php if (!empty($cpsName)):?> <p>Текущий статус: <?= $cpsName ?>.</p><?php endif; ?>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
-
+        'layout' => '{items}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'columns' => [
             [

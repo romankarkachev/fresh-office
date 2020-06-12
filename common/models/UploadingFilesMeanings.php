@@ -85,7 +85,7 @@ class UploadingFilesMeanings extends \yii\db\ActiveRecord
         if (isset($file)) {
             $result['id'] = 'previewFile' . $file['id'];
             $result['data-id'] = $file['id'];
-            $result['title'] = $file['ofn'];
+            $result['title'] = 'Нажмите, чтобы просмотреть ' . $file['ofn'];
         }
 
         return $result;

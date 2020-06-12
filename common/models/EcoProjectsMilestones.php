@@ -46,7 +46,8 @@ class EcoProjectsMilestones extends \yii\db\ActiveRecord
     {
         return [
             [['project_id', 'milestone_id'], 'required'],
-            [['project_id', 'milestone_id', 'is_file_reqiured', 'is_affects_to_cycle_time', 'time_to_complete_required', 'order_no', 'closed_at'], 'integer'],
+            [['project_id', 'milestone_id', 'time_to_complete_required', 'order_no', 'closed_at'], 'integer'],
+            [['is_file_reqiured', 'is_affects_to_cycle_time'], 'boolean'],
             [['date_close_plan'], 'safe'],
             [['milestone_id'], 'exist', 'skipOnError' => true, 'targetClass' => EcoMilestones::className(), 'targetAttribute' => ['milestone_id' => 'id']],
             [['project_id'], 'exist', 'skipOnError' => true, 'targetClass' => EcoProjects::className(), 'targetAttribute' => ['project_id' => 'id']],

@@ -26,6 +26,7 @@ use common\models\PaymentOrdersSearch;
 use common\models\foProjects;
 use common\models\foProjectsSearch;
 use yii\helpers\Html;
+use yii\helpers\Json;
 use yii\helpers\Url;
 use yii\httpclient\Client;
 use yii\web\BadRequestHttpException;
@@ -47,7 +48,7 @@ class FerrymenController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['download-from-outside', 'temp'],
@@ -55,8 +56,18 @@ class FerrymenController extends Controller
                         'roles' => ['?', '@'],
                     ],
                     [
+                        'actions' => ['empty'],
+                        'allow' => true,
+                        'roles' => ['root'],
+                    ],
+                    [
+                        'actions' => ['index'],
+                        'allow' => true,
+                        'roles' => ['root', 'logist', 'head_assist', 'accountant', 'accountant_b'],
+                    ],
+                    [
                         'actions' => [
-                            'index', 'create', 'update', 'delete',
+                            'create', 'update', 'delete',
                             'missing-drivers-transport', 'get-duration-for-route',
                             'create-bank-account', 'delete-bank-account', 'create-bank-card', 'delete-bank-card',
                             'create-driver', 'delete-driver', 'create-transport', 'delete-transport',
@@ -72,7 +83,7 @@ class FerrymenController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                     'create-bank-account' => ['POST'],
@@ -97,6 +108,7 @@ class FerrymenController extends Controller
     /**
      * Lists all Ferrymen models.
      * @return mixed
+     * @throws \yii\base\InvalidConfigException
      */
     public function actionIndex()
     {
@@ -296,7 +308,7 @@ class FerrymenController extends Controller
                 'route' => $route,
                 $searchModel->formName() => [
                     'perevoz' => $model->name_crm,
-                    'searchGroupProjectTypes' => -5,
+                    'state_id' => -1,
                 ]
             ], true);
             $dpOrders->pagination = [
@@ -306,10 +318,10 @@ class FerrymenController extends Controller
 
             // удалим лишние символы из номеров телефонов перевозчика
             $model->phone = str_replace('+7', '', $model->phone);
-            if ($model->phone[0] == 7 || $model->phone[0] == '8') $model->phone = substr($model->phone, 1);
+            if (!empty($model->phone) && ($model->phone[0] == 7 || $model->phone[0] == '8')) $model->phone = substr($model->phone, 1);
 
             $model->phone_dir = str_replace('+7', '', $model->phone_dir);
-            if ($model->phone_dir[0] == 7 || $model->phone_dir[0] == '8') $model->phone_dir = substr($model->phone_dir, 1);
+            if (!empty($model->phone_dir) && ($model->phone_dir[0] == 7 || $model->phone_dir[0] == '8')) $model->phone_dir = substr($model->phone_dir, 1);
 
             return $this->render('update', [
                 'model' => $model,
@@ -358,6 +370,7 @@ class FerrymenController extends Controller
     /**
      * Загрузка файлов, перемещение их из временной папки, запись в базу данных.
      * @return mixed
+     * @throws \yii\base\Exception
      */
     public function actionUploadFiles()
     {
@@ -896,9 +909,7 @@ class FerrymenController extends Controller
         $model = new FerrymanInvitationForm();
 
         if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            echo json_encode(\yii\widgets\ActiveForm::validate($model));
-            Yii::$app->end();
+            return Json::encode(\yii\widgets\ActiveForm::validate($model));
         }
     }
 
@@ -913,5 +924,15 @@ class FerrymenController extends Controller
         if ($model->load(Yii::$app->request->post())) {
             return $model->sendInvitation();
         }
+    }
+
+    /**
+     * Отображает перевозчиков, по которым имеется платежные ордеры в любом статусе, а также нет транспорта или водителей.
+     * @return string
+     */
+    public function actionEmpty()
+    {
+        $dataProvider = (new FerrymenSearch())->searchEmpty();
+        return $this->render('empty', ['dataProvider' => $dataProvider]);
     }
 }

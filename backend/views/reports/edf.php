@@ -11,6 +11,7 @@ use common\models\ReportEdfAnalytics;
 /* @var $dpTable1 yii\data\ArrayDataProvider */
 /* @var $dpTable2 yii\data\ArrayDataProvider */
 /* @var $dpTable3 yii\data\ArrayDataProvider */
+/* @var $dpTable4 array */
 
 $this->title = 'Анализ документооборота | '.Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Анализ документооборота';
@@ -123,5 +124,23 @@ $this->params['breadcrumbs'][] = 'Анализ документооборота'
             <?php Pjax::end(); ?>
 
         </div>
+    </div>
+    <!-- <?= ReportEdfAnalytics::CAPTION_FOR_TABLE4 ?> -->
+    <div class="form-group">
+        <?php Pjax::begin(['id' => 'pjax-table4', 'enablePushState' => false, 'timeout' => 5000]); ?>
+
+        <?= GridView::widget([
+            'dataProvider' => $dpTable4[0],
+            'id' => 'table4',
+            'caption' => '<small>' . ReportEdfAnalytics::CAPTION_FOR_TABLE4 . '</small>',
+            'captionOptions' => ['class' => 'text-muted text-right'],
+            'layout' => '{items}',
+            'tableOptions' => ['class' => 'table table-striped table-bordered table-condensed'],
+            'formatter' => ['class' => 'yii\i18n\Formatter', 'nullDisplay' => '<em>не выбрано</em>'],
+            'columns' => $dpTable4[1],
+        ]); ?>
+
+        <?php Pjax::end(); ?>
+
     </div>
 </div>

@@ -60,7 +60,7 @@ class FreightsOnTheWayController extends Controller
         return new \yii\data\ActiveDataProvider([
             'query' => MobileAppGeopos::find()
                 ->distinct()
-                ->joinWith(['userProfile'], false)
+                ->joinWith(['userProfile'])
                 ->where('arrived_at <= ' . (time() - self::TIME_WHEN_GEOPOS_IS_FRESH * 60))
                 ->orderBy('arrived_at DESC'),
             'pagination' => false,
@@ -198,7 +198,7 @@ class FreightsOnTheWayController extends Controller
             'coord_long',
         ])
             ->distinct()
-            ->joinWith(['userProfile'], false)
+            ->joinWith('userProfile')
             ->where('arrived_at > ' . $timeLimit)
             ->asArray()->all();
 

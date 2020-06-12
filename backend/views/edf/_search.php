@@ -12,6 +12,7 @@ use common\models\Edf;
 use common\models\EdfStates;
 use common\models\User;
 use common\models\TransportRequests;
+use common\models\Organizations;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\EdfSearch */
@@ -87,6 +88,8 @@ $groups = \common\models\EdfSearch::fetchGroupStatesIds();
                     ]) ?>
 
                 </div>
+            </div>
+            <div class="row">
                 <div class="col-md-2">
                     <?= $form->field($model, 'state_id')->widget(Select2::className(), [
                         'data' => EdfStates::arrayMapForSelect2(),
@@ -103,6 +106,15 @@ $groups = \common\models\EdfSearch::fetchGroupStatesIds();
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
                         'pluginOptions' => ['allowClear' => true],
+                    ]) ?>
+
+                </div>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'org_id')->widget(Select2::className(), [
+                        'data' => Organizations::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'hideSearch' => true,
                     ]) ?>
 
                 </div>

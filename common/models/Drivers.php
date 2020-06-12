@@ -10,28 +10,29 @@ use yii\web\UploadedFile;
 /**
  * This is the model class for table "drivers".
  *
- * @property integer $id
- * @property integer $created_at
- * @property integer $created_by
- * @property integer $updated_at
- * @property integer $updated_by
- * @property integer $user_id
- * @property integer $ferryman_id
- * @property integer $is_deleted
- * @property integer $state_id
- * @property string $surname
- * @property string $name
- * @property string $patronymic
- * @property string $driver_license
- * @property string $dl_issued_at
- * @property string $driver_license_index
- * @property string $phone
- * @property string $phone2
- * @property string $pass_serie
- * @property string $pass_num
- * @property string $pass_issued_at
- * @property string $pass_issued_by
- * @property integer $has_smartphone
+ * @property int $id
+ * @property int $created_at Дата и время создания
+ * @property int $created_by Автор создания
+ * @property int $updated_at Дата и время изменения
+ * @property int $updated_by Автор изменений
+ * @property int $user_id Сопоставленный пользователь системы (для авторизации в мобильном приложении)
+ * @property int $ferryman_id Перевозчик
+ * @property int $is_deleted Признак удаления записи (0 - пометка не установлена, 1 - запись помечена на удаление)
+ * @property int $state_id Статус (1 - нареканий нет, 2 - есть замечания, 3 - черный список)
+ * @property string $surname Фамилия
+ * @property string $name Имя
+ * @property string $patronymic Отчество
+ * @property string $driver_license Водительское удостоверение
+ * @property string $dl_issued_at Дата выдачи водительского удостоверения
+ * @property string $driver_license_index Водительское удостоверение (для поиска)
+ * @property string $phone Телефон
+ * @property string $phone2 Телефон 2
+ * @property string $pass_serie Паспорт серия
+ * @property string $pass_num Паспорт номер
+ * @property string $pass_issued_at Паспорт дата выдачи
+ * @property string $pass_issued_by Паспорт кем выдан
+ * @property int $has_smartphone Наличие смартфона с камерой
+ * @property int $is_dopog ДОПОГ (допуск на перевозку опасных грузов)
  *
  * @property string $ferrymanName
  * @property integer $instrCount
@@ -107,7 +108,8 @@ class Drivers extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'surname', 'name', 'driver_license', 'phone'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'user_id', 'ferryman_id', 'is_deleted', 'state_id', 'has_smartphone'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'user_id', 'ferryman_id', 'state_id', 'is_dopog'], 'integer'],
+            [['is_deleted', 'has_smartphone'], 'boolean'],
             [['dl_issued_at', 'pass_issued_at'], 'safe'],
             [['surname', 'name', 'patronymic'], 'string', 'max' => 50],
             [['driver_license', 'driver_license_index'], 'string', 'max' => 30],
@@ -158,6 +160,8 @@ class Drivers extends \yii\db\ActiveRecord
             'pass_issued_at' => 'Дата выдачи',
             'pass_issued_by' => 'Кем выдан',
             'has_smartphone' => 'Смартфон с камерой',
+            'is_dopog' => 'ДОПОГ (допуск на перевозку опасных грузов)',
+            // виртутальные поля
             'fileDlFace' => 'Файл с изображением лицевой стороны водительского удостоверения',
             'fileDlReverse' => 'Файл с изображением оборотной стороны водительского удостоверения',
             'filePassportFace' => 'Файл с главным разворотом паспорта',

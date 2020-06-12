@@ -49,6 +49,15 @@ $btnDeleteReportId = EcoMcTp::DOM_IDS['DELETE_BUTTON'];
 
             <?php endif; ?>
             <div class="row">
+                <div class="col-md-3">
+                    <?= $form->field($model, 'org_id')->widget(Select2::className(), [
+                        'data' => \common\models\Organizations::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
                 <div class="col-md-6">
                     <?= $form->field($model, 'fo_ca_id')->widget(Select2::class, [
                         'initValueText' => TransportRequests::getCustomerName($model->fo_ca_id),
@@ -73,15 +82,6 @@ $btnDeleteReportId = EcoMcTp::DOM_IDS['DELETE_BUTTON'];
 
                 </div>
                 <div class="col-md-3">
-                    <?= $form->field($model, 'manager_id')->widget(Select2::class, [
-                        'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE),
-                        'theme' => Select2::THEME_BOOTSTRAP,
-                        'options' => ['placeholder' => '- выберите -'],
-                        'pluginOptions' => ['allowClear' => true],
-                    ])->label('Ответственный') ?>
-
-                </div>
-                <div class="col-md-3">
                     <?= $form->field($model, 'amount', [
                         'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
                     ])->widget(MaskedInput::class, [
@@ -101,6 +101,15 @@ $btnDeleteReportId = EcoMcTp::DOM_IDS['DELETE_BUTTON'];
                 </div>
             </div>
             <div class="row">
+                <div class="col-md-3">
+                    <?= $form->field($model, 'manager_id')->widget(Select2::class, [
+                        'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                    ])->label('Ответственный') ?>
+
+                </div>
                 <div class="col-md-3">
                     <?= $form->field($model, 'date_start')->widget(DateControl::class, [
                         'value' => $model->date_start,

@@ -2,6 +2,8 @@
 
 namespace backend\controllers;
 
+use common\models\foCompanyTasks;
+use common\models\TasksStates;
 use Yii;
 use common\models\Tasks;
 use common\models\TasksSearch;
@@ -11,6 +13,7 @@ use common\models\foCompany;
 use common\models\foTasks;
 use common\models\User;
 use common\models\foManagers;
+use common\models\foProjects;
 use yii\web\Controller;
 use yii\web\NotFoundHttpException;
 use yii\web\Response;
@@ -48,9 +51,20 @@ class TasksController extends Controller
     const ROOT_BREADCRUMB = ['label' => self::ROOT_LABEL, 'url' => self::ROOT_URL_AS_ARRAY];
 
     /**
+     * URL для создания задачи
+     */
+    const URL_CREATE = 'create';
+    const URL_CREATE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_CREATE];
+
+    /**
      * URL для редактирования записи
      */
     const URL_UPDATE = 'update';
+
+    /**
+     * URL для переноса задач из Fresh Office
+     */
+    const URL_TRANSFER_FROM_FRESH_OFFICE = 'transfer-from-fresh-office';
 
     /**
      * URL для загрузки файлов через ajax
@@ -94,6 +108,12 @@ class TasksController extends Controller
     const URL_TASK_POSTPONEMENT_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_TASK_POSTPONEMENT];
 
     /**
+     * URL для поиска последнего проекта по контрагенту
+     */
+    const URL_LATEST_PROJECT = 'latest-project';
+    const URL_LATEST_PROJECT_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_LATEST_PROJECT];
+
+    /**
      * {@inheritdoc}
      */
     public function behaviors()
@@ -111,7 +131,7 @@ class TasksController extends Controller
                         'actions' => [
                             'index', 'create', 'update', self::URL_UPLOAD_FILES, self::URL_PREVIEW_FILE,
                             self::URL_DELETE_FILE, self::URL_RENDER_TASK_SUMMARY, self::URL_REFILL_RESPONSIBLE,
-                            self::URL_TASK_POSTPONEMENT,
+                            self::URL_TASK_POSTPONEMENT, self::URL_LATEST_PROJECT, self::URL_TRANSFER_FROM_FRESH_OFFICE,
                         ],
                         'allow' => true,
                         'roles' => ['root', 'sales_department_manager'],
@@ -130,6 +150,20 @@ class TasksController extends Controller
                 ],
             ],
         ];
+    }
+
+    /**
+     * Делает выборку одного последнего проекта по контрагенту.
+     * @param $company_id integer
+     * @return array|\yii\db\ActiveRecord|null
+     */
+    protected function fetchLatestProject($company_id)
+    {
+        return foProjects::find()->where(['ID_COMPANY' => $company_id])->andWhere([
+            'or',
+            ['LIST_PROJECT_COMPANY.TRASH' => null],
+            ['LIST_PROJECT_COMPANY.TRASH' => 0],
+        ])->orderBy(['DATE_CREATE_PROGECT' => SORT_DESC])->one();
     }
 
     /**
@@ -167,8 +201,36 @@ class TasksController extends Controller
     {
         $model = new Tasks();
 
-        if ($model->load(Yii::$app->request->post()) && $model->save()) {
-            return $this->redirect(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_UPDATE, 'id' => $model->id]);
+        if (Yii::$app->request->isPost) {
+            if ($model->load(Yii::$app->request->post())) {
+                if ($model->save()) {
+                    return $this->redirect(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_UPDATE, 'id' => $model->id]);
+                }
+            }
+        }
+        else {
+            $key = 'fo_ca_id_for_task_' . Yii::$app->user->id;
+            $fo_ca_id = Yii::$app->session->get($key);
+            if (!empty($fo_ca_id)) {
+                $company = foCompany::findOne(intval($fo_ca_id));
+                if ($company) {
+                    // перенаправлено со страницы контрагента
+                    // сразу заполняем задачу данными этого контрагента
+                    Yii::$app->session->remove($key);
+                    $model->fo_ca_id = $company->ID_COMPANY;
+                    $model->fo_ca_name = $company->COMPANY_NAME;
+                    $model->responsible_id = Yii::$app->user->id;
+                    $model->start_at = time();
+
+                    // последний в системе проект
+                    $project = $this->fetchLatestProject($company->ID_COMPANY);
+                    if (!empty($project)) {
+                        $model->project_id = $project->ID_LIST_PROJECT_COMPANY;
+                        unset($project);
+                    }
+                    unset($company);
+                }
+            }
         }
 
         return $this->render('create', [
@@ -389,5 +451,90 @@ class TasksController extends Controller
             $model = Tasks::findOne(intval(Yii::$app->request->queryParams['id']));
             return $this->renderAjax('_postpone', ['model' => $model, 'form' => new \yii\bootstrap\ActiveForm()]);
         }
+    }
+
+    /**
+     * Выполняет поиск последнего проекта по контрагенту и возвращает его идентификатор.
+     * @param $id integer
+     * @return mixed
+     */
+    public function actionLatestProject($id)
+    {
+        $project = $this->fetchLatestProject(intval($id));
+        if ($project) {
+            return $project->ID_LIST_PROJECT_COMPANY;
+        }
+
+        return false;
+    }
+
+    /**
+     * transfer-from-fresh-office
+     */
+    public function actionTransferFromFreshOffice()
+    {
+        print '<p>Начало: ' . Yii::$app->formatter->asDate(time(), 'php:d.m.Y в H:i:s') . '</p>';
+
+        $limit = 500; // по 500 записей в пакете
+        $batch = [];
+        foreach (foCompanyTasks::find()->where([
+            '<=', 'DATE_CREATED', new \yii\db\Expression('CONVERT(datetime, \'2020-01-01T00:00:00.000\', 126)')
+        ])->limit(10000)->all() as $foTask) {
+            $type = null;
+            switch ($foTask->ID_VID_CONTACT) {
+                case 1:
+                case 2:
+                case 3:
+                    $type = $foTask->ID_VID_CONTACT;
+                break;
+                default:
+                    $type = 1;
+                    break;
+            }
+
+            $state = null;
+            switch ($foTask->ID_PRIZNAK_CONTACT) {
+                case 1:
+                    $state = $foTask->ID_PRIZNAK_CONTACT;
+                    break;
+                case 2:
+                    $state = TasksStates::STATE_ВЫПОЛНЕНА;
+                    break;
+                case 3:
+                    $state = TasksStates::STATE_В_ПРОЦЕССЕ;
+                    break;
+            }
+
+            $priority = $foTask->ID_LIST_STATUS_CONTACT;
+            if ($priority > 2) $priority = 1;
+
+            //print '<p>priority: ' . $foTask->DATE_CREATED . '</p>';
+
+            $model = new Tasks([
+                /**
+                 * обязательные
+                 */
+                'created_at' => strtotime($foTask->DATE_CREATED),
+                'type_id' => $type,
+                'state_id' => $state,
+                'priority_id' => $priority,
+
+                'start_at' => strtotime($foTask->DATA_CONTACT),
+                'finish_at' => strtotime($foTask->DATA_CONTACT_FINAL),
+                'fo_ca_id' => $foTask->ID_COMPANY,
+                'fo_ca_name' => '',
+                'fo_cp_id' => '',
+                'fo_cp_name' => '',
+                'responsible_id' => '',
+                'project_id' => $foTask->ID_LIST_PROJECT_COMPANY,
+                'purpose' => $foTask->PRIMECHANIE,
+                'solution' => $foTask->REZULTAT_CONTACT,
+            ]);
+            $model->save();
+            //var_dump($model->errors);
+            unset($model);
+        }
+
+        print '<p>Конец: ' . Yii::$app->formatter->asDate(time(), 'php:d.m.Y в H:i:s') . '</p>';
     }
 }

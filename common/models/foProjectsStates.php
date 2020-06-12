@@ -47,8 +47,8 @@ class foProjectsStates extends \yii\db\ActiveRecord
     public function attributeLabels()
     {
         return [
-            'ID_PRIZNAK_PROJECT' => 'Id  Priznak  Project',
-            'PRIZNAK_PROJECT' => 'Priznak  Project',
+            'ID_PRIZNAK_PROJECT' => 'ID',
+            'PRIZNAK_PROJECT' => 'Наименование',
             'color_status' => 'Color Status',
             'FINAL' => 'Final',
         ];

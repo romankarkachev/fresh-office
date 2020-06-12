@@ -17,7 +17,15 @@ use common\models\LicensesRequestsStates;
 use common\models\TendersWe;
 use common\models\TendersStates;
 use common\models\TendersContentTypes;
+use common\models\TendersResults;
+use common\models\TendersLossReasons;
+use common\models\TendersLr;
 use common\models\foCompany;
+use common\models\foCompanyDetails;
+use common\models\TenderFormsKinds;
+use common\models\TenderFormsVarietiesKinds;
+use common\models\TenderFormsKindsFieldsSearch;
+use common\models\TenderParticipantForms;
 use yii\base\Model;
 use yii\db\StaleObjectException;
 use yii\db\Transaction;
@@ -150,13 +158,48 @@ class TendersController extends Controller
     const URL_DOWNLOAD_SELECTED_FILES_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DOWNLOAD_SELECTED_FILES];
 
     /**
+     * URL рендерит поле с причиной проигрыша (отказа)
+     */
+    const URL_RENDER_FIELD_REASON = 'render-field-reason';
+    const URL_RENDER_FIELD_REASON_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_RENDER_FIELD_REASON];
+
+    /**
+     * URL повторной первичной идентификации
+     */
+    const URL_PRIMARY_RECOGNITION = 'primary-recognition';
+    const URL_PRIMARY_RECOGNITION_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_PRIMARY_RECOGNITION];
+
+    /**
+     * URL для интерактивного сохранения введенных вручную данных о победителе
+     */
+    const URL_SUBMIT_TENDER_RESULTS = 'submit-tender-results';
+
+    /**
+     * URL для переноса причин проигрыша из текста комментария в специально созданную для этого таблицу базы данных
+     * Одноразовый модуль.
+     */
+    const URL_PROCESS_LOSS_REASONS = 'process-loss-reasons';
+
+    /**
+     * URL рендерит формы с их полями выбранной разновидности
+     */
+    const URL_RENDER_FORMS = 'render-forms';
+    const URL_RENDER_FORMS_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_RENDER_FORMS];
+
+    /**
+     * URL делает замену переменных в шаблоне, шаблон помещает в zip-архив и отдает на скачивание пользователю
+     */
+    const URL_GENERATE_TENDER_FORMS = 'generate-tender-forms';
+    const URL_GENERATE_TENDER_FORMS_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_GENERATE_TENDER_FORMS];
+
+    /**
      * {@inheritdoc}
      */
     public function behaviors()
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => [self::URL_DOWNLOAD_FILE, 'temp'],
@@ -169,10 +212,13 @@ class TendersController extends Controller
                             self::URL_RENDER_WASTE_ROW, self::URL_CREATE_WASTE, self::URL_DELETE_WASTE, self::URL_FILL_FKKO,
                             self::URL_UPLOAD_FILES, self::URL_PREVIEW_FILE, self::URL_DELETE_FILE,
                             self::URL_LR_CASTING, self::FIND_TENDER_BY_NUMBER_URL, self::URL_TAKE_WORK_OVER,
-                            self::URL_RENDER_LOGS_LIST, self::URL_RENDER_FILES_LIST, self::URL_DOWNLOAD_SELECTED_FILES,
+                            self::URL_RENDER_FILES_LIST, self::URL_RENDER_LOGS_LIST, self::URL_DOWNLOAD_SELECTED_FILES,
+                            self::URL_RENDER_FIELD_REASON, self::URL_PRIMARY_RECOGNITION, self::URL_PROCESS_LOSS_REASONS,
+                            self::URL_SUBMIT_TENDER_RESULTS,
+                            self::URL_RENDER_FORMS, self::URL_GENERATE_TENDER_FORMS,
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'tenders_manager', 'sales_department_head', 'sales_department_manager'],
+                        'roles' => ['root', 'tenders_manager', 'sales_department_head', 'sales_department_manager', 'ecologist_head'],
                     ],
                     [
                         'actions' => ['delete'],
@@ -182,9 +228,10 @@ class TendersController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    self::URL_GENERATE_TENDER_FORMS => ['POST'],
                 ],
             ],
         ];
@@ -244,6 +291,8 @@ class TendersController extends Controller
         if (is_numeric($params)) {
             $params = [$searchModel->formName() => ['tender_id' => $params]];
         }
+        if (empty($searchModel->ct_id)) $searchModel->ct_id = -1;
+
         $dataProvider = $searchModel->search($params);
         $dataProvider->setSort([
             'defaultOrder' => ['revision' => SORT_DESC, 'uploaded_at' => SORT_DESC],
@@ -266,12 +315,13 @@ class TendersController extends Controller
     {
         list($searchFilesModel, $dataProvider) = $this->fetchFiles($tender_id);
         return $this->renderAjax('_files_list', [
+            'searchModel' => $searchFilesModel,
             'dataProvider' => $dataProvider,
         ]);
     }
 
     /**
-     * Делает выборку записей в журнал событий.
+     * Делает выборку записей из журнала событий.
      * @param $params integer|array
      * @return array
      * @throws \yii\base\InvalidConfigException
@@ -282,6 +332,7 @@ class TendersController extends Controller
         if (is_numeric($params)) {
             $params = [$searchModel->formName() => ['tender_id' => $params]];
         }
+        if (empty($searchModel->type)) $searchModel->type = 1;
 
         $dataProvider = $searchModel->search($params);
 
@@ -289,6 +340,17 @@ class TendersController extends Controller
             $searchModel,
             $dataProvider,
         ];
+    }
+
+    /**
+     * Делает выборку победителя в торгах.
+     * @param $params integer|array
+     * @return TendersResults[]
+     * @throws \yii\base\InvalidConfigException
+     */
+    private function fetchWinner($params)
+    {
+        return TendersResults::find()->where($params)->all();
     }
 
     /**
@@ -406,6 +468,8 @@ class TendersController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             if ($model->validate()) {
+                $success = true;
+
                 // если нажата кнопка "Отправить на согласование"
                 if (Yii::$app->request->post('approve_request') !== null) $model->state_id = TendersStates::STATE_СОГЛАСОВАНИЕ_РОП;
 
@@ -432,7 +496,8 @@ class TendersController extends Controller
                         $model->state_id = TendersStates::STATE_В_РАБОТЕ;
                     }
                     else {
-                        $model->addError('responsible_id', 'Закупка уже находится в разработке у другого исполнителя.');
+                        $success = false;
+                        $model->addError('comment', 'Закупка уже находится в разработке у другого исполнителя.');
                     }
                 }
 
@@ -451,46 +516,57 @@ class TendersController extends Controller
                 // если нажата кнопка "Без результатов"
                 elseif (Yii::$app->request->post('abyss') !== null) $model->state_id = TendersStates::STATE_БЕЗ_РЕЗУЛЬТАТОВ;
 
-                $success = true;
-                $transaction = Yii::$app->db->beginTransaction(Transaction::SERIALIZABLE);
+                // если нажата кнопка "Отправить на согласование"
+                if (Yii::$app->request->post('approve_request') !== null) $model->state_id = TendersStates::STATE_СОГЛАСОВАНИЕ_РОП;
 
-                if ($model->save()) {
-                    $modelsEquipment = [];
+                // если нажата кнопка "Отменен заказчиком"
+                if (Yii::$app->request->post('withdrew') !== null) $model->state_id = TendersStates::STATE_ОТМЕНЕН_ЗАКАЗЧИКОМ;
 
-                    // загрузим модели используемого оборудования к тендеру
-                    if (!empty(Yii::$app->request->post($model->formName())['we'])) {
-                        foreach (Yii::$app->request->post($model->formName())['we'] as $i => $data) {
-                            $modelsEquipment[$i] = new TendersWe([
-                                'we_id' => $data,
-                            ]);
-                        }
-                    }
-
-                    // удаляем имеющиеся записи об используемом оборудовании
-                    TendersWe::deleteAll();
-
-                    try {
-                        // создаем оборудование к тендеру
-                        foreach ($modelsEquipment as $newModel) {
-                            $newModel->tender_id = $model->id;
-                            $newModel->validate(null, false) && $newModel->save(false) ? null : $success = false;
-                        }
-                    } catch (\Exception $e) {
-                        $transaction->rollBack();
-                        throw new BadRequestHttpException($e->getMessage(), 0, $e);
-                    }
-                }
-                else {
-                    $success = false;
-                }
+                // если нажата кнопка "Опоздание"
+                if (Yii::$app->request->post('late') !== null) $model->state_id = TendersStates::STATE_ОПОЗДАНИЕ;
 
                 if ($success) {
-                    $transaction->commit();
-                    return $this->redirect(self::ROOT_URL_AS_ARRAY);
-                }
-                else {
-                    $model->state_id = $state; // возвращаем статус
-                    $transaction->rollBack();
+                    // если не провалилось где-то на предыдущих этапах
+                    $transaction = Yii::$app->db->beginTransaction(Transaction::SERIALIZABLE);
+
+                    if ($model->save()) {
+                        $modelsEquipment = [];
+
+                        // загрузим модели используемого оборудования к тендеру
+                        if (!empty(Yii::$app->request->post($model->formName())['we'])) {
+                            foreach (Yii::$app->request->post($model->formName())['we'] as $i => $data) {
+                                $modelsEquipment[$i] = new TendersWe([
+                                    'we_id' => $data,
+                                ]);
+                            }
+                        }
+
+                        // удаляем имеющиеся записи об используемом оборудовании
+                        TendersWe::deleteAll();
+
+                        try {
+                            // создаем оборудование к тендеру
+                            foreach ($modelsEquipment as $newModel) {
+                                $newModel->tender_id = $model->id;
+                                $newModel->validate(null, false) && $newModel->save(false) ? null : $success = false;
+                            }
+                        } catch (\Exception $e) {
+                            $transaction->rollBack();
+                            throw new BadRequestHttpException($e->getMessage(), 0, $e);
+                        }
+                    }
+                    else {
+                        $success = false;
+                    }
+
+                    if ($success) {
+                        $transaction->commit();
+                        return $this->redirect(self::ROOT_URL_AS_ARRAY);
+                    }
+                    else {
+                        $model->state_id = $state; // возвращаем статус
+                        $transaction->rollBack();
+                    }
                 }
             }
             else {
@@ -707,7 +783,7 @@ class TendersController extends Controller
             $files = $_FILES['files'];
             // массив имен загружаемых файлов
             $filenames = $files['name'];
-            if (count($filenames) > 0)
+            if (count($filenames) > 0) {
                 for ($i=0; $i < count($filenames); $i++) {
                     // идиотское действие, но без него
                     // PHP Strict Warning: Only variables should be passed by reference
@@ -724,13 +800,10 @@ class TendersController extends Controller
                             'size' => filesize($filepath),
                             'ct_id' => TendersContentTypes::CONTENT_TYPE_ПОЛЬЗОВАТЕЛЬСКИЕ,
                         ]);
-                        if ($fu->validate()) {
-                            $fu->save();
-                            return [];
-                        }
-                        else return 'Загруженные данные неверны.';
-                    };
-                };
+                        if ($fu->validate()) $fu->save(); else return 'Загруженные данные неверны.';
+                    }
+                }
+            }
         }
 
         return [];
@@ -783,18 +856,6 @@ class TendersController extends Controller
                 $transaction->rollBack();
             }
         }
-
-        /*
-        $model = TendersFiles::findOne($id);
-        if ($model != null) {
-            $record_id = $model->tender_id;
-            $model->delete();
-
-            return $this->redirect(ArrayHelper::merge(self::UPDATE_URL_AS_ARRAY, ['id' => $record_id]));
-        }
-        else
-            throw new NotFoundHttpException('Файл не обнаружен.');
-        */
     }
 
     /**
@@ -806,8 +867,21 @@ class TendersController extends Controller
     {
         $model = TendersFiles::findOne($id);
         if ($model != null) {
-            if ($model->isImage())
-                return \yii\helpers\Html::img(Yii::getAlias('@uploads-tenders') . '/' . $model->fn, ['width' => '100%']);
+            if ($model->isImage()) {
+                $tender = $model->tender;
+                $createdAt = $tender->created_at;
+                $placedAt = $tender->placed_at;
+                $filepath = Yii::getAlias('@uploads-tenders-fs') . '/' . date('Y', $placedAt) . '/' . date('m', $placedAt) . '/' . date('d', $placedAt) . '/' . $tender->id . '/' . $model->ffp;
+                if (file_exists($filepath)) {
+                    $subPath = date('Y', $placedAt) . '/' . date('m', $placedAt) . '/' . date('d', $placedAt) . '/' . $model->tender_id;
+                }
+                else {
+                    $subPath = date('Y', $createdAt) . '/' . date('m', $createdAt) . '/' . date('d', $createdAt) . '/' . $model->tender_id;
+                }
+                $filepath = Yii::getAlias('@uploads-tenders') . '/' . $subPath . '/' . $model->fn;
+
+                return \yii\helpers\Html::img($filepath, ['width' => '100%']);
+            }
             else
                 return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(ArrayHelper::merge(self::URL_DOWNLOAD_FILE_AS_ARRAY, ['id' => $id])) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
         }
@@ -852,23 +926,40 @@ class TendersController extends Controller
 
             switch ($model->findTool) {
                 case Tenders::FIND_TENDER_TOOL_ID:
+                    // для начала определим, нам передана ссылка или сразу номер закупки
                     $mode = '';
-                    if (stripos($model->urlSource, '/223/')) {
-                        // ссылка на закупку по закону 223
-                        $mode = Tenders::TENDERS_223_PAGE_COMMON;
+                    if (stripos($model->urlSource, 'zakupki.gov')) {
+                        if (stripos($model->urlSource, '/223/')) {
+                            // ссылка на закупку по закону 223
+                            $mode = Tenders::TENDERS_223_PAGE_COMMON;
+                        }
+                        elseif (stripos($model->urlSource, '/ea44/')) {
+                            // ссылка на закупку по закону 44
+                            $mode = Tenders::TENDERS_44_PAGE_COMMON;
+                        }
+                        elseif (stripos($model->urlSource, '/ok504/')) {
+                            // ссылка на закупку по закону 504
+                            $mode = Tenders::TENDERS_504_PAGE_COMMON;
+                        }
                     }
-                    elseif (stripos($model->urlSource, '/ea44/')) {
-                        // ссылка на закупку по закону 44
-                        $mode = Tenders::TENDERS_44_PAGE_COMMON;
+                    else {
+                        if (strlen($model->urlSource) == Tenders::REG_NUMBER_LENGTH_223) {
+                            $mode = Tenders::TENDERS_223_PAGE_COMMON;
+                            $model->oos_number = $model->urlSource;
+                        }
+                        elseif (strlen($model->urlSource) == Tenders::REG_NUMBER_LENGTH_44) {
+                            $mode = Tenders::TENDERS_44_PAGE_COMMON;
+                            $model->oos_number = $model->urlSource;
+                        }
                     }
 
                     if (!empty($mode)) {
                         if (preg_match("/.*\?regNumber=(\d+)$/", $model->urlSource, $output_array)){
                             $model->oos_number = $output_array[1];
                             unset($output_array);
-                            return $model->fetchTenderByNumber($mode);
                         }
-                        return false;
+
+                        return $model->fetchTenderByNumber($mode);
                     }
                     else {
                         return false;
@@ -936,22 +1027,6 @@ class TendersController extends Controller
     }
 
     /**
-     * Рендерит один только список логов.
-     * render-logs-list
-     * @return mixed
-     * @throws \yii\base\InvalidConfigException
-     */
-    public function actionRenderLogsList()
-    {
-        list($searchModel, $dataProvider) = $this->fetchLogs(Yii::$app->request->queryParams);
-
-        return $this->renderAjax('_logs_list', [
-            'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
-        ]);
-    }
-
-    /**
      * Рендерит один только список файлов.
      * render-files-list
      * @return mixed
@@ -962,6 +1037,22 @@ class TendersController extends Controller
         list($searchModel, $dataProvider) = $this->fetchFiles(Yii::$app->request->queryParams);
 
         return $this->renderPartial('_files_list', [
+            'searchModel' => $searchModel,
+            'dataProvider' => $dataProvider,
+        ]);
+    }
+
+    /**
+     * Рендерит один только список логов.
+     * render-logs-list
+     * @return mixed
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionRenderLogsList()
+    {
+        list($searchModel, $dataProvider) = $this->fetchLogs(Yii::$app->request->queryParams);
+
+        return $this->renderAjax('_logs_list', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
         ]);
@@ -1004,65 +1095,236 @@ class TendersController extends Controller
         }
     }
 
-    public function actionTemp()
+    /**
+     * Рендерит поле с причиной проигрыша или отказа.
+     * @param integer $mode 1 - проигрыш, 2 - отказ
+     * @return mixed
+     */
+    public function actionRenderFieldReason($mode = 1)
     {
-        //$tender = Tenders::findOne(77);
-        // просто последний берем
-        $tender = Tenders::find()->orderBy(['created_at' => SORT_DESC])->one();
-        if ($tender) {
-            // только, если он существует, конечно же
-            $files = $tender->fetchTenderByNumber(Tenders::TENDERS_223_PAGE_FILES);
-            var_dump($files);return;
-            if (is_array($files) && count($files) > 0) {
-                $pifp = TendersFiles::getUploadsFilepath($tender);
-                foreach ($files as $file) {
-                    if (isset($file['url'])) {
-                        //var_dump($file['url']);
-                        $client = new \yii\httpclient\Client();
-                        $response = $client->get($file['url'], null, ['user-agent' => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.118'])->send();
-                        if ($response->isOk) {
-                            if (preg_match('~filename=(?|"([^"]*)"|\'([^\']*)\'|([^;]*))~', $response->headers['content-disposition'], $match)) {
-                                // скачиваем файлы по очереди в папку для тендеров
-                                $ofn = urldecode($match[1]);
-                                $fileAttached_fn = strtolower(Yii::$app->security->generateRandomString() . '.' . pathinfo($ofn)['extension']);
-                                $fileAttached_ffp = $pifp . '/' . $fileAttached_fn;
+        $model = new Tenders();
 
-                                if (false !== file_put_contents($fileAttached_ffp, $response->content)) {
-                                    // файл успешно сохранен, сделаем запись в базе данных
-                                    $model = new TendersFiles([
-                                        'tender_id' => $this->id,
-                                        'ffp' => $fileAttached_ffp,
-                                        'fn' => $fileAttached_fn,
-                                        'ofn' => $ofn,
-                                        'size' => filesize($fileAttached_ffp),
-                                        'revision' => $file['revision'],
-                                        'src_id' => $file['src_id'],
-                                    ]);
+        switch ($mode) {
+            case 1:
+                return $this->renderAjax('_field_loss_reason', ['model' => $model]);
+            case 2:
+                return $this->renderAjax('_field_reject_reason', ['model' => $model]);
+        }
+    }
 
-                                    // дата размещения на площадке
-                                    if (!empty($file['uploaded_at'])) {
-                                        $model->uploaded_at = $file['uploaded_at'];
-                                    }
+    /**
+     * Модуль первичной идентификации. Для тех случаев, когда тендер создавался без номера закупки и соответственно изменения
+     * в нем не отслеживаются. Вернуть к жизни можно вставив номер и вызвав эту функцию.
+     * primary-recognition
+     * @param $id integer тендер
+     * @throws NotFoundHttpException
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionPrimaryRecognition($id)
+    {
+        $model = $this->findModel($id);
+        $model->primaryRecognition();
+    }
 
-                                    // тип контента
-                                    if (!empty($file['ct_id'])) {
-                                        // если уже задан тип контента, то разумеется, берем его
-                                        $model->ct_id = $file['ct_id'];
-                                    }
+    /**
+     * Интерактивное сохранение данных о победителе, введенных вручную.
+     * submit-tender-results
+     */
+    public function actionSubmitTenderResults()
+    {
+        if (Yii::$app->request->isPost) {
+            $model = new TendersResults();
+            if ($model->load(Yii::$app->request->post())) {
+                // попробуем идентифицировать контрагента как сущность Fresh Office
+                try {
+                    $foCompany = foCompanyDetails::findOne(['INN' => $model->inn, 'KPP' => $model->kpp]);
+                    if (!empty($foCompany)) {
+                        // есть такой контрагент, сохраняем его ID
+                        $model->fo_ca_id = $foCompany->ID_COMPANY;
+                    }
+                }
+                catch (\Exception $e) { }
 
-                                    $model->save();
-                                }
+                if ($model->save()) {
+                    return $this->renderAjax('_winner', ['model' => $model]);
+                }
+                else {
+                    Yii::$app->response->format = Response::FORMAT_JSON;
+                    return false;
+                }
+            }
+        }
+    }
 
-                                unset($fileAttached_fn);
-                                unset($fileAttached_ffp);
-                            }
-                        }
-                        else {
-                            var_dump($response);
-                        }
+    /**
+     * Выполняет перенос причин проигрыша в специально созданную для этого таблицу.
+     * process-loss-reasons
+     */
+    public function actionProcessLossReasons()
+    {
+        // возможные причины проигрышей
+        $lossReasons = TendersLossReasons::arrayMapForSelect2();
+
+        // тендеры, которые успешно проиграны
+        $tenders = Tenders::find()->where(['state_id' => TendersStates::STATE_ПРОИГРЫШ])->andWhere(['like', 'comment', 'причина проигрыша'])->all();
+        $tendersCount = count($tenders);
+
+        // причины, уже вынесенные в отдельную таблицу, для исключения дублирования при многократном запуске модуля
+        $existingLrs = TendersLr::find()->select('tender_id')->column();
+
+        $successCount = 0;
+
+        print '<p>Начало обработки. Выбрано тендеров: ' . $tendersCount . '</p>';
+        foreach ($tenders as $tender) {
+            if (!ArrayHelper::isIn($tender->id, $existingLrs)) {
+                foreach ($lossReasons as $id => $name) {
+                    print '<p>' . $tender->id . '. Поиск причины ' . $name . '...</p>';
+                    if (false !== mb_stripos($tender->comment, 'причина проигрыша: ' . $name)) {
+                        (new TendersLr([
+                            'tender_id' => $tender->id,
+                            'lr_id' => $id,
+                        ]))->save() ? $successCount++ : null;
+                        print '<p>Идентифицирована причина проигрыша тендера ' . $tender->id . ': ' . $id . ' (' . $name . ').</p>';
+                        break;
                     }
                 }
             }
+            else {
+                $successCount++;
+            }
+        }
+
+        $success = ' Все записи успешно обработны.';
+        if ($tendersCount != $successCount) {
+            $success = ' Успешно обработано тендеров: ' . $successCount . ' из ' . $tendersCount . '.';
+        }
+
+        print '<p>Обработка завершена.' . $success . '</p>';
+    }
+
+    /**
+     * Рендерит формы выбранной разновидности с их полями.
+     * render-forms
+     * @param $id int идентификатор разновидности, формы которой запрашиваются
+     * @return string
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function actionRenderForms($id)
+    {
+        $searchModel = new TenderFormsKindsFieldsSearch();
+        $dataProvider = $searchModel->search([
+            $searchModel->formName() => [
+                'searchByVariety' => intval($id),
+            ],
+        ]);
+
+        return $this->renderAjax('_participant_form', ['dataProvider' => $dataProvider]);
+    }
+
+    /**
+     * generate-tender-forms
+     * @throws \yii\base\Exception
+     */
+    public function actionGenerateTenderForms()
+    {
+        $templateBaseDir = TenderFormsVarietiesKinds::getUploadsFilepath();
+        $model = new TenderParticipantForms();
+        if ($model->load(Yii::$app->request->post())) {
+            $kinds = TenderFormsKinds::arrayMapForSelect2(); // формы
+            $subStruct = []; // массив переменных для замены
+            $filesToArchive = []; // массив с файлами, которые необходимо будет поместить в архив
+            $docxGen = new \DocXGen;
+
+            foreach ($model->items as $index => $form) {
+                $kindName = '';
+                if (isset($kinds[$index])) {
+                    $kindName = $kinds[$index];
+                }
+
+                foreach ($form as $fieldAlias => $fieldValue) {
+                    if ($fieldAlias == 'fieldName') {
+                        // это поле содержит наименование формы, его не нужно включать в массив для замены
+                        $fieldName = $fieldValue;
+                        continue;
+                    }
+
+                    $fieldAlias = '%' . $fieldAlias . '%';
+                    if (!empty($fieldValue) && !ArrayHelper::isIn($fieldAlias, $subStruct)) {
+                        // если поле пользователем заполнено, то берем такое значение и помещаем в массив переменных для замены
+                        $subStruct[$fieldAlias] = $fieldValue;
+                    }
+                }
+                unset($fieldAlias);
+
+                if (count($subStruct) > 0) {
+                    $templateDir = $templateBaseDir . '/' . $model->variety_id;
+                    $templateFfp = $templateDir . '/' . $index . '.docx';
+                    if (!empty($kindName)) {
+                        $fn = $kindName . '.docx';
+                    }
+                    else {
+                        $fn = 'test-' . md5($model->variety_id . '-' . $index) . '.docx';
+                    }
+
+                    $ffp = $templateDir . '/' . $fn;
+                    if (file_exists($templateFfp)) {
+                        $docxGen->docxTemplate($templateFfp, $subStruct, $ffp);
+
+                        if (preg_match('/^[a-z0-9]+\.[a-z0-9]+$/i', $fn) !== 0 || !is_file("$ffp")) {
+                            throw new NotFoundHttpException('Запрошенный файл не существует.');
+                        }
+
+                        $filesToArchive[] = [
+                            'ffp' => $ffp,
+                            'fn' => $fn,
+                        ];
+                    }
+                    unset($templateDir, $templateFfp, $fn, $ffp);
+                }
+            }
+
+            if (count($filesToArchive) > 0) {
+                $tempFn = Yii::$app->security->generateRandomString(8) . '.zip';
+                $tempFfp = Yii::getAlias('@uploads') . '/' . $tempFn;
+
+                $zip = new \ZipArchive();
+                $zip->open($tempFfp, \ZipArchive::CREATE);
+
+                foreach ($filesToArchive as $file) {
+                    // файл существует, копируем его во временный файл, в котором будут производиться изменения
+                    $zip->addFile($file['ffp'], $file['fn']);
+                }
+
+                $zip->close();
+                \Yii::$app->response->sendFile($tempFfp, 'Формы-' . $tempFn, ['mimeType' => 'application/zip']);
+                if (file_exists($tempFfp)) unlink($tempFfp);
+                foreach ($filesToArchive as $file) {
+                    if (file_exists($file['ffp'])) unlink($file['ffp']);
+                }
+
+            }
+        }
+    }
+
+    public function actionTemp()
+    {
+        //$tender = Tenders::find()->orderBy(['created_at' => SORT_DESC])->one(); // просто последний берем
+        $tender = Tenders::findOne(152);
+        if ($tender) {
+            $tender->oos_number = 32009096213;
+            // только, если он существует, конечно же
+            $lawNo = (int)$tender->law_no;
+            $lawNo++;
+
+            $logs = $tender->fetchTenderByNumber(Tenders::TENDERS_223_PAGE_PROTOCOLS);
+            var_dump($logs);
+
+            /*
+            $files = $tender->fetchTenderByNumber($lawNo);
+            //$files = $tender->fetchTenderByNumber(Tenders::TENDERS_223_PAGE_FILES);
+            $new = $tender->obtainAuctionFiles($files, true);
+            var_dump($files, $new);
+            */
         }
     }
 }

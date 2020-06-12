@@ -70,7 +70,7 @@ if (isset($files)) {
 
         <?php else: ?>
         <div class="col-md-2 col-lg-2">
-            <?= $form->field($model, 'ferryman_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'ferryman_id')->widget(Select2::class, [
                 'data' => Ferrymen::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -79,7 +79,7 @@ if (isset($files)) {
         </div>
         <?php endif ?>
         <div class="col-md-3 col-lg-2">
-            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'state_id')->widget(Select2::class, [
                 'data' => Ferrymen::arrayMapOfStatesForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -88,7 +88,7 @@ if (isset($files)) {
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'tt_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'tt_id')->widget(Select2::class, [
                 'data' => TransportTypes::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -97,7 +97,7 @@ if (isset($files)) {
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'brand_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'brand_id')->widget(Select2::class, [
                 'data' => TransportBrands::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -109,11 +109,19 @@ if (isset($files)) {
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'rn')->textInput(['maxlength' => true, 'placeholder' => 'Введите госномер']) ?>
+            <?= $form->field($model, 'rn')->textInput([
+                'maxlength' => true,
+                'placeholder' => 'Введите госномер',
+                'onkeyup' => 'this.value = this.value.replace(/[^а-яА-ЯёЁ0-9]/ig, "").toUpperCase()',
+            ]) ?>
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'trailer_rn')->textInput(['maxlength' => true, 'placeholder' => 'Госномер прицепа']) ?>
+            <?= $form->field($model, 'trailer_rn')->textInput([
+                'maxlength' => true,
+                'placeholder' => 'Госномер прицепа',
+                'onkeyup' => 'this.value = this.value.replace(/[^а-яА-ЯёЁ0-9]/ig, "").toUpperCase()',
+            ]) ?>
 
         </div>
     </div>
@@ -121,7 +129,7 @@ if (isset($files)) {
         'style' => 'padding-left: 0px;'
     ]) ?>
 
-    <?= $form->field($model, 'loadTypes')->widget(Select2::classname(), [
+    <?= $form->field($model, 'loadTypes')->widget(Select2::class, [
         'data' => LoadTypes::arrayMapForSelect2(),
         'value' => $model->loadTypes,
         'options' => ['placeholder' => 'Выберите доступные способы погрузки', 'multiple' => true],
@@ -170,7 +178,7 @@ if (isset($files)) {
                     </div>
                     <?= $form->field($model, 'fileOsago')->fileInput()->label(false) ?>
 
-                    <?= $form->field($model, 'osago_expires_at')->widget(DateControl::className(), [
+                    <?= $form->field($model, 'osago_expires_at')->widget(DateControl::class, [
                         'value' => $model->osago_expires_at,
                         'type' => DateControl::FORMAT_DATE,
                         'language' => 'ru',

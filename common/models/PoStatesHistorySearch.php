@@ -18,7 +18,7 @@ class PoStatesHistorySearch extends PoStatesHistory
     public function rules()
     {
         return [
-            [['id', 'created_at', 'created_by', 'po_id'], 'integer'],
+            [['id', 'created_at', 'created_by', 'po_id', 'state_id'], 'integer'],
             [['description'], 'safe'],
         ];
     }
@@ -42,9 +42,6 @@ class PoStatesHistorySearch extends PoStatesHistory
     public function search($params)
     {
         $query = PoStatesHistory::find();
-
-        // add conditions that should always apply here
-
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
         ]);
@@ -63,6 +60,7 @@ class PoStatesHistorySearch extends PoStatesHistory
             'created_at' => $this->created_at,
             'created_by' => $this->created_by,
             'po_id' => $this->po_id,
+            'state_id' => $this->state_id,
         ]);
 
         $query->andFilterWhere(['like', 'description', $this->description]);

@@ -9,6 +9,8 @@ use kartik\datecontrol\DateControl;
 use yii\web\View;
 use yii\widgets\MaskedInput;
 use backend\controllers\EdfController;
+use common\models\ProjectsStates;
+use common\models\DocumentsTypes;
 use common\models\User;
 use common\models\Organizations;
 use common\models\TransportRequests;
@@ -19,6 +21,7 @@ use common\models\EdfStates;
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $tp common\models\EdfTp[]|\yii\data\ActiveDataProvider */
 /* @var $hasAccess bool наличие доступа к нескольким объектам электронного документа (менеджер не имеет) */
+/* @var $canEditManager bool возможность изменить ответственного */
 
 $modelId = !empty($model->id) ? $model->id : '0';
 $formName = strtolower($model->formName());
@@ -57,6 +60,9 @@ if (!array_diff_key(array_flip($tabReqKeys), $model->errors)) {
 if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
     $warningIcons['tp'] = $modelHasErrorsIcon;
 }
+
+$documentTypeContract = DocumentsTypes::TYPE_ДОГОВОР;
+$contractTypePost = \common\models\ContractTypes::CONTRACT_TYPE_ПОСТОПЛАТА;
 ?>
 
 <div class="edf-form">
@@ -75,7 +81,7 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                 <div role="tabpanel" class="tab-pane fade in active" id="common">
                     <div class="row">
                         <div class="col-md-2">
-                            <?= $form->field($model, 'type_id')->widget(Select2::className(), [
+                            <?= $form->field($model, 'type_id')->widget(Select2::class, [
                                 'data' => \common\models\DocumentsTypes::arrayMapForSelect2(),
                                 'theme' => Select2::THEME_BOOTSTRAP,
                                 'options' => ['placeholder' => '- выберите -'],
@@ -91,7 +97,7 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                         <div id="block-type"></div>
                         <?php endif; ?>
                         <div class="col-md-2">
-                            <?= $form->field($model, 'org_id')->widget(Select2::className(), [
+                            <?= $form->field($model, 'org_id')->widget(Select2::class, [
                                 'data' => Organizations::arrayMapForSelect2(),
                                 'theme' => Select2::THEME_BOOTSTRAP,
                                 'options' => ['placeholder' => '- выберите -'],
@@ -107,7 +113,7 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                         <div id="block-ba"></div>
                         <?php endif; ?>
                         <div class="col-md-2">
-                            <?= $form->field($model, 'doc_date')->widget(DateControl::className(), [
+                            <?= $form->field($model, 'doc_date')->widget(DateControl::class, [
                                 'value' => $model->doc_date,
                                 'type' => DateControl::FORMAT_DATE,
                                 'displayFormat' => 'php:d.m.Y',
@@ -132,9 +138,22 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                         </div>
                     </div>
                     <div class="row">
+                        <?php if (!empty($canEditManager)): ?>
+                        <div class="col-md-2">
+                            <?= $form->field($model, 'manager_id')->widget(Select2::class, [
+                                'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_ALL_ROLES),
+                                'theme' => Select2::THEME_BOOTSTRAP,
+                                'options' => ['placeholder' => '- выберите -'],
+                            ]) ?>
+
+                        </div>
+                        <?php else: ?>
+                        <?= $form->field($model, 'manager_id')->hiddenInput()->label(false) ?>
+
+                        <?php endif; ?>
                         <?php if (!$hasAccess): ?>
                         <div class="col-md-2">
-                            <?= $form->field($model, 'doc_date_expires')->widget(DateControl::className(), [
+                            <?= $form->field($model, 'doc_date_expires')->widget(DateControl::class, [
                                 'value' => $model->doc_date_expires,
                                 'type' => DateControl::FORMAT_DATE,
                                 'displayFormat' => 'php:d.m.Y',
@@ -153,7 +172,7 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                         <div class="col-md-2">
                             <?= $form->field($model, 'amount', [
                                 'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
-                            ])->widget(MaskedInput::className(), [
+                            ])->widget(MaskedInput::class, [
                                 'clientOptions' => [
                                     'alias' =>  'numeric',
                                     'groupSeparator' => ' ',
@@ -168,22 +187,12 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                             ]) ?>
 
                         </div>
-                        <div class="col-md-2">
-                            <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
-                                'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_ALL_ROLES),
-                                'theme' => Select2::THEME_BOOTSTRAP,
-                                'options' => ['placeholder' => '- выберите -'],
-                            ]) ?>
-
-                        </div>
                         <?php else: ?>
                         <?= $form->field($model, 'doc_date_expires')->hiddenInput()->label(false) ?>
 
-                        <?= $form->field($model, 'manager_id')->hiddenInput()->label(false) ?>
-
                         <?php endif; ?>
                         <div class="col-md-3">
-                            <?= $form->field($model, 'fo_ca_id')->widget(Select2::className(), [
+                            <?= $form->field($model, 'fo_ca_id')->widget(Select2::class, [
                                 'initValueText' => TransportRequests::getCustomerName($model->fo_ca_id),
                                 'theme' => Select2::THEME_BOOTSTRAP,
                                 'language' => 'ru',
@@ -253,15 +262,53 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                         <?= $form->field($model, 'basis')->hiddenInput()->label(false) ?>
 
                     </div>
+                    <div id="block-ppdq" class="row<?= $model->type_id == $documentTypeContract || $model->type_id == $documentTypeContract && $model->ct_id == $contractTypePost ? '' : ' collapse' ?>">
+                        <div class="col-md-3">
+                            <label class="control-label" for="edf-type_id">Отсрочка платежа</label>
+                            <div class="row">
+                                <div class="col-md-5">
+                                    <?= $form->field($model, 'deferral_type', ['template' => '{input}', 'options' => ['tag' => null]])->widget(Select2::class, [
+                                        'data' => \common\models\Edf::arrayMapOfDeferralTypesForSelect2(),
+                                        'theme' => Select2::THEME_BOOTSTRAP,
+                                        'options' => ['placeholder' => '- выберите -'],
+                                        'hideSearch' => true,
+                                    ])->label(false) ?>
+
+                                </div>
+                                <div class="col-md-4">
+                                    <?= $form->field($model, 'ppdq', [
+                                        'template' => '<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
+                                    ])->widget(MaskedInput::class, [
+                                        'clientOptions' => [
+                                            'alias' =>  'numeric',
+                                            'groupSeparator' => ' ',
+                                            'autoUnmask' => true,
+                                            'autoGroup' => true,
+                                            'removeMaskOnSubmit' => true,
+                                        ],
+                                    ])->textInput([
+                                        'maxlength' => true,
+                                        'placeholder' => '0',
+                                        'title' => 'Количество дней отсрочки платежа',
+                                    ])->label(false) ?>
+
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <?= $form->field($model, 'comment')->textarea(['rows' => 10, 'placeholder' => 'Введите комментарий']) ?>
 
-                    <?php if (Yii::$app->user->can('root')): ?>
-                    <?= $form->field($model, 'state_id')->widget(Select2::class, [
-                        'data' => EdfStates::arrayMapForSelect2(),
-                        'theme' => Select2::THEME_BOOTSTRAP,
-                        'options' => ['placeholder' => '- выберите -'],
-                    ]) ?>
+                    <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')): ?>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <?= $form->field($model, 'state_id')->widget(Select2::class, [
+                                'data' => EdfStates::arrayMapForSelect2(),
+                                'theme' => Select2::THEME_BOOTSTRAP,
+                                'options' => ['placeholder' => '- выберите -'],
+                            ]) ?>
 
+                        </div>
+                    </div>
                     <?php else: ?>
                     <?= $form->field($model, 'state_id')->hiddenInput()->label(false) ?>
 
@@ -287,6 +334,7 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
 
                             </div>
                             <div id="block-reqs"></div>
+                                <?= $model->getCounteragentHtmlRep() ?>
                             <?php else: ?>
                                 <?= $model->getCounteragentHtmlRep() ?>
 
@@ -348,7 +396,7 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
                         <div class="panel-body">
                             <div class="row">
                                 <div class="col-md-2">
-                                    <?= $form->field($model, 'req_bik')->widget(\yii\widgets\MaskedInput::className(), [
+                                    <?= $form->field($model, 'req_bik')->widget(MaskedInput::class, [
                                         'mask' => '999999999',
                                         'clientOptions' => ['placeholder' => ''],
                                     ])->textInput(['placeholder' => 'Введите БИК банка', 'disabled' => $hasAccess || $model->state_id >= EdfStates::STATE_НА_ПОДПИСИ_У_РУКОВОДСТВА])
@@ -356,14 +404,14 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
 
                                 </div>
                                 <div class="col-md-3">
-                                    <?= $form->field($model, 'req_an')->widget(\yii\widgets\MaskedInput::className(), [
+                                    <?= $form->field($model, 'req_an')->widget(MaskedInput::class, [
                                         'mask' => '99999999999999999999',
                                         'clientOptions' => ['placeholder' => ''],
                                     ])->textInput(['placeholder' => 'Введите номер расчетного счета', 'disabled' => $hasAccess || $model->state_id >= EdfStates::STATE_НА_ПОДПИСИ_У_РУКОВОДСТВА]) ?>
 
                                 </div>
                                 <div class="col-md-3">
-                                    <?= $form->field($model, 'req_ca')->widget(\yii\widgets\MaskedInput::className(), [
+                                    <?= $form->field($model, 'req_ca')->widget(MaskedInput::class, [
                                         'mask' => '99999999999999999999',
                                         'clientOptions' => ['placeholder' => ''],
                                     ])->textInput(['placeholder' => 'Введите номер корр. счета', 'disabled' => $hasAccess || $model->state_id >= EdfStates::STATE_НА_ПОДПИСИ_У_РУКОВОДСТВА]) ?>
@@ -429,13 +477,25 @@ if (!array_diff_key(array_flip($tabTpKeys), $model->errors)) {
     <?= $form->field($model, 'reject_reason')->textarea(['rows' => 3, 'placeholder' => 'Введите причину отказа']) ?>
 
     <?php endif; ?>
-    <?php if ($model->isNewRecord): ?>
+    <?php if ($model->isNewRecord) { ?>
     <div class="form-group">
         <p>Соберите все необходимые файлы в одном месте, нажмите на кнопку и единоразово отметьте все файлы. Вы можете прикрепить до <strong>10</strong> файлов.</p>
         <?= $form->field($model, 'initialFiles[]')->fileInput(['multiple' => true]) ?>
 
     </div>
-    <?php endif; ?>
+    <?php
+    }
+    elseif (!empty($model->cp_id)) {
+        $cp = $model->cp;
+        if (in_array($cp->state_id, [
+            ProjectsStates::STATE_ОТДАНО_НА_ОТПРАВКУ,
+            ProjectsStates::STATE_ОТПРАВЛЕНО,
+            ProjectsStates::STATE_ДОСТАВЛЕНО
+        ])) {
+            echo '<p>Состояние почтового отправления: <strong>' . $cp->stateName . '</strong>.</p>';
+        }
+    ?>
+    <?php } ?>
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> ' . EdfController::ROOT_LABEL, EdfController::ROOT_URL_AS_ARRAY, ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
@@ -553,6 +613,20 @@ function typeOnChange() {
         \$block.load(url);
     }
 } // typeOnChange()
+
+// Обработчик изменения значения в поле "Тип договора".
+//
+function ctOnChange() {
+    type_id = $("#$formName-type_id").val();
+    ct_id = $("#$formName-ct_id").val();
+    if (type_id == "$documentTypeContract" && ct_id == "$contractTypePost") {
+        // выбран договор с типом "Постоплата", отобразим блок с полями для ввода количества дней постоплаты
+        $("#block-ppdq").show();
+    }
+    else {
+        $("#block-ppdq").hide();
+    }
+}
 
 // Обработчик изменения значения в поле "Родительский документ".
 //
@@ -703,7 +777,12 @@ $("#dadataCasting").suggestions({
 // Обработчик установки/снятия галочки "Оригинал получен".
 //
 function originalOnChanged() {
-    $("#btnFinishEdfForm").toggleClass("hidden");
+    if ($(this).prop("checked")) {
+        $("#btnFinishEdfForm").removeClass("hidden");
+    }
+    else {
+        $("#btnFinishEdfForm").addClass("hidden");
+    }
 } // originalOnChanged()
 
 // Обработчик изменения значения в поле "Организация".
@@ -761,10 +840,18 @@ function btnSubmitFillFkkoFormOnClick(e) {
 
     counter = parseInt($("#btnAddFkkoRow").attr("data-count"));
     $("#waste-preloader").show();
-    $.post("$urlFillFkko?counter=" + counter, $("#frmFillFkko").serialize(), function (data) {
-        if ($("div[id ^= 'fkko-row-']").length == 0) $("#block-tpWaste").html("");
-        $("#block-tpWaste").append(data);
-        $("#waste-preloader").hide();
+
+    $.ajax({
+        type: "post",
+        url: "$urlFillFkko",
+        data: new FormData($("#frmFillFkko")[0]),
+        processData: false,
+        contentType: false,
+        success: function (data) {
+            if ($("div[id ^= 'fkko-row-']").length == 0) $("#block-tpWaste").html("");
+            $("#block-tpWaste").append(data);
+            $("#waste-preloader").hide();
+        }
     });
     $("#modalWindow").modal("hide");
 
@@ -932,10 +1019,25 @@ function btnCheckAllFkkoOnClick() {
     return false;
 } // btnCheckAllFkkoOnClick()
 
+// Обработчик изменения типа источника данных для импорта в табличную часть.
+// Вызывается из модального окна.
+//
+function fillTpBasisSrcOnChange() {
+    src = $("input[name='EdfFillFkkoBasisForm[src]']:checked").val();
+    if (src) {
+        $("div[id ^= 'fff-block-']").hide();
+        $("#fff-block-" + src).show();        
+    }
+
+    $("#promptSrc").hide();
+    $("#btnSubmitFillFkkoForm").removeClass("collapse");
+} // fillTpBasisSrcOnChange()
+
 $("#$formName-is_received_original").on("ifChanged", originalOnChanged);
 $(document).on("change", "#$formName-req_bik", bankBikOnChange);
 $(document).on("change", "#$formName-org_id", orgOnChange);
 $(document).on("change", "#$formName-type_id", typeOnChange);
+$(document).on("change", "#$formName-ct_id", ctOnChange);
 
 $(document).on("click", "#btnFillFkko", btnFillFkkoOnClick);
 $(document).on("click", "#btnSubmitFillFkkoForm", btnSubmitFillFkkoFormOnClick);
@@ -949,6 +1051,7 @@ $(document).on("click", "#btnFinishEdf", btnFinishEdfOnClick);
 $(document).on("click", "#btnPushReqsToFresh", btnPushReqsToFreshOnClick);
 $(document).on("click", "#btnPullGoodsToFresh", btnPullGoodsToFreshOnClick);
 $(document).on("click", "#btnCheckAllFkko", btnCheckAllFkkoOnClick);
+$(document).on("change", "input[name='EdfFillFkkoBasisForm[src]']", fillTpBasisSrcOnChange);
 
 $("#$formName-type_id").change();
 JS

@@ -111,6 +111,8 @@ class TransportBrandsController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => 'Марки автомобилей',
                     'buttonUrl' => ['/transport-brands'],
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

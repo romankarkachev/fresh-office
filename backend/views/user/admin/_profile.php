@@ -28,9 +28,9 @@ use common\models\PoEi;
     ],
 ]); ?>
 
-<?= $form->field($profile, 'name') ?>
+<?= $form->field($profile, 'name')->textInput(['placeholder' => 'Введите ФИО']) ?>
 
-<?= $form->field($profile, 'fo_id')->widget(Select2::className(), [
+<?= $form->field($profile, 'fo_id')->widget(Select2::class, [
     'initValueText' => User::getFreshOfficeManagerName($profile->fo_id),
     'theme' => Select2::THEME_BOOTSTRAP,
     'language' => 'ru',
@@ -50,7 +50,7 @@ use common\models\PoEi;
     ],
 ]) ?>
 
-<?= $form->field($profile, 'limit_cp_me')->widget(MaskedInput::className(), [
+<?= $form->field($profile, 'limit_cp_me')->widget(MaskedInput::class, [
     'clientOptions' => ['alias' =>  'numeric'],
 ])->textInput([
     'maxlength' => true,
@@ -96,7 +96,7 @@ use common\models\PoEi;
     <div class="col-md-2">
         <?= $form->field($profile, 'po_maa', [
             'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
-        ])->widget(MaskedInput::className(), [
+        ])->widget(MaskedInput::class, [
             'clientOptions' => [
                 'alias' =>  'numeric',
                 'groupSeparator' => ' ',
@@ -114,12 +114,13 @@ use common\models\PoEi;
     </div>
 </div>
 <?php endif; ?>
+<?= $form->field($profile, 'can_fod')->checkbox([], false)->label('Делегирование обязательств', ['title' => $profile->getAttributeLabel('can_fod')]) ?>
+
 <div class="form-group">
     <div class="col-lg-offset-3 col-lg-9">
         <?= Html::submitButton(Yii::t('user', 'Update'), ['class' => 'btn btn-block btn-success']) ?>
     </div>
 </div>
-
 <?php ActiveForm::end(); ?>
 
 <?php

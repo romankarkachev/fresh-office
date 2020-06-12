@@ -14,8 +14,14 @@ use yii\helpers\ArrayHelper;
 class TransportSearch extends Transport
 {
     /**
-     * Универсальная переменная для поиска по всем полям.
-     * @var string
+     * Возможные значения для поля отбора "ДОПОГ"
+     */
+    const FILTER_DOPOG_YES = 1;
+    const FILTER_DOPOG_NO = 2;
+    const FILTER_DOPOG_IGNORE = 3;
+
+    /**
+     * @var string поле для поиска по всем полям
      */
     public $searchEntire;
 
@@ -25,12 +31,17 @@ class TransportSearch extends Transport
     public $searchLoadTypes;
 
     /**
+     * @var integer поле для отбора по реквизиту ДОПОГ
+     */
+    public $searchDopog;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
-            [['id', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id'], 'integer'],
+            [['id', 'ferryman_id', 'is_deleted', 'state_id', 'tt_id', 'brand_id', 'is_dopog', 'searchDopog'], 'integer'],
             [['vin', 'rn', 'trailer_rn', 'comment', 'searchEntire', 'searchLoadTypes'], 'safe'],
         ];
     }
@@ -44,7 +55,40 @@ class TransportSearch extends Transport
             'ferryman_id' => 'Перевозчик',
             'searchEntire' => 'Универсальный поиск',
             'searchLoadTypes' => 'Способы погрузки',
+            'searchDopog' => 'Есть ДОПОГ',
         ];
+    }
+
+    /**
+     * Возвращает массив с возможными значениями для поля, позволяющего выполнять отбор по наличию ДОПОГ.
+     * @return array
+     */
+    public static function fetchDopog()
+    {
+        return [
+            [
+                'id' => self::FILTER_DOPOG_YES,
+                'name' => 'Есть допуск',
+            ],
+            [
+                'id' => self::FILTER_DOPOG_NO,
+                'name' => 'Допуска нет',
+            ],
+            [
+                'id' => self::FILTER_DOPOG_IGNORE,
+                'name' => 'Не имеет значения',
+            ],
+        ];
+    }
+
+    /**
+     * Делает выборку вариантов отбора по полю ДОПОГ и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfDopogForSelect2()
+    {
+        return ArrayHelper::map(self::fetchDopog(), 'id', 'name');
     }
 
     /**
@@ -154,6 +198,10 @@ class TransportSearch extends Transport
             return $dataProvider;
         }
 
+        if (empty($this->searchDopog)) {
+            $this->searchDopog = self::FILTER_DOPOG_IGNORE;
+        }
+
         // если запрос выполняет перевозчик, то ограничим выборку только по нему
         if (Yii::$app->user->can('ferryman')) {
             $ferryman = Ferrymen::findOne(['user_id' => Yii::$app->user->id]);
@@ -183,6 +231,24 @@ class TransportSearch extends Transport
 
         // для любых пользователей отбор, который невозможно отменить - записи не должны быть помечены на удаление
         if (!Yii::$app->user->can('root')) $query->andWhere(['is_deleted' => false]);
+
+        // дополним текст запроса возможным отбором по полю ДОПОГ
+        if (!empty($this->searchDopog)) {
+            switch ($this->searchDopog) {
+                case self::FILTER_DOPOG_YES:
+                    $query->andFilterWhere([
+                        'is_dopog' => true,
+                    ]);
+                    break;
+                case self::FILTER_DOPOG_NO:
+                    $query->andFilterWhere([
+                        'is_dopog' => false,
+                    ]);
+                    break;
+                case self::FILTER_DOPOG_IGNORE:
+                    break;
+            }
+        }
 
         if ($this->searchEntire != null && $this->searchEntire != '')
             $query->andFilterWhere([

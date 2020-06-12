@@ -46,6 +46,24 @@ use backend\components\grid\GridView;
                     'trailer_rn',
                     'stateName',
                     [
+                        'label' => 'ДОПОГ',
+                        'format' => 'raw',
+                        'value' => function($model, $key, $index, $column) {
+                            /* @var $model \common\models\Transport */
+                            /* @var $column \yii\grid\DataColumn */
+
+                            $options = ['disabled' => true];
+                            if (!empty($model->is_dopog)) {
+                                $options['checked'] = 'checked';
+                            }
+
+                            return Html::input('checkbox', 'Transport[is_dopog]', 1, $options);
+                        },
+                        'options' => ['width' => '30'],
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                    ],
+                    [
                         'class' => 'yii\grid\ActionColumn',
                         'header' => 'Действия',
                         'template' => '{update} {delete}',

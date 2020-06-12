@@ -180,7 +180,7 @@ class EcoContractsController extends Controller
             $contractReports = explode(chr(13), $model->reports);
             if (count($contractReports) > 0) {
                 foreach ($contractReports as $contractReport) {
-                    $currentReport = explode(mb_chr(0x2219, 'UTF-8'), $contractReport);
+                    $currentReport = explode(mb_chr(0x2219, 'UTF-8'), $contractReport); // разделитель - точка (bullet)
                     if (count($currentReport) > 1) {
                         // строка с отчетом должна содержать как минимум его название и идентификатор
                         $ecoMcTpId = str_replace("\n", '', $currentReport[0]);
@@ -247,9 +247,7 @@ class EcoContractsController extends Controller
                                                                     'autoclose' => true,
                                                                 ],
                                                                 'pluginEvents' => [
-                                                                    'changeDate' => 'function(e) {
-if (confirm("Будет установлена дата фактической подачи отчета в контролирующие органы. Продолжить?")) submitDate(' . $ecoMcTpId . ', e.format("yyyy-mm-dd"));
-}',
+                                                                    'changeDate' => 'function(e) { submitDateOnChange(e, ' . $ecoMcTpId . '); }',
                                                                 ],
                                                             ],
                                                         ]), ['id' => 'block-submitDate' . $ecoMcTpId, 'class' => 'collapse']);

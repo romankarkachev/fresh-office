@@ -53,12 +53,12 @@ class TendersFiles extends \yii\db\ActiveRecord
             [['uploaded_at', 'uploaded_by', 'tender_id', 'size', 'ct_id'], 'integer'],
             [['ffp', 'fn', 'ofn'], 'string', 'max' => 255],
             [['revision'], 'string', 'max' => 3],
-            [['src_id'], 'string', 'max' => 32],
+            [['src_id'], 'string', 'max' => 50],
             [['revision', 'src_id'], 'trim'],
             [['revision', 'src_id'], 'default', 'value' => null],
-            [['uploaded_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['uploaded_by' => 'id']],
-            [['tender_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tenders::className(), 'targetAttribute' => ['tender_id' => 'id']],
-            [['ct_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersContentTypes::className(), 'targetAttribute' => ['ct_id' => 'id']],
+            [['uploaded_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['uploaded_by' => 'id']],
+            [['tender_id'], 'exist', 'skipOnError' => true, 'targetClass' => Tenders::class, 'targetAttribute' => ['tender_id' => 'id']],
+            [['ct_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersContentTypes::class, 'targetAttribute' => ['ct_id' => 'id']],
         ];
     }
 
@@ -130,7 +130,11 @@ class TendersFiles extends \yii\db\ActiveRecord
      */
     public static function getUploadsFilepath($tender)
     {
-        $filepath = Yii::getAlias('@uploads-tenders-fs') . '/' . date('Y', $tender->placed_at) . '/' . date('m', $tender->placed_at) . '/' . date('d', $tender->placed_at) . '/' . $tender->id;
+        $placedAt = $tender->placed_at;
+        if (empty($placedAt && !empty($tender->id))) {
+            $placedAt = $tender->created_at;
+        }
+        $filepath = Yii::getAlias('@uploads-tenders-fs') . '/' . date('Y', $placedAt) . '/' . date('m', $placedAt) . '/' . date('d', $placedAt) . '/' . $tender->id;
         if (!is_dir($filepath)) {
             if (!\yii\helpers\FileHelper::createDirectory($filepath, 0775, true)) return false;
         }

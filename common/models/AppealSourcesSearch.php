@@ -6,6 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use common\models\AppealSources;
+use yii\helpers\ArrayHelper;
 
 /**
  * AppealSourcesSearch represents the model behind the search form about `common\models\AppealSources`.
@@ -13,14 +14,29 @@ use common\models\AppealSources;
 class AppealSourcesSearch extends AppealSources
 {
     /**
+     * @var string поле для универсального поиска
+     */
+    public $searchEntire;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
             [['id'], 'integer'],
-            [['name', 'search_field'], 'safe'],
+            [['name', 'search_field', 'searchEntire'], 'safe'],
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function attributeLabels()
+    {
+        return ArrayHelper::merge(parent::attributeLabels(), [
+            'searchEntire' => 'Универсальный поиск',
+        ]);
     }
 
     /**
@@ -42,11 +58,20 @@ class AppealSourcesSearch extends AppealSources
     public function search($params)
     {
         $query = AppealSources::find();
-
-        // add conditions that should always apply here
-
         $dataProvider = new ActiveDataProvider([
             'query' => $query,
+            'pagination' => [
+                'pageSize' => 50,
+            ],
+            'sort' => [
+                'defaultOrder' => ['name' => SORT_ASC],
+                'attributes' => [
+                    'id',
+                    'name',
+                    'search_field',
+                ],
+            ],
+
         ]);
 
         $this->load($params);
@@ -62,8 +87,18 @@ class AppealSourcesSearch extends AppealSources
             'id' => $this->id,
         ]);
 
-        $query->andFilterWhere(['like', 'name', $this->name])
-            ->orFilterWhere(['like', 'search_field', $this->search_field]);
+        if (!empty($this->searchEntire)) {
+            $query->andWhere([
+                'or',
+                ['like', 'id', $this->searchEntire],
+                ['like', 'name', $this->searchEntire],
+                ['like', 'search_field', $this->searchEntire],
+            ]);
+        }
+        else {
+            $query->andFilterWhere(['like', 'name', $this->name])
+                ->orFilterWhere(['like', 'search_field', $this->search_field]);
+        }
 
         return $dataProvider;
     }

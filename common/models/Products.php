@@ -52,7 +52,8 @@ class Products extends \yii\db\ActiveRecord
         return [
             [['name'], 'required'],
             [['name', 'fo_name'], 'string'],
-            [['created_at', 'created_by', 'is_deleted', 'type', 'unit_id', 'hk_id', 'dc_id', 'fkko_id', 'fo_id'], 'integer'],
+            [['created_at', 'created_by', 'type', 'unit_id', 'hk_id', 'dc_id', 'fkko_id', 'fo_id'], 'integer'],
+            ['is_deleted', 'boolean'],
             [['fkko_date'], 'safe'],
             [['src_unit'], 'string', 'max' => 30],
             [['src_uw'], 'string', 'max' => 50],

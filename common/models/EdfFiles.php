@@ -95,7 +95,7 @@ class EdfFiles extends \yii\db\ActiveRecord
     public function beforeDelete()
     {
         if (parent::beforeDelete()) {
-            if (file_exists($this->ffp) && false === strpos($this->ffp, '/mnt/crmshare')) unlink($this->ffp);
+            if (file_exists($this->ffp) && false === stripos($this->ffp, FileStorage::ROOT_FOLDER)) unlink($this->ffp);
 
             return true;
         }

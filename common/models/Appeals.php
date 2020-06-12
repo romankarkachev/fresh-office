@@ -411,8 +411,9 @@ LEFT JOIN (
 	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
 	GROUP BY ID_COMPANY
 ) AS FINANCES ON FINANCES.ID_COMPANY = LIST_TELEPHONES.ID_COMPANY
-WHERE TELEPHONE LIKE \'%' . $phone_ready . '%\' AND COMPANY_NAME IS NOT NULL
+WHERE TELEPHONE LIKE \'%' . $phone_ready . '%\'
 ORDER BY COMPANY_NAME';
+            // было условие " AND COMPANY_NAME IS NOT NULL" перед "ORDER BY COMPANY_NAME", убрано по просьбе заказчика
             $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
             if (count($result) > 0) return $result;
         }
@@ -435,8 +436,9 @@ LEFT JOIN (
 	WHERE ID_SUB_PRIZNAK_MANY = ' . FreshOfficeAPI::FINANCES_PAYMENT_SIGN_УТИЛИЗАЦИЯ . ' AND ID_NAPR = ' . FreshOfficeAPI::FINANCES_DIRECTION_ПРИХОД . '
 	GROUP BY ID_COMPANY
 ) AS FINANCES ON FINANCES.ID_COMPANY = LIST_EMAIL_CLIENT.ID_COMPANY
-WHERE email LIKE \'%' . $email . '%\' AND COMPANY_NAME IS NOT NULL
+WHERE email LIKE \'%' . $email . '%\'
 ORDER BY COMPANY_NAME';
+            // было условие " AND COMPANY_NAME IS NOT NULL" перед "ORDER BY COMPANY_NAME", убрано по просьбе заказчика
             $result = Yii::$app->db_mssql->createCommand($query_text)->queryAll();
             if (count($result) > 0) return $result;
         }

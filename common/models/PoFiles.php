@@ -106,12 +106,13 @@ class PoFiles extends \yii\db\ActiveRecord
      * Возвращает путь к папке, в которую необходимо поместить загружаемые пользователем файлы.
      * Если папка не существует, она будет создана. Если создание провалится, будет возвращено false.
      * @param $obj_id integer идентификатор родительской сущности, к которой прикрепляются файлы
+     * @param $relative bool признак, позволяющий вернуть относительный, а не полный путь
      * @return mixed
      * @throws \yii\base\Exception
      */
-    public static function getUploadsFilepath($obj_id = null)
+    public static function getUploadsFilepath($obj_id = null, $relative = false)
     {
-        $filepath = Yii::getAlias('@uploads-po-fs');
+        $filepath = !empty($relative) ? Yii::getAlias('@uploads-po') : Yii::getAlias('@uploads-po-fs');
         if (!empty($obj_id)) {
             // если передается идентификатор родительской сущности, дополним тогда путь вложенными папками,
             // представляющими дату создания объекта и его идентификатор
@@ -120,6 +121,10 @@ class PoFiles extends \yii\db\ActiveRecord
                 // например: \uploads\po\1970\01\01\1524
                 $filepath .= '/' . date('Y', $object->created_at) . '/' . date('m', $object->created_at) . '/' . date('d', $object->created_at) . '/' . $obj_id;
             }
+        }
+        if (!empty($relative)) {
+            // если запрошен относительный путь, то здесь делать больше нечего, возвращаем результат
+            return $filepath;
         }
 
         if (!is_dir($filepath)) {

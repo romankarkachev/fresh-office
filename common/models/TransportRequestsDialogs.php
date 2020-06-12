@@ -51,7 +51,8 @@ class TransportRequestsDialogs extends \yii\db\ActiveRecord
     {
         return [
             [['tr_id', 'message'], 'required'],
-            [['created_at', 'created_by', 'tr_id', 'is_private', 'read_at'], 'integer'],
+            [['created_at', 'created_by', 'tr_id', 'read_at'], 'integer'],
+            [['is_private'], 'boolean'],
             [['message'], 'string'],
             [['tr_id'], 'exist', 'skipOnError' => true, 'targetClass' => TransportRequests::className(), 'targetAttribute' => ['tr_id' => 'id']],
             [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],

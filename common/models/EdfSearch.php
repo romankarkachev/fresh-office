@@ -117,6 +117,7 @@ class EdfSearch extends Edf
     public function search($params)
     {
         $edfTableName = Edf::tableName();
+        $joinWith = ['createdByProfile', 'type', 'contractType', 'state', 'organization', 'bankAccount', 'managerProfile'];
 
         $query = Edf::find()->select([
             '*',
@@ -128,40 +129,53 @@ class EdfSearch extends Edf
             )',
         ]);
 
-        if (Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head') || Yii::$app->user->can('tenders_manager')) {
-            // для начала проверяем наличие отделов у данного пользователя
-            // если он не включен ни в один отдел, то будет произведен отбор только его собственных документов
-            $departments = UsersDepartments::find()->select('department_id')->where(['user_id' => Yii::$app->user->id])->column();
-            if (empty($departments)) {
-                $query->orWhere([$edfTableName . '.manager_id' => Yii::$app->user->id]);
-            }
-            else {
-                $query->orWhere([$edfTableName . '.manager_id' => UsersDepartments::find()->select('user_id')->where(['department_id' => $departments])]);
-            }
-
-            /*
-            // запрос только тех документов, которые курируются менеджерами своих отделов
-            $query->orWhere([$edfTableName . '.manager_id' => UsersDepartments::find()->select('user_id')->where(['department_id' => UsersDepartments::find()->select('department_id')->where(['user_id' => Yii::$app->user->id])])]);
-
+        if (
+            Yii::$app->user->can('tenders_manager') ||
+            Yii::$app->user->can('sales_department_head') ||
+            Yii::$app->user->can('sales_department_manager') ||
+            Yii::$app->user->can('ecologist') ||
+            Yii::$app->user->can('ecologist_head')
+        ) {
+            // пользователи могут видеть только свои документы (поля "Автор" и "Ответственный")
             $query->where([
                 'or',
-                [$edfTableName . '.manager_id' => Yii::$app->user->id],
-                [$edfTableName . '.manager_id' => UsersDepartments::find()->select('user_id')->where(['department_id' => UsersDepartments::find()->select('department_id')->where(['user_id' => Yii::$app->user->id])])],
+                [$edfTableName . '.`created_by`' => Yii::$app->user->id],
+                [$edfTableName . '.`manager_id`' => Yii::$app->user->id],
             ]);
-            */
 
+            // начальники отделов продаж и экологии - дополнительно своих подчиненных
+            $role = '';
+            if (Yii::$app->user->can('sales_department_head')) {
+                $role = 'sales_department_manager';
+            }
             if (Yii::$app->user->can('ecologist_head')) {
-                // для начальника экологии отбор тех пакетов, где менеджером указан пользователь с ролью эколога
-                $query->joinWith(['managerRole']);
+                $role = 'ecologist';
+            }
+            if (!empty($role)) {
+                $joinWith[] = 'createdByRoles';
+                $joinWith[] = 'managerRoles';
+                //$query->joinWith(['createdByRoles', 'managerRoles'], false);
                 $query->orWhere([
-                    'item_name' => 'ecologist',
+                    'or',
+                    [self::JOIN_CREATOR_ROLES_ALIAS . '.`item_name`' => $role],
+                    [self::JOIN_MANAGER_ROLES_ALIAS . '.`item_name`' => $role],
                 ]);
             }
+            unset($role);
+
+            // включаем договоры всех лиц, кто доверил отображение текущему пользователю
+            $subQuery = UsersTrusted::find()->select(['user_id'])->where(['section' => UsersTrusted::SECTION_ДОКУМЕНТООБОРОТ, 'trusted_id' => Yii::$app->user->id]);
+            $query->orWhere([
+                'or',
+                [$edfTableName . '.`created_by`' => $subQuery],
+                [$edfTableName . '.`manager_id`' => $subQuery],
+            ]);
+            unset($subQuery);
         }
 
         // для пользователя с ролью "Делопроизводство" доступны документы только полностью оформленные
         if (Yii::$app->user->can('edf') || Yii::$app->user->can('operator_head')) {
-            $query->where($edfTableName . '.state_id > ' . EdfStates::STATE_ЧЕРНОВИК);
+            $query->andWhere($edfTableName . '.state_id > ' . EdfStates::STATE_ЧЕРНОВИК);
         }
 
         $dataProvider = new ActiveDataProvider([
@@ -248,7 +262,6 @@ class EdfSearch extends Edf
         ]);
 
         $this->load($params);
-        $joinWith = ['createdByProfile', 'type', 'contractType', 'state', 'organization', 'bankAccount', 'managerProfile'];
         if (!empty($this->type_id) && $this->type_id == DocumentsTypes::TYPE_ДОП_СОГЛАШЕНИЕ) {
             $joinWith[] = 'parent';
             $query->select = ArrayHelper::merge($query->select, [
@@ -295,7 +308,12 @@ class EdfSearch extends Edf
                 ]);
                 break;
             case self::CLAUSE_STATE_ВСЕ_КРОМЕ_ЗАВЕРШЕННЫХ:
-                $query->andWhere($edfTableName . '.state_id <> ' . EdfStates::STATE_ЗАВЕРШЕНО);
+                //$query->andWhere($edfTableName . '.state_id <> ' . EdfStates::STATE_ЗАВЕРШЕНО);
+                $query->andWhere([
+                    'or',
+                    ['between', $edfTableName . '.state_id', EdfStates::STATE_ЗАЯВКА, EdfStates::STATE_ДОСТАВЛЕН],
+                    [$edfTableName . '.state_id' => EdfStates::STATE_УТВЕРЖДЕНО],
+                ]);
                 break;
             case self::CLAUSE_STATE_ВСЕ:
                 $query->andFilterWhere([

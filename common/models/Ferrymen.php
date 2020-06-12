@@ -114,7 +114,8 @@ class Ferrymen extends \yii\db\ActiveRecord
     {
         return [
             [['name', 'ft_id', 'pc_id'], 'required'],
-            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'notify_when_payment_orders_created', 'user_id', 'ppdq'], 'integer'],
+            [['created_at', 'created_by', 'updated_at', 'updated_by', 'fo_id', 'opfh_id', 'tax_kind', 'ft_id', 'pc_id', 'state_id', 'user_id', 'ppdq'], 'integer'],
+            ['notify_when_payment_orders_created', 'boolean'],
             [['name_full', 'name_short', 'address_j', 'address_f'], 'string'],
             [['contract_expires_at'], 'safe'],
             [['name', 'name_crm', 'email', 'email_dir'], 'string', 'max' => 255],
@@ -231,6 +232,12 @@ class Ferrymen extends \yii\db\ActiveRecord
             // deleteAll не вызывает beforeDelete, поэтому делаем перебор
             $transports = Transport::find()->where(['ferryman_id' => $this->id])->all();
             foreach ($transports as $transport) $transport->delete();
+
+            // удаляем банковские карты
+            FerrymenBankCards::deleteAll(['ferryman_id' => $this->id]);
+
+            // удаляем банковские счета
+            FerrymenBankDetails::deleteAll(['ferryman_id' => $this->id]);
 
             return true;
         }

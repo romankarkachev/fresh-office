@@ -111,6 +111,8 @@ class TransportTypesController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => 'Типы техники',
                     'buttonUrl' => ['/transport-types'],
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

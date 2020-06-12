@@ -12,6 +12,10 @@ use common\models\EcoProjectsMilestonesFiles;
 use common\models\EcoProjectsAccess;
 use common\models\EcoProjectsAccessSearch;
 use common\models\EcoProjectsMilestonesFilesSearch;
+use common\models\EcoProjectsFiles;
+use common\models\EcoProjectsFilesSearch;
+use common\models\EcoProjectsLogs;
+use common\models\PoEp;
 use yii\data\ActiveDataProvider;
 use yii\data\ArrayDataProvider;
 use yii\helpers\Html;
@@ -66,61 +70,67 @@ class EcoProjectsController extends Controller
      * URL для обработки формы добавления нового этапа
      */
     const URL_ADD_USER_ACCESS = 'add-user-access';
-
-    /**
-     * URL для обработки формы добавления нового этапа в виде массива
-     */
     const URL_ADD_USER_ACCESS_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_ADD_USER_ACCESS];
 
     /**
      * URL для удаления этапа проекта
      */
     const URL_DELETE_USER_ACCESS = 'delete-user-access';
-
-    /**
-     * URL для удаления этапа проекта в виде массива
-     */
     const URL_DELETE_USER_ACCESS_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DELETE_USER_ACCESS];
 
     /**
      * URL для обработки формы добавления нового этапа
      */
     const URL_ADD_MILESTONE = 'add-project-milestone';
-
-    /**
-     * URL для обработки формы добавления нового этапа в виде массива
-     */
     const URL_ADD_MILESTONE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_ADD_MILESTONE];
 
     /**
      * URL для удаления этапа проекта
      */
     const URL_DELETE_MILESTONE = 'delete-project-milestone';
-
-    /**
-     * URL для удаления этапа проекта в виде массива
-     */
     const URL_DELETE_MILESTONE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DELETE_MILESTONE];
 
     /**
      * URL для удаления файла из этапа проекта
      */
     const URL_DOWNLOAD_MILESTONE_FILE = 'download-project-milestone-file';
-
-    /**
-     * URL для удаления файла этапа проекта в виде массива
-     */
     const URL_DOWNLOAD_MILESTONE_FILE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DOWNLOAD_MILESTONE_FILE];
 
     /**
      * URL для удаления файла из этапа проекта
      */
     const URL_DELETE_MILESTONE_FILE = 'delete-project-milestone-file';
+    const URL_DELETE_MILESTONE_FILE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DELETE_MILESTONE_FILE];
 
     /**
-     * URL для удаления файла этапа проекта в виде массива
+     * URL для предварительного просмотра файлов этапов через ajax
      */
-    const URL_DELETE_MILESTONE_FILE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DELETE_MILESTONE_FILE];
+    const URL_PREVIEW_MILESTONE_FILE = 'preview-project-milestone-file';
+    const URL_PREVIEW_MILESTONE_FILE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_PREVIEW_MILESTONE_FILE];
+
+    /**
+     * URL для загрузки файлов через ajax
+     */
+    const URL_UPLOAD_FILES = 'upload-files';
+    const URL_UPLOAD_FILES_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_UPLOAD_FILES];
+
+    /**
+     * URL для скачивания приаттаченных файлов
+     */
+    const URL_DOWNLOAD_FILE = 'download-file';
+    const URL_DOWNLOAD_FILE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DOWNLOAD_FILE];
+
+    /**
+     * URL для предварительного просмотра файлов через ajax
+     */
+    const URL_PREVIEW_FILE = 'preview-file';
+    const URL_PREVIEW_FILE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_PREVIEW_FILE];
+
+    /**
+     * URL для удаления файлов через ajax
+     */
+    const URL_DELETE_FILE = 'delete-file';
+    const URL_DELETE_FILE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DELETE_FILE];
 
     /**
      * @inheritdoc
@@ -129,19 +139,25 @@ class EcoProjectsController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
+                    [
+                        'actions' => ['download-project-milestone-file-from-outside', 'download-file-from-outside'],
+                        'allow' => true,
+                        'roles' => ['?', '@'],
+                    ],
                     [
                         'actions' => [
                             'index', 'create', 'update',
                             'user-access-list', self::URL_ADD_USER_ACCESS, self::URL_DELETE_USER_ACCESS,
-                            self::URL_ADD_MILESTONE, self::URL_DELETE_MILESTONE, self::URL_DELETE_MILESTONE_FILE, self::URL_DOWNLOAD_MILESTONE_FILE,
+                            self::URL_ADD_MILESTONE, self::URL_DELETE_MILESTONE, self::URL_DELETE_MILESTONE_FILE, self::URL_DOWNLOAD_MILESTONE_FILE, self::URL_PREVIEW_MILESTONE_FILE,
+                            self::URL_UPLOAD_FILES, self::URL_DELETE_FILE, self::URL_DOWNLOAD_FILE, self::URL_PREVIEW_FILE,
                             'render-close-date-block', 'change-close-date',
                             'render-milestones-block', 'modal-projects-milestones', 'close-milestone',
                             'milestone-upload-files', 'preview-file',
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'ecologist_head', 'ecologist'],
+                        'roles' => ['root', 'ecologist_head', 'ecologist', 'sales_department_head', 'sales_department_manager'],
                     ],
                     [
                         'actions' => ['delete'],
@@ -151,7 +167,7 @@ class EcoProjectsController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                     self::URL_DELETE_USER_ACCESS => ['POST'],
@@ -179,6 +195,35 @@ class EcoProjectsController extends Controller
         $dataProvider->sort = false;
 
         return $dataProvider;
+    }
+
+    /**
+     * Делает выборку файлов, приаттаченных пользователями системы к проекту.
+     * @param $params array
+     * @return ActiveDataProvider
+     * @throws \yii\base\InvalidConfigException
+     */
+    private function fetchFiles($params)
+    {
+        $searchModel = new EcoProjectsFilesSearch();
+        $dataProvider = $searchModel->search([$searchModel->formName() => $params]);
+        $dataProvider->pagination = false;
+        $dataProvider->sort = false;
+
+        return $dataProvider;
+    }
+
+    /**
+     * Рендерит список файлов, прикрепленных к проекту.
+     * @param integer $project_id идентификатор проекта
+     * @return mixed
+     * @throws \yii\base\InvalidConfigException
+     */
+    private function renderFiles($project_id)
+    {
+        return $this->renderAjax('_files', [
+            'dataProvider' => $this->fetchFiles(['project_id' => $project_id]),
+        ]);
     }
 
     /**
@@ -225,7 +270,7 @@ class EcoProjectsController extends Controller
 
         if ($model->load(Yii::$app->request->post())) {
             if ($model->save()) {
-                if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head'))
+                if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head') || Yii::$app->user->can('sales_department_head'))
                     return $this->redirect(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/update', 'id' => $model->id]);
                 else
                     return $this->redirect(self::ROOT_URL_AS_ARRAY);
@@ -252,7 +297,20 @@ class EcoProjectsController extends Controller
         // проверим наличие доступа у текущего пользователя к объекту
         // если, конечно, это не пользователь с полными правами или начальник отдела экологии
         if (!Yii::$app->user->can('root') && !Yii::$app->user->can('ecologist_head')) {
-            if (!$model->hasCurrentProjectAccess) {
+            $hasCurrentProjectAccess = $model->hasCurrentProjectAccess;
+            $restricted = true;
+            if (Yii::$app->user->can('sales_department_head')) {
+                // начальник отдела продаж может просматривать только свои собственные проекты, проекты, в которые ему
+                // открыт доступ, а также проекты, созданные менеджерами отдела продаж
+                if ($model->createdByRoleName == 'sales_department_manager' || $model->created_by == Yii::$app->user->id || $hasCurrentProjectAccess) {
+                    $restricted = false;
+                }
+            }
+            else {
+                $restricted = !$hasCurrentProjectAccess;
+            }
+
+            if ($restricted) {
                 return $this->render('/common/forbidden_foreign', [
                     'details' => [
                         'breadcrumbs' => [['label' => self::ROOT_LABEL, 'url' => self::ROOT_URL_AS_ARRAY]],
@@ -308,6 +366,23 @@ class EcoProjectsController extends Controller
                 'pagination' => false,
                 'sort' => false,
             ]),
+            'dpPo' => new ActiveDataProvider([
+                'query' => PoEp::find()
+                    ->where(['ep_id' => $id])
+                    ->joinWith(['po', 'ei'])
+                    ->orderBy(['po.created_at' => SORT_DESC]),
+                'pagination' => false,
+                'sort' => false,
+            ]),
+            'dpLogs' => new ActiveDataProvider([
+                'query' => EcoProjectsLogs::find()
+                    ->where(['project_id' => $id])
+                    ->joinWith(['createdByProfile', 'state'])
+                    ->orderBy(['created_at' => SORT_DESC]),
+                'pagination' => false,
+                'sort' => false,
+            ]),
+            'dpFiles' => $this->fetchFiles(['project_id' => $id]),
         ]);
     }
 
@@ -608,7 +683,7 @@ class EcoProjectsController extends Controller
             else {
                 // проверим наличие доступа у текущего пользователя к объекту
                 // если, конечно, это не пользователь с полными правами или начальник отдела экологии
-                if (!Yii::$app->user->can('root') && !Yii::$app->user->can('ecologist_head')) {
+                if (!Yii::$app->user->can('root') && !Yii::$app->user->can('ecologist_head') && !Yii::$app->user->can('sales_department_head')) {
                     if (!$model->project->hasCurrentProjectAccess) {
                         return $this->render('/common/forbidden_foreign', [
                             'details' => [
@@ -671,11 +746,12 @@ class EcoProjectsController extends Controller
 
     /**
      * Отдает на скачивание файл, на который позиционируется по идентификатору из параметров.
+     * download-project-milestone-file-from-outside
      * @param integer $id
      * @return mixed
      * @throws NotFoundHttpException если файл не будет обнаружен
      */
-    public function actionDownloadFromOutside($id)
+    public function actionDownloadProjectMilestoneFileFromOutside($id)
     {
         $model = EcoProjectsMilestonesFiles::findOne(['id' => $id]);
         if (file_exists($model->ffp))
@@ -706,7 +782,9 @@ class EcoProjectsController extends Controller
      * Удаляет файл, привязанный к объекту.
      * @param integer $id
      * @return mixed
-     * @throws NotFoundHttpException если файл не будет обнаружен
+     * @throws NotFoundHttpException
+     * @throws \Throwable
+     * @throws \yii\db\StaleObjectException
      */
     public function actionDeleteProjectMilestoneFile($id)
     {
@@ -727,17 +805,130 @@ class EcoProjectsController extends Controller
      * @param $id integer идентификатор файла, который необходимо предварительно показать
      * @return mixed
      */
-    public function actionPreviewFile($id)
+    public function actionPreviewProjectMilestoneFile($id)
     {
         $model = EcoProjectsMilestonesFiles::findOne($id);
         if ($model != null) {
             if ($model->isImage())
                 return Html::img(Yii::getAlias('@uploads-eco-projects') . '/' . $model->fn, ['width' => 600]);
             else
-                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/download-from-outside', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
+                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/download-project-milestone-file-from-outside', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
         }
 
         return false;
     }
 
+    /**
+     * Загрузка файлов, перемещение их из временной папки, запись в базу данных.
+     * @return mixed
+     * @throws \yii\base\Exception
+     */
+    public function actionUploadFiles()
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $obj_id = Yii::$app->request->post('obj_id');
+        $uploadPath = EcoProjectsFiles::getUploadsFilepath($obj_id);
+        if ($uploadPath === false) return 'Невозможно создать папку для хранения загруженных файлов!';
+
+        // массив загружаемых файлов
+        $files = $_FILES['files'];
+        // массив имен загружаемых файлов
+        $filenames = $files['name'];
+        if (count($filenames) > 0) {
+            for ($i=0; $i < count($filenames); $i++) {
+                // идиотское действие, но без него
+                // PHP Strict Warning: Only variables should be passed by reference
+                $tmp = explode('.', basename($filenames[$i]));
+                $ext = end($tmp);
+                $filename = mb_strtolower(Yii::$app->security->generateRandomString() . '.'.$ext, 'utf-8');
+                $filepath = $uploadPath . '/' . $filename;
+                if (move_uploaded_file($files['tmp_name'][$i], $filepath)) {
+                    $fu = new EcoProjectsFiles([
+                        'project_id' => $obj_id,
+                        'ffp' => $filepath,
+                        'fn' => $filename,
+                        'ofn' => $filenames[$i],
+                        'size' => filesize($filepath),
+                    ]);
+                    if ($fu->validate()) $fu->save(); else return 'Загруженные данные неверны.';
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Отдает на скачивание файл, на который позиционируется по идентификатору из параметров.
+     * @param integer $id
+     * @return mixed
+     * @throws NotFoundHttpException если файл не будет обнаружен
+     */
+    public function actionDownloadFile($id)
+    {
+        if (is_numeric($id)) if ($id > 0) {
+            $model = EcoProjectsFiles::findOne($id);
+            if (file_exists($model->ffp))
+                return Yii::$app->response->sendFile($model->ffp, $model->ofn);
+            else
+                throw new NotFoundHttpException('Файл не обнаружен.');
+        };
+    }
+
+    /**
+     * Удаляет файл, приаттаченный к проекту по экологии.
+     * @param integer $id
+     * @return mixed
+     * @throws \Throwable
+     * @throws \yii\db\Exception
+     */
+    public function actionDeleteFile($id)
+    {
+        if (Yii::$app->request->isPjax) {
+            $model = EcoProjectsFiles::findOne($id);
+            if ($model) {
+                $project_id = $model->project_id;
+                $transaction = Yii::$app->db->beginTransaction();
+                try {
+                    if ($model->delete()) {
+                        $transaction->commit();
+                        return $this->renderFiles($project_id);
+                    }
+                }
+                catch (\Exception $e) {
+                    $transaction->rollBack();
+                    throw $e;
+                } catch (\Throwable $e) {
+                    $transaction->rollBack();
+                    throw $e;
+                }
+                $transaction->rollBack();
+            }
+        }
+    }
+
+    /**
+     * Выполняет предварительный показ файла, приаттаченного к проекту по экологии.
+     * @param $id
+     * @return mixed
+     */
+    public function actionPreviewFile($id)
+    {
+        $model = EcoProjectsFiles::findOne($id);
+        if ($model != null) {
+            if ($model->isImage()) {
+                if (file_exists($model->ffp)) {
+                    return \yii\helpers\Html::img(Yii::getAlias('@uploads-eco-projects') . '/' . $model->project_id . '/' . $model->fn, ['width' => '100%']);
+                }
+                else {
+                    return 'Файл не найден.';
+                }
+            }
+            else
+                return '<iframe src="http://docs.google.com/gview?url=' . Yii::$app->urlManager->createAbsoluteUrl(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/download-file-from-outside', 'id' => $id]) . '&embedded=true" style="width:100%; height:600px;" frameborder="0"></iframe>';
+        }
+
+        return false;
+    }
 }

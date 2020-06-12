@@ -27,7 +27,7 @@ class AppealsController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['dispatch-appeal'],
@@ -63,7 +63,7 @@ class AppealsController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                     'delegate-counteragent' => ['POST'],
@@ -257,12 +257,15 @@ class AppealsController extends Controller
             // заполняем статусы клиента и обращения
             $model->fillStates($matches);
 
-            if (count($matches) > 0)
-                if (count($matches) == 1)
+            if (count($matches) > 0) {
+                if (count($matches) == 1) {
                     // если контрагент идентифицирован однозначно, сохраним сразу модель
                     $model->save();
-                else
+                }
+                else {
                     $params['matches'] = $matches;
+                }
+            }
 
             return $this->renderAjax('_ca', $params);
         }
@@ -367,6 +370,15 @@ WHERE COMPANY.ID_COMPANY = ' . $ca_id;
                         // обращение поступило с сайта mecology.ru
                         $as_id = 68;
                         // частный случай
+                        $fields['ac_id'] = Appeals::РАЗДЕЛ_УЧЕТА_ЭКОЛОГИЯ;
+                        break;
+                    case 'ros-ecology':
+                        // обращение поступило с сайта ros-ecology.ru
+                        $as_id = 15;
+                        break;
+                    case 'ecosbor':
+                        // обращение поступило с сайта ecosbor.ru
+                        $as_id = 69;
                         $fields['ac_id'] = Appeals::РАЗДЕЛ_УЧЕТА_ЭКОЛОГИЯ;
                         break;
                 }

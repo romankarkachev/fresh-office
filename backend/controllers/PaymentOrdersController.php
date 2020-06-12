@@ -38,13 +38,19 @@ class PaymentOrdersController extends Controller
     const URL_SET_CCP_ON_THE_FLY_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_SET_CCP_ON_THE_FLY];
 
     /**
+     * URL для изменения значения поля на "Дата и время получения оригиналов" на лету
+     */
+    const URL_SET_OR_ON_THE_FLY = 'set-or-on-the-fly';
+    const URL_SET_OR_ON_THE_FLY_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_SET_OR_ON_THE_FLY];
+
+    /**
      * @inheritdoc
      */
     public function behaviors()
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['download-file'],
@@ -54,7 +60,7 @@ class PaymentOrdersController extends Controller
                     [
                         'actions' => [
                             'index', 'compose-pd-field', 'change-state-on-the-fly', 'upload-files', 'preview-file',
-                            'delete-file', self::URL_SET_CCP_ON_THE_FLY,
+                            'delete-file', self::URL_SET_CCP_ON_THE_FLY, self::URL_SET_OR_ON_THE_FLY,
                         ],
                         'allow' => true,
                         'roles' => ['root', 'logist', 'accountant', 'accountant_b'],
@@ -72,7 +78,7 @@ class PaymentOrdersController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                     'drop-drafts' => ['POST'],
@@ -90,10 +96,50 @@ class PaymentOrdersController extends Controller
         $searchModel = new PaymentOrdersSearch();
         $dataProvider = $searchModel->search(Yii::$app->request->queryParams);
 
-        return $this->render('index', [
-            'searchModel' => $searchModel,
-            'dataProvider' => $dataProvider,
-        ]);
+        if (Yii::$app->request->get('export') != null) {
+            if ($dataProvider->getTotalCount() == 0) {
+                Yii::$app->getSession()->setFlash('error', 'Нет данных для экспорта.');
+                $this->redirect(self::ROOT_URL_FOR_SORT_PAGING);
+                return false;
+            }
+
+            // именно для экспорта постраничный переход отключается, чтобы в файл выгружались все записи
+            $dataProvider->pagination = false;
+            Excel::export([
+                'models' => $dataProvider->getModels(),
+                'fileName' => 'Платежные ордеры (сформирован '.date('Y-m-d в H i').').xlsx',
+                'asAttachment' => true,
+                'columns' => [
+                    [
+                        'attribute' => 'payment_date',
+                        'header' => 'Дата оплаты',
+                        'format' => ['datetime', 'dd.MM.YYYY'],
+                        'headerOptions' => ['class' => 'text-center'],
+                        'contentOptions' => ['class' => 'text-center'],
+                        'options' => ['width' => '130'],
+                    ],
+                    'stateName:ntext:Статус',
+                    'cas',
+                    'amount',
+                    'comment',
+                    [
+                        'attribute' => 'created_at',
+                        'header' => 'Создан',
+                        'format' => ['datetime', 'dd.MM.YYYY HH:mm'],
+                    ],
+                ],
+            ]);
+        }
+        else {
+            $queryString = '';
+            if (Yii::$app->request->queryString != '') $queryString = '&' . Yii::$app->request->queryString;
+
+            return $this->render('index', [
+                'searchModel' => $searchModel,
+                'dataProvider' => $dataProvider,
+                'queryString' => $queryString,
+            ]);
+        }
     }
 
     /**
@@ -388,9 +434,36 @@ class PaymentOrdersController extends Controller
         Yii::$app->response->format = Response::FORMAT_JSON;
 
         $model = $this->findModel($id);
-        return $model->updateAttributes([
-            'ccp_at' => time(),
-        ]) > 0;
+        if (empty($model->ccp_at)) {
+            return $model->updateAttributes([
+                'ccp_at' => time(),
+            ]) > 0;
+        }
+        else {
+            return true;
+        }
+    }
+
+    /**
+     * Выполняет интерактивное изменение значения, представляющего собой наличие оригиналов документов.
+     * set-or-on-the-fly
+     * @param $id integer идентфикатор платежного ордера
+     * @throws NotFoundHttpException
+     * @return bool
+     */
+    public function actionSetOrOnTheFly($id)
+    {
+        Yii::$app->response->format = Response::FORMAT_JSON;
+
+        $model = $this->findModel($id);
+        if (empty($model->or_at)) {
+            return $model->updateAttributes([
+                'or_at' => time(),
+            ]) > 0;
+        }
+        else {
+            return true;
+        }
     }
 
     /**

@@ -1,14 +1,13 @@
 <?php
 
-use dektrium\user\models\User;
+use yii\helpers\HtmlPurifier;
 use yii\bootstrap\Nav;
-use yii\web\View;
 
 /* @var yii\web\View $this */
 /* @var \common\models\User $user */
 /* @var string $content */
 
-$this->title = Yii::t('user', 'Update user account').' | '.Yii::$app->name;
+$this->title = (!empty($this->params['specifiedTitle']) ? HtmlPurifier::process($this->params['specifiedTitle'] . ' &mdash; ') : '') . Yii::t('user', 'Update user account').' | '.Yii::$app->name;
 $this->params['breadcrumbs'][] = ['label' => Yii::t('user', 'Users'), 'url' => ['/users']];
 $this->params['breadcrumbs'][] = $user->username;
 
@@ -38,6 +37,10 @@ $this->params['content-additional'] = 'Редактирование информ
                             'url' => ['/users/update-profile', 'id' => $user->id]
                         ],
                         ['label' => Yii::t('user', 'Information'), 'url' => ['/user/admin/info', 'id' => $user->id]],
+                        [
+                            'label' => 'Доверенные лица',
+                            'url' => ['/users/trusted', 'id' => $user->id],
+                        ],
                         '<hr>',
                         [
                             'label' => Yii::t('user', 'Confirm'),

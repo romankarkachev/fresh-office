@@ -8,6 +8,7 @@ use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\helpers\StringHelper;
 use yii\httpclient\Client;
+use polucorus\simplehtmldom\SimpleHTMLDom;
 use backend\controllers\TendersController;
 
 /**
@@ -21,6 +22,7 @@ use backend\controllers\TendersController;
  * @property string $oos_number Номер закупки
  * @property string $revision Редакция заявки
  * @property int $state_id Статус внутренний
+ * @property int $stage_id Этап закупки
  * @property string $title Наименование закупки
  * @property int $org_id Организация
  * @property int $fo_ca_id Контрагент
@@ -43,16 +45,22 @@ use backend\controllers\TendersController;
  * @property string $amount_fc Сумма обеспечения договора (contract funding)
  * @property int $deferral Срок оплаты (количество дней отсрочки платежа)
  * @property int $is_contract_approved Договор согласован (0 - нет, 1 - да, 2 - на согласовании)
+ * @property int $complexity Сложность (диапазон 1-3)
  * @property int $lr_id Запрос лицензий
+ * @property string $contract_comments Изменения в договоре
  * @property string $comment Комментарий
  *
+ * @property string $createdByEmail
  * @property string $createdByProfileName
  * @property string $createdByProfileEmail
  * @property string $tkName
  * @property string $lawName
  * @property string $stateName
+ * @property string $stageName
+ * @property string $orgName
  * @property string $responsibleProfileName
  * @property string $managerProfileName
+ * @property string $lossReasonName
  * @property array $tendersSourceIdsFiles
  *
  * @property TendersKinds $tk
@@ -67,12 +75,14 @@ use backend\controllers\TendersController;
  * @property User $responsible
  * @property Profile $responsibleProfile
  * @property TendersStates $state
+ * @property TendersStages $stage
  * @property TendersPlatforms $tp
  * @property LicensesRequests $lr
  * @property TendersLogs[] $tendersLogs
  * @property TendersTp[] $tendersTp
  * @property TendersFiles[] $tendersFiles
  * @property TendersWe[] $tendersWe
+ * @property TendersResults[] $winner
  */
 class Tenders extends \yii\db\ActiveRecord
 {
@@ -82,6 +92,13 @@ class Tenders extends \yii\db\ActiveRecord
     const CONTRACT_APPROVED_VALUE_NO = 0;
     const CONTRACT_APPROVED_VALUE_YES = 1;
     const CONTRACT_APPROVED_VALUE_PENDING = 2;
+
+    /**
+     * Количество символов, из которых состоит номер закупки для определеняи ссылки
+     * Используется в случае идентификации по номеру закупки
+     */
+    const REG_NUMBER_LENGTH_223 = 11;
+    const REG_NUMBER_LENGTH_44 = 19;
 
     /**
      * Способы поиска тендера
@@ -100,10 +117,16 @@ class Tenders extends \yii\db\ActiveRecord
     const TENDERS_223_PAGE_COMMON = 10;
     const TENDERS_223_PAGE_FILES = 11;
     const TENDERS_223_PAGE_LOGS = 12;
+    const TENDERS_223_PAGE_PROTOCOLS = 13;
 
     const TENDERS_44_PAGE_COMMON = 20;
     const TENDERS_44_PAGE_FILES = 21;
     const TENDERS_44_PAGE_LOGS = 22;
+    const TENDERS_44_PAGE_RESULTS = 23;
+
+    const TENDERS_504_PAGE_COMMON = 30;
+    const TENDERS_504_PAGE_FILES = 31;
+    const TENDERS_504_PAGE_LOGS = 32;
 
     /**
      * Ссылки на страницы, с которых производится сбор информации
@@ -111,10 +134,30 @@ class Tenders extends \yii\db\ActiveRecord
     const URL_TENDER_223_COMMON = self::URL_SRC_MAIN . '/223/purchase/public/purchase/info/common-info.html';
     const URL_TENDER_223_FILES = self::URL_SRC_MAIN . '/223/purchase/public/purchase/info/documents.html';
     const URL_TENDER_223_LOGS = self::URL_SRC_MAIN . '/223/purchase/public/purchase/info/journal.html';
+    const URL_TENDER_223_PROTOCOLS = self::URL_SRC_MAIN . '/223/purchase/public/purchase/info/protocols.html';
 
     const URL_TENDER_44_COMMON = self::URL_SRC_MAIN . '/epz/order/notice/ea44/view/common-info.html';
     const URL_TENDER_44_FILES = self::URL_SRC_MAIN . '/epz/order/notice/ea44/view/documents.html';
     const URL_TENDER_44_LOGS = self::URL_SRC_MAIN . '/epz/order/notice/ea44/view/event-journal.html';
+    const URL_TENDER_44_RESULTS = self::URL_SRC_MAIN . '/epz/order/notice/ea44/view/supplier-results.html';
+
+    const URL_TENDER_504_COMMON = self::URL_SRC_MAIN . '/epz/order/notice/ok504/view/common-info.html';
+
+    const CHAPTER_NAME_44_FILES_PROTOCOL = 'протоколы работы комиссии, полученные с электронной площадки (эп)';
+
+    const DOM_IDS  = [
+        'FORM_ID' => 'frmTender',
+        'BUTTON_REJECT_ID' => 'btnReject',
+        'BUTTON_SUBMIT_REJECT_ID' => 'btnSubmitReject',
+        'REASON_MODE_ID' => 'reason-mode',
+        // блок с полем для изменений в договоре
+        'BLOCK_CC_ID' => 'block-contract-comments',
+    ];
+
+    /**
+     * @var integer причина проигрыша (виртуальное поле)
+     */
+    public $loss_reason_id;
 
     /**
      * @var string URL на закупку
@@ -159,25 +202,29 @@ class Tenders extends \yii\db\ActiveRecord
     {
         return [
             [['org_id', 'tp_id', 'manager_id', 'conditions', 'ta_id', 'amount_start', 'is_contract_approved'], 'required'],
-            [['created_at', 'created_by', 'tk_id', 'state_id', 'org_id', 'fo_ca_id', 'tp_id', 'manager_id', 'responsible_id', 'placed_at', 'date_stop', 'date_sumup', 'date_auction', 'ta_id', 'is_notary_required', 'is_contract_edit', 'deferral', 'is_contract_approved', 'lr_id'], 'integer'],
-            [['title', 'conditions', 'comment'], 'string'],
+            [['created_at', 'created_by', 'tk_id', 'state_id', 'stage_id', 'org_id', 'fo_ca_id', 'tp_id', 'manager_id', 'responsible_id', 'placed_at', 'date_stop', 'date_sumup', 'date_auction', 'ta_id', 'is_notary_required', 'is_contract_edit', 'deferral', 'is_contract_approved', 'complexity', 'lr_id', 'loss_reason_id'], 'integer'],
+            [['is_notary_required', 'is_contract_edit'], 'boolean'],
+            [['title', 'conditions', 'contract_comments', 'comment'], 'string'],
             [['date_complete', 'urlSource', 'we', 'findTool', 'ftInn', 'ftKpp', 'ftTitle'], 'safe'],
             [['amount_start', 'amount_offer', 'amount_fo', 'amount_fc'], 'number'],
             [['law_no'], 'string', 'max' => 20],
             [['oos_number'], 'string', 'max' => 25],
             [['revision'], 'string', 'max' => 3],
             [['fo_ca_name'], 'string', 'max' => 255],
-            [['title', 'comment'], 'default', 'value' => null],
+            [['urlSource'], 'trim'],
+            [['law_no', 'oos_number', 'revision', 'title', 'fo_ca_name', 'conditions', 'comment'], 'default', 'value' => null],
             [['amount_offer'], 'default', 'value' => 0],
-            [['tk_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersKinds::className(), 'targetAttribute' => ['tk_id' => 'id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
-            [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['manager_id' => 'id']],
-            [['org_id'], 'exist', 'skipOnError' => true, 'targetClass' => Organizations::className(), 'targetAttribute' => ['org_id' => 'id']],
-            [['responsible_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['responsible_id' => 'id']],
-            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersStates::className(), 'targetAttribute' => ['state_id' => 'id']],
-            [['ta_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersApplications::className(), 'targetAttribute' => ['ta_id' => 'id']],
-            [['tp_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersPlatforms::className(), 'targetAttribute' => ['tp_id' => 'id']],
-            [['lr_id'], 'exist', 'skipOnError' => true, 'targetClass' => LicensesRequests::className(), 'targetAttribute' => ['lr_id' => 'id']],
+            [['oos_number'], 'unique'],
+            [['tk_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersKinds::class, 'targetAttribute' => ['tk_id' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['manager_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['manager_id' => 'id']],
+            [['org_id'], 'exist', 'skipOnError' => true, 'targetClass' => Organizations::class, 'targetAttribute' => ['org_id' => 'id']],
+            [['responsible_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['responsible_id' => 'id']],
+            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersStates::class, 'targetAttribute' => ['state_id' => 'id']],
+            [['stage_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersStages::class, 'targetAttribute' => ['stage_id' => 'id']],
+            [['ta_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersApplications::class, 'targetAttribute' => ['ta_id' => 'id']],
+            [['tp_id'], 'exist', 'skipOnError' => true, 'targetClass' => TendersPlatforms::class, 'targetAttribute' => ['tp_id' => 'id']],
+            [['lr_id'], 'exist', 'skipOnError' => true, 'targetClass' => LicensesRequests::class, 'targetAttribute' => ['lr_id' => 'id']],
             // собственные правила валидации
             ['state_id', 'validateState'],
         ];
@@ -197,6 +244,7 @@ class Tenders extends \yii\db\ActiveRecord
             'oos_number' => 'Номер закупки',
             'revision' => 'Редакция заявки',
             'state_id' => 'Статус внутренний',
+            'stage_id' => 'Этап закупки',
             'title' => 'Наименование закупки',
             'org_id' => 'Организация',
             'fo_ca_id' => 'Контрагент',
@@ -220,7 +268,9 @@ class Tenders extends \yii\db\ActiveRecord
             'amount_fc' => 'Сумма обеспечения договора (contract funding)',
             'deferral' => 'Срок оплаты (количество дней отсрочки платежа)',
             'is_contract_approved' => 'Договор согласован', // 0 - нет, 1 - да, 2 - на согласовании
+            'complexity' => 'Сложность', // диапазон 1-3
             'lr_id' => 'Запрос лицензий',
+            'contract_comments' => 'Изменения в договоре',
             'comment' => 'Комментарий',
             // виртуальные поля
             'urlSource' => 'Ссылка на закупку',
@@ -228,6 +278,7 @@ class Tenders extends \yii\db\ActiveRecord
             'ftInn' => 'ИНН',
             'ftKpp' => 'КПП',
             'ftTitle' => 'Наименование закупки',
+            'loss_reason_id' => 'Причина проигрыша',
             // вычисляемые поля
             'createdByProfileName' => 'Автор создания',
             'stateName' => 'Статус',
@@ -274,13 +325,13 @@ class Tenders extends \yii\db\ActiveRecord
                 else {
                     $this->state_id = TendersStates::STATE_ЧЕРНОВИК;
                 }
+            }
 
-                // идентификация контрагента
-                if (!empty($this->fo_ca_id)) {
-                    $foCompany = foCompany::findOne($this->fo_ca_id);
-                    if ($foCompany) {
-                        $this->fo_ca_name = trim($foCompany->COMPANY_NAME);
-                    }
+            // идентификация контрагента
+            if (!empty($this->fo_ca_id) && empty($this->fo_ca_name)) {
+                $foCompany = foCompany::findOne($this->fo_ca_id);
+                if ($foCompany) {
+                    $this->fo_ca_name = trim($foCompany->COMPANY_NAME);
                 }
             }
 
@@ -302,6 +353,7 @@ class Tenders extends \yii\db\ActiveRecord
             $lawNo = (int)$this->law_no;
             $lawNo++;
             $files = $this->fetchTenderByNumber($lawNo);
+            if (isset($files['law_no'])) { unset($files['law_no']); }
 
             if (is_array($files) && count($files) > 0) {
                 $this->obtainAuctionFiles($files);
@@ -311,42 +363,113 @@ class Tenders extends \yii\db\ActiveRecord
             // также извлекаем историю изменений из журнала событий
             $lawNo++;
             $logs = $this->fetchTenderByNumber($lawNo);
+            if (isset($logs['law_no'])) { unset($logs['law_no']); }
             if (is_array($logs) && count($logs) > 0) {
                 $this->obtainAuctionLogs($logs);
             }
             unset($logs);
+
+            // если завку создает менеджер отдела продаж, то необходимо отправить уведомления на E-mail руководству
+            if (Yii::$app->user->can('sales_department_manager')) {
+                // sales_department_head
+                $letter = Yii::$app->mailer->compose([
+                    'html' => 'tenderHasBeenCreated-html',
+                ], ['model' => $this])
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                    ->setSubject('Создана заявка на участие в тендере');
+
+                // отправка писем обязательным получателям
+                foreach (ResponsibleForProduction::find()->where(['type' => ResponsibleForProduction::TYPE_NEW_TENDER])->all() as $receiver) {
+                    /* @var $receiver ResponsibleForProduction */
+
+                    $email = $letter;
+                    $email->setTo($receiver->receiver);
+                    try { $email->send(); } catch (\Exception $exception) {}
+
+                    unset($email);
+                }
+            }
         }
         else {
             if (isset($changedAttributes['state_id'])) {
                 // проверим, изменился ли статус тендера
                 if ($changedAttributes['state_id'] != $this->state_id) {
+                    $stateName = $this->stateName;
+
+                    $tenderStateHasBeenChanged = null;
+
                     switch ($this->state_id) {
                         case TendersStates::STATE_СОГЛАСОВАНА:
                             // отправим специалистам тендерного отдела соответствующее уведомление
-                            $letter = Yii::$app->mailer->compose([
-                                'html' => 'tenderHasBeenApproved-html',
-                            ], ['model' => $this])
-                                ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-                                ->setTo('tender@1nok.ru')
-                                ->setSubject('Участие в тендере согласовано руководством');
-                            $letter->send();
+                            $tenderStateHasBeenChanged = [
+                                'subject' => 'Участие в тендере согласовано руководством',
+                                'view' => 'tenderStateHasBeenChanged',
+                                'viewParams' => ['model' => $this, 'mean' => 'Руководством согласована новая закупка для участия: '],
+                            ];
 
                             break;
                         case TendersStates::STATE_ОТКАЗ:
                             // статус изменился на "Отказ", отправим автору тендера соответствующее уведомление
-                            $receiver = $this->createdByProfileEmail;
-                            if (!empty($receiver)) {
-                                $letter = Yii::$app->mailer->compose([
-                                    'html' => 'poReject-html',
-                                ], ['model' => $this])
-                                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
-                                    ->setTo($receiver)
-                                    ->setSubject('По тендеру получен отказ');
-                                $letter->send();
-                            }
-                            unset($receiver);
+                            $tenderStateHasBeenChanged = [
+                                'subject' => 'По тендеру получен отказ',
+                                'view' => 'poReject',
+                                'viewParams' => ['model' => $this],
+                            ];
 
                             break;
+                        case TendersStates::STATE_ПОБЕДА:
+                        case TendersStates::STATE_ДОЗАПРОС:
+                        case TendersStates::STATE_ПРОИГРЫШ:
+                        case TendersStates::STATE_ОТМЕНЕН_ЗАКАЗЧИКОМ:
+                        case TendersStates::STATE_ОПОЗДАНИЕ:
+                            // статус изменился на один из этих, отправка уведомления автору
+                            $tenderStateHasBeenChanged = [
+                                'subject' => 'Статус закупки изменился',
+                                'view' => 'tenderStateHasBeenChanged',
+                                'viewParams' => ['model' => $this, 'mean' => 'Статус закупки изменился на ' . $stateName . ': '],
+                            ];
+
+                            if ($this->state_id == TendersStates::STATE_ПРОИГРЫШ) {
+                                if (empty(TendersLr::findOne(['tender_id' => $this->id]))) {
+                                    (new TendersLr([
+                                        'tender_id' => $this->id,
+                                        'lr_id' => $this->loss_reason_id,
+                                    ]))->save();
+                                }
+                            }
+
+                            break;
+                    }
+
+                    if (!empty($tenderStateHasBeenChanged)) {
+                        $receivers[] = 'tender@1nok.ru';
+
+                        $receiver = $this->createdByEmail;
+                        if (!empty($receiver)) {
+                            $receivers[] = $receiver;
+                            unset($receiver);
+                            if (Yii::$app->authManager->checkAccess($this->created_by, 'sales_department_head')) {
+                                // если автор - менеджер отдела продаж, то письмо необходимо продублировать также его начальнику
+                                $heads = User::find()->where([
+                                    'and',
+                                    ['id' => AuthAssignment::find()->select('user_id')->where(['item_name' => 'sales_department_head'])],
+                                    ['is', 'blocked_at', null],
+                                ])->all();
+                                foreach ($heads as $head) {
+                                    $receivers[] = $head->email;
+                                }
+                            }
+                        }
+
+                        $letter = Yii::$app->mailer->compose([
+                            'html' => $tenderStateHasBeenChanged['view'] . '-html',
+                        ], $tenderStateHasBeenChanged['viewParams'])
+                            ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderName']])
+                            ->setSubject($tenderStateHasBeenChanged['subject']);
+
+                        foreach ($receivers as $receiver) {
+                            $letter->setTo($receiver)->send();
+                        }
                     }
 
                     $oldStateName = '';
@@ -355,9 +478,18 @@ class Tenders extends \yii\db\ActiveRecord
 
                     (new TendersLogs([
                         'tender_id' => $this->id,
-                        'description' => 'Изменение статуса' . $oldStateName . ' на ' . $this->stateName,
+                        'description' => 'Изменение статуса' . $oldStateName . ' на ' . $stateName,
                     ]))->save();
                 }
+            }
+
+            // если номер закупки отсутствовал, но появился, выполним первичную идентификацию
+            if (
+                isset($changedAttributes['oos_number']) &&
+                $changedAttributes['oos_number'] != $this->oos_number &&
+                !empty($this->oos_number)
+            ) {
+                $this->primaryRecognition();
             }
         }
     }
@@ -418,6 +550,34 @@ class Tenders extends \yii\db\ActiveRecord
                 'title' => 'О контрактной системе в сфере закупок товаров, работ, услуг для обеспечения государственных и муниципальных нужд',
                 'issued_at' => '05.04.2013',
             ],
+            [
+                'id' => self::TENDERS_504_PAGE_COMMON,
+                'name' => '504-ФЗ',
+                'title' => 'О внесении изменений в Федеральный закон № 44',
+                'issued_at' => '31.12.2017',
+            ],
+        ];
+    }
+
+    /**
+     * Возвращает массив уровней сложности.
+     * @return array
+     */
+    public static function fetchComplexityLevels()
+    {
+        return [
+            [
+                'id' => 1,
+                'name' => 'I',
+            ],
+            [
+                'id' => 2,
+                'name' => 'II',
+            ],
+            [
+                'id' => 3,
+                'name' => 'III',
+            ],
         ];
     }
 
@@ -429,13 +589,14 @@ class Tenders extends \yii\db\ActiveRecord
     private function convertDate($src)
     {
         $result = trim($src);
-        $result = mb_substr($result, 6, 4) . '-' . mb_substr($result, 3, 2) . '-' . mb_substr($result, 0, 2) . ' ' . mb_substr($result, 11, 2) . ':' . mb_substr($result, 14, 2) . ':00';
-        if (false != strtotime($result)) {
-            return strtotime($result);
+        if (!empty($result)) {
+            $result = mb_substr($result, 6, 4) . '-' . mb_substr($result, 3, 2) . '-' . mb_substr($result, 0, 2) . ' ' . mb_substr($result, 11, 2) . ':' . mb_substr($result, 14, 2) . ':00';
+            if (false != strtotime($result)) {
+                return strtotime($result);
+            }
         }
-        else {
-            return null;
-        }
+
+        return null;
     }
 
     /**
@@ -471,15 +632,71 @@ class Tenders extends \yii\db\ActiveRecord
     }
 
     /**
+     * Делает выборку значений для поля "Уровень сложности" и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfComplexityForSelect2()
+    {
+        return ArrayHelper::map(self::fetchComplexityLevels(), 'id', 'name');
+    }
+
+    /**
+     * Выполняет повторную первичную идентификацию.
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function primaryRecognition()
+    {
+        if (!empty($this->oos_number)) {
+            if (strlen($this->oos_number) == Tenders::REG_NUMBER_LENGTH_223) {
+                $mode = Tenders::TENDERS_223_PAGE_COMMON;
+            }
+            elseif (strlen($this->oos_number) == Tenders::REG_NUMBER_LENGTH_44) {
+                $mode = Tenders::TENDERS_44_PAGE_COMMON;
+            }
+        }
+
+        if (!empty($mode)) {
+            $tenderData = $this->fetchTenderByNumber($mode);
+            //var_dump($tenderData);
+
+            $this->updateAttributes([
+                'law_no' => $tenderData['law_no'],
+                'tk_id' => $tenderData['tk_id'],
+                'tp_id' => $tenderData['tp_id'],
+                'fo_ca_id' => $tenderData['fo_ca_id'],
+                'fo_ca_name' => $tenderData['customer_name'],
+                'revision' => $tenderData['revision'],
+                'title' => $tenderData['name'],
+                'amount_start' => $tenderData['price'],
+                'amount_fo' => $tenderData['amount_fo'],
+                'amount_fc' => $tenderData['amount_fc'],
+                'placed_at' => $tenderData['placed_at_u'],
+                'date_stop' => $tenderData['pf_date_u'],
+                'date_sumup' => $tenderData['su_date_u'],
+                'date_auction' => $tenderData['auction_at_u'],
+            ]);
+
+            // сделаем запись в журнал событий
+            (new TendersLogs([
+                'tender_id' => $this->id,
+                'description' => 'Выполнена повторная первичная идентификация.',
+            ]))->save();
+        }
+    }
+
+    /**
      * Выкачивает файлы по ссылкам из массива. Если передается параметр $checkIfExists в значении true, то дополнительно
      * выполняется проверка существования файла (невозможно для новых).
      * @param $files array массив файлов, которые удастся обнаружить в момент вызова функции
      * @param bool $checkIfExists
      * @throws \yii\base\Exception
      * @throws \yii\httpclient\Exception
+     * @return mixed
      */
     public function obtainAuctionFiles($files, $checkIfExists = false)
     {
+        $newFiles = [];
         $existingFiles = [];
         if ($checkIfExists) {
             $existingFiles = $this->tendersSourceIdsFiles;
@@ -488,53 +705,76 @@ class Tenders extends \yii\db\ActiveRecord
         $client = new Client();
         $pifp = TendersFiles::getUploadsFilepath($this);
 
-        foreach ($files as $file) {
-            if (isset($file['url'])) {
-                // проверка существования файла
-                if ($checkIfExists && in_array($file['src_id'], $existingFiles)) {
-                    // выполняется обновление файлов, обнаружен дубликат, пропускаем такой файл
-                    continue;
-                }
+        if (is_array($files) && count($files) > 0) {
+            foreach ($files as $file) {
+                // скачиваем файлы по очереди в папку для тендеров
+                if (isset($file['url'])) {
+                    // проверка существования файла
+                    if ($checkIfExists && in_array($file['src_id'], $existingFiles)) {
+                        // выполняется обновление файлов, обнаружен дубликат, пропускаем такой файл
+                        continue;
+                    }
 
-                $response = $client->get($file['url'], null, ['user-agent' => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.118'])->send();
-                if ($response->isOk) {
-                    if (preg_match('~filename=(?|"([^"]*)"|\'([^\']*)\'|([^;]*))~', $response->headers['content-disposition'], $match)) {
-                        // скачиваем файлы по очереди в папку для тендеров
-
-                        $ofn = urldecode($match[1]);
-                        $fileAttached_fn = strtolower(Yii::$app->security->generateRandomString() . '.' . pathinfo($ofn)['extension']);
-                        $fileAttached_ffp = $pifp . '/' . $fileAttached_fn;
-
-                        if (false !== file_put_contents($fileAttached_ffp, $response->content)) {
-                            // файл успешно сохранен, сделаем запись в базе данных
-                            $model = new TendersFiles([
-                                'tender_id' => $this->id,
-                                'ffp' => $fileAttached_ffp,
-                                'fn' => $fileAttached_fn,
-                                'ofn' => $ofn,
-                                'size' => filesize($fileAttached_ffp),
-                                'revision' => $file['revision'],
-                                'src_id' => $file['src_id'],
-                            ]);
-
-                            // дата размещения на площадке
-                            if (!empty($file['uploaded_at'])) {
-                                $model->uploaded_at = $file['uploaded_at'];
+                    $response = $client->get($file['url'], null, ['user-agent' => 'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/71.0.3578.98 Safari/537.36 OPR/58.0.3135.118'])->send();
+                    if ($response->isOk) {
+                        if ($file['ct_id'] != TendersContentTypes::CONTENT_TYPE_ПРОТОКОЛЫ && preg_match('~filename=(?|"([^"]*)"|\'([^\']*)\'|([^;]*))~', $response->headers['content-disposition'], $match)) {
+                            $ofn = urldecode($match[1]);
+                        }
+                        elseif (!empty($file['ofn'])) {
+                            // если не удалось определить имя файла, берем то, которое было в атрибуте title ссылки
+                            $ofn = $file['ofn'];
+                            if (StringHelper::endsWith($ofn, ' ()')) {
+                                $ofn = str_replace(' ()', '', $ofn);
                             }
-
-                            // тип контента
-                            if (!empty($file['ct_id'])) {
-                                // если уже задан тип контента, то разумеется, берем его
-                                $model->ct_id = $file['ct_id'];
-                            }
-
-                            $model->save();
                         }
 
-                        unset($fileAttached_fn);
-                        unset($fileAttached_ffp);
+                        if (!empty($ofn)) {
+                            $fileAttached_fn = strtolower(Yii::$app->security->generateRandomString() . '.' . pathinfo($ofn)['extension']);
+                            $fileAttached_ffp = $pifp . '/' . $fileAttached_fn;
+
+                            if (false !== file_put_contents($fileAttached_ffp, $response->content)) {
+                                // файл успешно сохранен, сделаем запись в базе данных
+                                $model = new TendersFiles([
+                                    'tender_id' => $this->id,
+                                    'ffp' => $fileAttached_ffp,
+                                    'fn' => $fileAttached_fn,
+                                    'ofn' => $ofn,
+                                    'size' => filesize($fileAttached_ffp),
+                                    'revision' => !empty($file['revision']) ? $file['revision'] : null,
+                                    'src_id' => $file['src_id'],
+                                ]);
+
+                                // дата размещения на площадке
+                                if (!empty($file['uploaded_at'])) {
+                                    $model->uploaded_at = $file['uploaded_at'];
+                                }
+
+                                // тип контента
+                                if (!empty($file['ct_id'])) {
+                                    // если уже задан тип контента, то разумеется, берем его
+                                    $model->ct_id = $file['ct_id'];
+                                }
+
+                                if ($model->save()) {
+                                    if ($checkIfExists) {
+                                        $newFiles[] = [
+                                            'ffp' => $fileAttached_ffp,
+                                            'fn' => $ofn,
+                                        ];
+                                    }
+                                }
+                            }
+
+                            unset($fileAttached_fn);
+                            unset($fileAttached_ffp);
+                        }
                     }
                 }
+            }
+
+            // возвращаем массив вновь загруженных файлов (для рассылки заинтересованным лицам)
+            if ($checkIfExists && count($newFiles) > 0) {
+                return $newFiles;
             }
         }
     }
@@ -575,20 +815,29 @@ class Tenders extends \yii\db\ActiveRecord
             'save' => Html::submitButton('<i class="fa fa-floppy-o" aria-hidden="true"></i> Сохранить', ['class' => 'btn btn-primary btn-lg']),
             'approve_request' => Html::submitButton('Отправить на согласование <i class="fa fa-arrow-circle-right" aria-hidden="true"></i>', ['class' => 'btn btn-success btn-lg', 'name' => 'approve_request', 'title' => 'Отправить начальнику отдела продаж на согласование']),
             'approve' => Html::submitButton('Согласовать', ['class' => 'btn btn-success btn-lg', 'name' => 'approve', 'title' => 'Согласовать']),
-            'reject' => Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отказать', ['class' => 'btn btn-danger btn-lg', 'name' => 'reject', 'title' => 'Отказать в согласовании (обязательно нужно будет указать причину согласования)']),
-            'revoke' => Html::submitButton('<i class="fa fa-repeat" aria-hidden="true"></i> Отозвать', ['class' => 'btn btn-danger btn-lg', 'name' => 'revoke']),
+            'reject' => Html::submitButton('<i class="fa fa-times" aria-hidden="true"></i> Отказать', ['id' => self::DOM_IDS['BUTTON_REJECT_ID'], 'class' => 'btn btn-danger btn-lg', 'name' => 'reject', 'title' => 'Отказать в согласовании (обязательно нужно будет указать причину согласования)']),
+            'revoke' => Html::submitButton('<i class="fa fa-repeat" aria-hidden="true"></i> Отозвать', ['class' => 'btn btn-warning btn-lg', 'name' => 'revoke']),
             'take_over' => Html::submitButton('Взять в работу', ['class' => 'btn btn-default btn-lg', 'name' => 'take_over']),
             'submitted' => Html::submitButton('Заявка подана', ['class' => 'btn btn-default btn-lg', 'name' => 'submitted']),
             'refinement' => Html::submitButton('Дозапрос', ['class' => 'btn btn-default btn-lg', 'name' => 'refinement']),
             'victory' => Html::submitButton('<i class="fa fa-trophy text-success" aria-hidden="true"></i> Победа', ['class' => 'btn btn-default btn-lg', 'name' => 'victory']),
-            'defeat' => Html::submitButton('Проигрыш', ['class' => 'btn btn-default btn-lg', 'name' => 'defeat']),
+            'defeat' => Html::submitButton('Проигрыш', ['class' => 'btn btn-default btn-lg', 'id' => 'btnDefeat', 'name' => 'defeat']),
             'abyss' => Html::submitButton('Без результатов', ['class' => 'btn btn-default btn-lg', 'name' => 'abyss']),
+            'recede' => Html::submitButton('<i class="fa fa-window-close" aria-hidden="true"></i> Отказ от участия', ['class' => 'btn btn-default btn-lg', 'name' => 'recede', 'title' => 'Отказаться от участия добровольно']),
+            'withdrew' => Html::submitButton('Отменен заказчиком', ['class' => 'btn btn-default btn-lg', 'name' => 'withdrew']),
+            'late' => Html::submitButton('Не успели', ['class' => 'btn btn-default btn-lg', 'name' => 'late']),
         ];
 
         $result = $controlButtons['index'] . ' ';
 
-        if ($this->state_id <= TendersStates::STATE_ДОЗАПРОС && !$this->isNewRecord) {
+        if ($this->state_id == TendersStates::STATE_ПОБЕДА) {
             $result .= ' ' . $controlButtons['save'];
+        }
+        elseif ($this->state_id <= TendersStates::STATE_ДОЗАПРОС && !$this->isNewRecord) {
+            $result .= ' ' . $controlButtons['save'];
+            if ($roleTenders) {
+                $result .= $controlButtons['recede'];
+            }
         }
 
         switch ($this->state_id) {
@@ -627,8 +876,9 @@ class Tenders extends \yii\db\ActiveRecord
 
                 break;
             case TendersStates::STATE_СОГЛАСОВАНА:
-                if ($roleTenders) {
+                if ($roleTenders && empty($this->responsible_id)) {
                     // специалист по тендерам может взять в работу
+                    // если, правда, никто другой пока еще не взял
                     $result .= ' ' . $controlButtons['take_over'];
                 }
 
@@ -656,6 +906,290 @@ class Tenders extends \yii\db\ActiveRecord
                     $result .= ' ' . $controlButtons['victory'] . ' ' . $controlButtons['defeat'] . ' ' . $controlButtons['abyss'];
                 }
 
+                if ($roleRoot) {
+                    $result .= ' ' . $controlButtons['defeat'];
+                }
+                break;
+            case TendersStates::STATE_ПРОИГРЫШ:
+                $result .= ' ' . $controlButtons['save'];
+
+                break;
+        }
+
+        if ($this->state_id >= TendersStates::STATE_СОГЛАСОВАНА && !$this->isNewRecord) {
+            if ($this->state_id != TendersStates::STATE_ОТМЕНЕН_ЗАКАЗЧИКОМ) {
+                $result .= ' ' . $controlButtons['withdrew'];
+            }
+            if ($this->state_id != TendersStates::STATE_ОПОЗДАНИЕ) {
+                $result .= ' ' . $controlButtons['late'];
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Выполняет журналирование изменений общей информации. Проводит анализ изменений, вносит изменения при выявлении
+     * расхождений, делает запись в таблицу истории изменений.
+     * @param array $data массив обновленной информации
+     */
+    public function logChangesCommon($data)
+    {
+        if (is_array($data)) {
+            foreach ($data as $field) {
+                if ($field['newValue'] != $this->{$field['attributeName']}) {
+                    if ($this->updateAttributes([
+                            $field['attributeName'] => $field['newValue'],
+                        ]) > 0 ) {
+                        // значение изменлось, обновлено в базе успешно, сделаем запись в журнал об этом
+                        if (isset($field['oldFormatted'])) {
+                            // если передается уже форматированное старое значение, то в журнал пишем именно его
+                            $oldFormatted = $field['oldFormatted'];
+                        }
+                        else {
+                            $oldFormatted = $this->{$field['attributeName']};
+                        }
+
+                        if (isset($field['newFormatted'])) {
+                            // если передается уже форматированное новое значение, то в журнал пишем именно его
+                            $newFormatted = $field['newFormatted'];
+                        }
+                        else {
+                            $newFormatted = $field['newValue'];
+                        }
+
+                        (new TendersLogs([
+                            'tender_id' => $this->id,
+                            'type' => TendersLogs::TYPE_ИСТОЧНИК,
+                            'description' => 'Значение поля "' . $this->getAttributeLabel($field['attributeName']) . '" было изменено' . (!empty($oldFormatted) ? ' с ' . $oldFormatted : '') . ' на "' . (!empty($newFormatted) ? $newFormatted : '[пустое]') . '".',
+                        ]))->save();
+                    };
+                }
+            }
+        }
+    }
+
+    /**
+     * Значение на входе превращает в дату в строго определенном формате.
+     * @param $mode integer режим работы, для разных представлений даты разные
+     * @param $value
+     * @return string
+     */
+    private function formDateFromString($mode, $value)
+    {
+        $result = '';
+        switch ($mode) {
+            case 1:
+                // 11.09.2019 (МСК)
+                $result = mb_substr($value, 6, 4) . '-' . mb_substr($value, 3, 2) . '-' . mb_substr($value, 0, 2) . ' 04:00:00';
+                break;
+            case 2:
+                // 08.11.2019
+                $result = mb_substr($value, 6, 4) . '-' . mb_substr($value, 3, 2) . '-' . mb_substr($value, 0, 2);
+                break;
+            case 3:
+                // 05.09.2019 в 14:00 (МСК)
+                $result = mb_substr($value, 6, 4) . '-' . mb_substr($value, 3, 2) . '-' . mb_substr($value, 0, 2) . ' ' . mb_substr($value, 13, 2) . ':' . mb_substr($value, 16, 2) . ':00';
+                break;
+            case 4:
+                // 24.09.2019 10:00
+                $result = mb_substr($value, 6, 4) . '-' . mb_substr($value, 3, 2) . '-' . mb_substr($value, 0, 2) . ' ' . mb_substr($value, 11, 2) . ':' . mb_substr($value, 14, 2) . ':00';
+                break;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param $page integer разновидность верстки
+     * @param $alreadyCollectedInfo array результирующий массив с уже собранной информацией о тендере
+     * @param $chapterName string заголовок блока
+     * @param $fieldName string название поля
+     * @param $fieldValue string значение поля
+     * @return array
+     * @throws \yii\base\InvalidConfigException
+     */
+    private function fillFieldValue($page, $alreadyCollectedInfo, $chapterName, $fieldName, $fieldValue)
+    {
+        $result = [];
+
+        switch ($chapterName) {
+            case 'сведения о закупке':
+            case 'общие сведения о закупке':
+            case 'общая информация о закупке':
+                switch ($fieldName) {
+                    case 'реестровый номер извещения':
+                        $result['regNumber'] = $fieldValue;
+                        break;
+                    case 'способ размещения закупки':
+                    case 'способ определения поставщика (подрядчика, исполнителя)':
+                        $result['placeMethod'] = $fieldValue;
+                        break;
+                    /*
+                    case 'размещение осуществляет':
+                        $customer_name = Html::decode(trim($td->nextSibling()->plaintext));
+                        $customer_name = preg_replace('| +|', ' ', $customer_name); // множество пробелов заменяем одним
+                        $customer_name = str_replace("\r\n", '', $customer_name);
+                        if (StringHelper::startsWith($customer_name, 'Заказчик')) {
+                            $customer_name = str_replace('Заказчик ', '', $customer_name);
+                        }
+                        $result['customer_name'] = $customer_name;
+
+                        break;
+                    */
+                    case 'наименование закупки':
+                    case 'наименование объекта закупки':
+                        $result['name'] = $fieldValue;
+                        break;
+                    case 'этап закупки':
+                        $result['stage'] = $fieldValue;
+                        break;
+                    case 'наименование электронной площадки в информационно-телекоммуникационной сети интернет':
+                        $result['tp_name'] = $fieldValue;
+                        break;
+                    case 'адрес электронной площадки в информационно-телекоммуникационной сети интернет':
+                        $result['tp_url'] = $fieldValue;
+                        break;
+                    case 'редакция':
+                        $result['revision'] = $fieldValue;
+                        break;
+                    case 'дата размещения извещения':
+                        $date = $this->formDateFromString(1, $fieldValue);
+                        $result['placed_at_f'] = Yii::$app->formatter->asDate($date, 'php:d.m.Y');
+                        $result['placed_at_u'] = strtotime($date);
+                        unset($date);
+
+                        break;
+                }
+                break;
+            case 'заказчик':
+                switch ($fieldName) {
+                    case 'наименование организации':
+                        $result['customer_name'] = Html::decode($fieldValue);
+                        break;
+                    case 'инн':
+                        $result['customer_inn'] = $fieldValue;
+                        break;
+                    case 'кпп':
+                        $result['customer_kpp'] = $fieldValue;
+                        break;
+                    case 'огрн':
+                        $result['customer_ogrn'] = $fieldValue;
+                        break;
+                    case 'место нахождения':
+                        $result['customer_address_f'] = $fieldValue;
+                        break;
+                    case 'почтовый адрес':
+                        $result['customer_address_m'] = $fieldValue;
+                        break;
+                }
+
+                break;
+            case 'информация об организации, осуществляющей определение поставщика (подрядчика, исполнителя)':
+                switch ($fieldName) {
+                    case 'организация, осуществляющая размещение':
+                        $customer_name = '';
+                        if ($fieldValue === '') {
+                            // пустой комментарий присутствует в разметке, учтем это
+                            // это надо как-то поймать и исправить:
+                            //$customer_name = Html::decode(trim($td->nextSibling()->nextSibling()->plaintext));
+                        }
+                        else {
+                            $customer_name = Html::decode($fieldValue);
+                        }
+                        $result['customer_name'] = $customer_name;
+                        //break 3; // вообще уходим отсюда, потому что из этого блока нам нужно только наименование заказчика
+                }
+
+                break;
+            case 'порядок проведения процедуры':
+            case 'информация о процедуре закупки':
+            case 'информация о процедуре электронного аукциона':
+                switch ($fieldName) {
+                    case 'дата и время окончания подачи заявок (по местному времени заказчика)':
+                    case 'дата и время окончания подачи заявок':
+                    case 'дата и время окончания срока подачи заявок на участие в электронном аукционе':
+                        // 223: 05.09.2019 в 14:00 (МСК)
+                        // 44: 24.09.2019 10:00
+                        if ($page == self::TENDERS_223_PAGE_COMMON) {
+                            $date = $this->formDateFromString(3, $fieldValue);
+                        }
+                        else {
+                            $date = $this->formDateFromString(4, $fieldValue);
+                        }
+                        if (!empty($date)) {
+                            $result['pf_date_f'] = Yii::$app->formatter->asDate($date, 'php:d.m.Y H:i');
+                            $result['pf_date_u'] = strtotime($date);
+                        }
+
+                        // еще вариант, менее надежный, потому что необходимо наверняка знать часовой пояс
+                        //$date = \DateTime::createFromFormat('d.m.Y в H:i (МСК)', $date)->format('Y-m-d H:i');
+                        unset($date);
+
+                        break;
+                    case 'дата подведения итогов':
+                        $date = $this->formDateFromString(1, $fieldValue);
+                        $result['su_date_f'] = Yii::$app->formatter->asDate($date, 'php:d.m.Y');
+                        $result['su_date_u'] = strtotime($date);
+                        unset($date);
+
+                        break;
+                    case 'дата и время начала подачи заявок':
+                        $date = $this->formDateFromString(1, $fieldValue);
+                        $result['placed_at_f'] = Yii::$app->formatter->asDate($date, 'php:d.m.Y');
+                        $result['placed_at_u'] = strtotime($date);
+                        unset($date);
+
+                        break;
+                    case 'дата проведения аукциона в электронной форме':
+                        $date = $this->formDateFromString(2, $fieldValue);
+                        $result['auction_at_f'] = Yii::$app->formatter->asDate($date, 'php:d.m.Y');
+                        $result['auction_at_u'] = strtotime($date);
+                        unset($date);
+
+                        break;
+                    case 'время проведения аукциона':
+                        $result['auction_at_f'] = Yii::$app->formatter->asDate($alreadyCollectedInfo['auction_at_f'] . ' ' . $fieldValue, 'php:d.m.Y H:i');
+                        $result['auction_at_u'] = strtotime($result['auction_at_f']);
+                        break;
+                }
+
+                break;
+            case 'начальная (максимальная) цена контракта':
+                switch ($fieldName) {
+                    case 'начальная (максимальная) цена контракта':
+                        $price = $fieldValue;
+                        $price = str_replace([' ', chr(0xC2) . chr(0xA0)], '', $price);
+                        $price = str_replace(',', '.', $price);
+                        $result['price'] = $price;
+                        break;
+                }
+
+                break;
+            case 'обеспечение заявки':
+            case 'обеспечение исполнения контракта':
+                $resultFieldName = 'amount_fc';
+                switch ($fieldName) {
+                    case 'размер обеспечения заявки':
+                        $resultFieldName = 'amount_fo';
+                    case 'размер обеспечения исполнения контракта':
+                        $amount = $fieldValue;
+                        $amount = str_replace('Российский рубль', '', $amount);
+                        $amount = str_replace([' ', chr(0xC2) . chr(0xA0)], '', $amount);
+                        if (false !== strpos($amount, '%') && !empty($result['price'])) {
+                            $amount = $amount * $result['price'] / 100;
+                        }
+                        else {
+                            $amount = floatval(str_replace(',', '.', $amount));
+                        }
+
+                        $result[$resultFieldName] = $amount;
+                        unset($amount);
+
+                        break;
+                }
+                unset($resultFieldName);
+
                 break;
         }
 
@@ -681,6 +1215,9 @@ class Tenders extends \yii\db\ActiveRecord
             case self::TENDERS_223_PAGE_LOGS:
                 $url = self::URL_TENDER_223_LOGS;
                 break;
+            case self::TENDERS_223_PAGE_PROTOCOLS:
+                $url = self::URL_TENDER_223_PROTOCOLS;
+                break;
             case self::TENDERS_44_PAGE_COMMON:
                 $url = self::URL_TENDER_44_COMMON;
                 break;
@@ -690,13 +1227,20 @@ class Tenders extends \yii\db\ActiveRecord
             case self::TENDERS_44_PAGE_LOGS:
                 $url = self::URL_TENDER_44_LOGS;
                 break;
+            case self::TENDERS_44_PAGE_RESULTS:
+                // запрашиваются результаты конкурса, установим URL страницы, с которой это можно спарсить
+                $url = self::URL_TENDER_44_RESULTS;
+                break;
+            case self::TENDERS_504_PAGE_COMMON:
+                $url = self::URL_TENDER_504_COMMON;
+                break;
         }
 
         if (!empty($this->oos_number) && !empty($url)) {
             $result = [
                 'law_no' => $page,
             ];
-            if ($page == self::TENDERS_44_PAGE_COMMON) {
+            if (in_array($page, [self::TENDERS_44_PAGE_COMMON, self::TENDERS_504_PAGE_COMMON])) {
                 $result['regNumber'] = $this->oos_number;
             }
 
@@ -713,19 +1257,27 @@ class Tenders extends \yii\db\ActiveRecord
                 ->send();
             if ($response->isOk) {
                 try {
-                    $html = \keltstr\simplehtmldom\SimpleHTMLDom::str_get_html($response->content);
+                    //$html = \keltstr\simplehtmldom\SimpleHTMLDom::str_get_html($response->content);
+                    $html = SimpleHTMLDom::str_get_html($response->content);
                     if ($html->innertext != '') {
                         switch ($page) {
                             case self::TENDERS_223_PAGE_LOGS:
                             case self::TENDERS_44_PAGE_LOGS:
+                            case self::TENDERS_504_PAGE_LOGS:
                                 ////////////////////////////////////////////////////////////////////////////////////////
                                 /// СБОР СО СТРАНИЦЫ "ЖУРНАЛ СОБЫТИЙ"                                                ///
                                 ////////////////////////////////////////////////////////////////////////////////////////
-                                $logRows = $html->find('table#documentAction>tbody>tr');
+                                if ($page == self::TENDERS_223_PAGE_LOGS) {
+                                    $logRows = $html->find('table#documentAction>tbody>tr');
+                                }
+                                else {
+                                    $logRows = $html->find('.tabBoxWrapper>table>tbody>tr');
+                                }
                                 if (count($logRows) > 0) {
                                     foreach ($logRows as $row) {
                                         $pizDate = trim($row->children(0)->plaintext);
                                         try {
+                                            //$date = $this->formDateFromString(4, $pizDate);
                                             $pizDate = mb_substr($pizDate, 6, 4) . '-' . mb_substr($pizDate, 3, 2) . '-' . mb_substr($pizDate, 0, 2) . ' ' . mb_substr($pizDate, 11, 2) . ':' . mb_substr($pizDate, 14, 2) . ':00';
                                             $pizDate = strtotime($pizDate);
                                             $description = Html::decode(trim($row->children(1)->plaintext));
@@ -765,237 +1317,60 @@ class Tenders extends \yii\db\ActiveRecord
                                         switch ($page) {
                                             case self::TENDERS_223_PAGE_COMMON:
                                             case self::TENDERS_44_PAGE_COMMON:
-                                                ////////////////////////////////////////////////////////////////////////////////
-                                                /// СБОР СО СТРАНИЦЫ "ОБЩАЯ ИНФОРМАЦИЯ"                                      ///
-                                                ////////////////////////////////////////////////////////////////////////////////
-                                                switch ($chapterText) {
-                                                    case 'сведения о закупке':
-                                                    case 'общие сведения о закупке':
-                                                    case 'общая информация о закупке':
-                                                        // nextSibling() для h2 вернет <div class="noticeTabBoxWrapper">
-                                                        // children(0) вернет <table>
-                                                        // children(0) вернет <tbody>
-                                                        $properties = $chapterTitle->nextSibling()->children(0)->children(0);
-                                                        foreach ($properties->children() as $tr) {
-                                                            // перебор <tr>
-                                                            foreach ($tr->children() as $td) {
-                                                                // перебираем ячейки в строке таблицы
-                                                                $fieldText = trim(mb_strtolower($td->plaintext));
-                                                                $fieldText = preg_replace('| +|', ' ', $fieldText); // множество пробелов заменяем одним
-                                                                $fieldText = str_replace('«', '', $fieldText);
-                                                                $fieldText = str_replace('»', '', $fieldText);
-                                                                $fieldText = str_replace('"', '', $fieldText);
-                                                                //$result['name'] .= chr(13) . $fieldText;
-                                                                switch ($fieldText) {
-                                                                    case 'реестровый номер извещения':
-                                                                        $result['regNumber'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'способ размещения закупки':
-                                                                    case 'способ определения поставщика (подрядчика, исполнителя)':
-                                                                        $result['placeMethod'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    /*
-                                                                    case 'размещение осуществляет':
-                                                                        $customer_name = Html::decode(trim($td->nextSibling()->plaintext));
-                                                                        $customer_name = preg_replace('| +|', ' ', $customer_name); // множество пробелов заменяем одним
-                                                                        $customer_name = str_replace("\r\n", '', $customer_name);
-                                                                        if (StringHelper::startsWith($customer_name, 'Заказчик')) {
-                                                                            $customer_name = str_replace('Заказчик ', '', $customer_name);
-                                                                        }
-                                                                        $result['customer_name'] = $customer_name;
+                                            case self::TENDERS_504_PAGE_COMMON:
+                                                ////////////////////////////////////////////////////////////////////////
+                                                /// СБОР СО СТРАНИЦЫ "ОБЩАЯ ИНФОРМАЦИЯ"                              ///
+                                                ////////////////////////////////////////////////////////////////////////
 
-                                                                        break;
-                                                                    */
-                                                                    case 'наименование закупки':
-                                                                    case 'наименование объекта закупки':
-                                                                        $result['name'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'наименование электронной площадки в информационно-телекоммуникационной сети интернет':
-                                                                        $result['tp_name'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'адрес электронной площадки в информационно-телекоммуникационной сети интернет':
-                                                                        $result['tp_url'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'редакция':
-                                                                        $result['revision'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'дата размещения извещения':
-                                                                        $pizDate = trim($td->nextSibling()->plaintext);
-                                                                        $pizDate = mb_substr($pizDate, 6, 4) . '-' . mb_substr($pizDate, 3, 2) . '-' . mb_substr($pizDate, 0, 2) . ' 04:00:00';
-                                                                        $result['placed_at_f'] = Yii::$app->formatter->asDate($pizDate, 'php:d.m.Y');
-                                                                        $result['placed_at_u'] = strtotime($pizDate);
-                                                                        unset($pizDate);
+                                                // <h2 class="blockInfo__title">Общая информация о закупке</h2>
+                                                // <section class="blockInfo__section section">
+                                                //      <span class="section__title">Наименование электронной площадки в информационно-телекоммуникационной сети "Интернет"</span>
+                                                //      <span class="section__info">ЗАО «Сбербанк-АСТ»</span>
+                                                // </section>
+                                                // nextSibling() для h2 вернет <section class="blockInfo__section section">
+                                                // children(0) вернет <span class="section__title">Способ определения поставщика (подрядчика, исполнителя)</span>
 
-                                                                        break;
-                                                                }
-                                                            }
+                                                /**
+                                                 * Было так:
+                                                 * nextSibling() для h2 вернет <div class="noticeTabBoxWrapper">
+                                                 * children(0) вернет <table>
+                                                 * children(0) вернет <tbody>
+                                                 */
+
+                                                if ($page == self::TENDERS_223_PAGE_COMMON) {
+                                                    $properties = SimpleHTMLDom::str_get_html($chapterTitle->nextSibling()->outertext);
+                                                    foreach ($properties->find('div.noticeTabBoxWrapper>table>tbody>tr') as $tr) {
+                                                        // перебираем ячейки в строке таблицы
+                                                        $fieldName = trim(mb_strtolower($tr->children(0)->plaintext));
+                                                        $fieldName = preg_replace('| +|', ' ', $fieldName); // множество пробелов заменяем одним
+                                                        $fieldName = str_replace('«', '', $fieldName);
+                                                        $fieldName = str_replace('»', '', $fieldName);
+                                                        $fieldName = str_replace('"', '', $fieldName);
+                                                        $fieldName = str_replace(' </br>', '', $fieldName);
+
+                                                        if (!empty($tr->children(1))) {
+                                                            $result = ArrayHelper::merge($result, $this->fillFieldValue($page, $result, $chapterText, $fieldName, trim($tr->children(1)->plaintext)));
+                                                        }
+                                                    }
+                                                }
+                                                else {
+                                                    $properties = SimpleHTMLDom::str_get_html($chapterTitle->parent()->outertext);
+                                                    foreach ($properties->find('.blockInfo__section') as $blockInfo) {
+                                                        $fieldName = '';
+                                                        if (!empty($blockInfo->children(0))) {
+                                                            $fieldName = trim(mb_strtolower($blockInfo->children(0)->plaintext));
+                                                            $fieldName = str_replace('"', '', $fieldName);
                                                         }
 
-                                                        break;
-                                                    case 'заказчик':
-                                                        // описание см. выше
-                                                        $properties = $chapterTitle->nextSibling()->children(0);
-                                                        foreach ($properties->children() as $tr) {
-                                                            foreach ($tr->children() as $td) {
-                                                                // перебираем ячейки в строке таблицы
-                                                                $fieldText = trim(mb_strtolower($td->plaintext));
-                                                                switch ($fieldText) {
-                                                                    case 'наименование организации':
-                                                                        $result['customer_name'] = Html::decode(trim($td->nextSibling()->plaintext));
-                                                                        break;
-                                                                    case 'инн':
-                                                                        $result['customer_inn'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'кпп':
-                                                                        $result['customer_kpp'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'огрн':
-                                                                        $result['customer_ogrn'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'место нахождения':
-                                                                        $result['customer_address_f'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                    case 'почтовый адрес':
-                                                                        $result['customer_address_m'] = trim($td->nextSibling()->plaintext);
-                                                                        break;
-                                                                }
+                                                        if ($blockInfo->children(1)) {
+                                                            // бывает, что нет следующего элемента, содержащего значение поля
+                                                            // например, Требуется обеспечение исполнения контракта
+                                                            $date = trim($blockInfo->children(1)->plaintext);
+                                                            if (!empty($date) && $date != 'Время аукциона не определено') {
+                                                                $result = ArrayHelper::merge($result, $this->fillFieldValue($page, $result, $chapterText, $fieldName, $date));
                                                             }
                                                         }
-
-                                                        break;
-                                                    case 'информация об организации, осуществляющей определение поставщика (подрядчика, исполнителя)':
-                                                        // описание см. выше
-                                                        $properties = $chapterTitle->nextSibling()->children(0)->children(0);
-                                                        foreach ($properties->children() as $tr) {
-                                                            foreach ($tr->children() as $td) {
-                                                                // перебираем ячейки в строке таблицы
-                                                                $fieldText = trim(mb_strtolower($td->plaintext));
-                                                                switch ($fieldText) {
-                                                                    case 'организация, осуществляющая размещение':
-                                                                        if (trim($td->nextSibling()->plaintext) === '') {
-                                                                            // пустой комментарий присутствует в разметке, учтем это
-                                                                            $customer_name = Html::decode(trim($td->nextSibling()->nextSibling()->plaintext));
-                                                                        }
-                                                                        else {
-                                                                            $customer_name = Html::decode(trim($td->nextSibling()->plaintext));
-                                                                        }
-                                                                        $result['customer_name'] = $customer_name;
-                                                                        break 3; // вообще уходим отсюда, потому что из этого блока нам нужно только наименование заказчика
-                                                                }
-                                                            }
-                                                        }
-
-                                                        break;
-                                                    case 'порядок проведения процедуры':
-                                                    case 'информация о процедуре закупки':
-                                                        // описание см. выше
-                                                        $properties = $chapterTitle->nextSibling()->children(0)->children(0);
-                                                        foreach ($properties->children() as $tr) {
-                                                            foreach ($tr->children() as $td) {
-                                                                // перебираем ячейки в строке таблицы
-                                                                $fieldText = trim(mb_strtolower($td->plaintext));
-                                                                $fieldText = preg_replace('| +|', ' ', $fieldText); // множество пробелов заменяем одним
-                                                                $fieldText = str_replace(' </br>', '', $fieldText);
-                                                                switch ($fieldText) {
-                                                                    case 'дата и время окончания подачи заявок (по местному времени заказчика)':
-                                                                    case 'дата и время окончания подачи заявок':
-                                                                        // 223: 05.09.2019 в 14:00 (МСК)
-                                                                        // 44: 24.09.2019 10:00
-                                                                        $pizDate = trim($td->nextSibling()->plaintext);
-                                                                        if ($page == self::TENDERS_223_PAGE_COMMON) {
-                                                                            $pizDate = mb_substr($pizDate, 6, 4) . '-' . mb_substr($pizDate, 3, 2) . '-' . mb_substr($pizDate, 0, 2) . ' ' . mb_substr($pizDate, 13, 2) . ':' . mb_substr($pizDate, 16, 2) . ':00';
-                                                                        }
-                                                                        else {
-                                                                            $pizDate = mb_substr($pizDate, 6, 4) . '-' . mb_substr($pizDate, 3, 2) . '-' . mb_substr($pizDate, 0, 2) . ' ' . mb_substr($pizDate, 11, 2) . ':' . mb_substr($pizDate, 14, 2) . ':00';
-                                                                        }
-                                                                        $result['pf_date_f'] = Yii::$app->formatter->asDate($pizDate, 'php:d.m.Y H:i');
-                                                                        $result['pf_date_u'] = strtotime($pizDate);
-                                                                        // еще вариант, менее надежный, потому что необходимо наверняка знать часовой пояс
-                                                                        //$pizDate = \DateTime::createFromFormat('d.m.Y в H:i (МСК)', $pizDate)->format('Y-m-d H:i');
-                                                                        unset($pizDate);
-
-                                                                        break;
-                                                                    case 'дата подведения итогов':
-                                                                        $pizDate = trim($td->nextSibling()->plaintext);
-                                                                        $pizDate = mb_substr($pizDate, 6, 4) . '-' . mb_substr($pizDate, 3, 2) . '-' . mb_substr($pizDate, 0, 2) . ' 04:00:00';
-                                                                        $result['su_date_f'] = Yii::$app->formatter->asDate($pizDate, 'php:d.m.Y');
-                                                                        $result['su_date_u'] = strtotime($pizDate);
-                                                                        unset($pizDate);
-
-                                                                        break;
-                                                                    case 'дата и время начала подачи заявок':
-                                                                        $pizDate = trim($td->nextSibling()->plaintext);
-                                                                        $pizDate = mb_substr($pizDate, 6, 4) . '-' . mb_substr($pizDate, 3, 2) . '-' . mb_substr($pizDate, 0, 2) . ' 04:00:00';
-                                                                        $result['placed_at_f'] = Yii::$app->formatter->asDate($pizDate, 'php:d.m.Y');
-                                                                        $result['placed_at_u'] = strtotime($pizDate);
-                                                                        unset($pizDate);
-
-                                                                        break;
-                                                                    case 'дата проведения аукциона в электронной форме':
-                                                                        $pizDate = trim($td->nextSibling()->plaintext);
-                                                                        $pizTime = trim($tr->nextSibling()->children(1)->plaintext);
-                                                                        $pizDate = mb_substr($pizDate, 6, 4) . '-' . mb_substr($pizDate, 3, 2) . '-' . mb_substr($pizDate, 0, 2) . ' ' . $pizTime;
-                                                                        $result['auction_at_f'] = Yii::$app->formatter->asDate($pizDate, 'php:d.m.Y H:i');
-                                                                        $result['auction_at_u'] = strtotime($pizDate);
-                                                                        unset($pizDate);
-
-                                                                        break;
-                                                                }
-                                                            }
-                                                        }
-
-                                                        break;
-                                                    case 'начальная (максимальная) цена контракта':
-                                                        // описание см. выше
-                                                        $properties = $chapterTitle->nextSibling()->children(0)->children(0);
-                                                        foreach ($properties->children() as $tr) {
-                                                            foreach ($tr->children() as $td) {
-                                                                // перебираем ячейки в строке таблицы
-                                                                $fieldText = trim(mb_strtolower($td->plaintext));
-                                                                switch ($fieldText) {
-                                                                    case 'начальная (максимальная) цена контракта':
-                                                                        $price = trim($td->nextSibling()->plaintext);
-                                                                        $price = str_replace([' ', chr(0xC2) . chr(0xA0)], '', $price);
-                                                                        $price = str_replace(',', '.', $price);
-                                                                        $result['price'] = $price;
-                                                                        break;
-                                                                }
-                                                            }
-                                                        }
-
-                                                        break;
-                                                    case 'обеспечение заявки':
-                                                    case 'обеспечение исполнения контракта':
-                                                        // описание см. выше
-                                                        $properties = $chapterTitle->nextSibling()->children(0);
-                                                        foreach ($properties->children() as $tr) {
-                                                            foreach ($tr->children() as $td) {
-                                                                // перебираем ячейки в строке таблицы
-                                                                $fieldName = 'amount_fc';
-                                                                $fieldText = trim(mb_strtolower($td->plaintext));
-                                                                switch ($fieldText) {
-                                                                    case 'размер обеспечения заявки':
-                                                                        $fieldName = 'amount_fo';
-                                                                    case 'размер обеспечения исполнения контракта':
-                                                                        $amount = trim($td->nextSibling()->plaintext);
-                                                                        $amount = str_replace('Российский рубль', '', $amount);
-                                                                        $amount = str_replace([' ', chr(0xC2) . chr(0xA0)], '', $amount);
-                                                                        if (false !== strpos($amount, '%') && !empty($result['price'])) {
-                                                                            $amount = $amount * $result['price'] / 100;
-                                                                        }
-                                                                        else {
-                                                                            $amount = floatval(str_replace(',', '.', $amount));
-                                                                        }
-
-                                                                        $result[$fieldName] = $amount;
-                                                                        unset($amount);
-
-                                                                        break;
-                                                                }
-                                                                unset($fieldName);
-                                                            }
-                                                        }
-                                                        break;
+                                                    }
                                                 }
 
                                                 break;
@@ -1046,40 +1421,96 @@ class Tenders extends \yii\db\ActiveRecord
                                                         break;
                                                     case 'документация, изменение документации':
                                                     case 'разъяснение положений документации об электронном аукционе':
-                                                        // nextSibling() - это div, children(0)->children(0) - это table > tbody
-                                                        $block = $chapterTitle->nextSibling()->children(0)->children(0);
-                                                        foreach ($block->children() as $tr) {
-                                                            if (!empty($tr->children(3))) {
+                                                    case self::CHAPTER_NAME_44_FILES_PROTOCOL:
+                                                        // parent() - это .centered-header, nextSibling() - это .clear-2, $block->children() - это .row.notice-documents
+
+                                                        $block = $chapterTitle->parent();
+                                                        $rows = $block->find('div.row.no-gutters.blockInfo__section');
+                                                        if (!empty($rows)) {
+                                                            foreach ($rows as $row) {
                                                                 try {
-                                                                    $uploaded_at = $this->convertDate($tr->children(3)->children(0)->children(1)->plaintext);
-                                                                    // children(4) - это последний в строке td, children(1) - это <div class=" attachment">, children(1) - это <div class=" displayTable">, children(0) - это <a>
-                                                                    $attachments = $tr->children(4)->children();
-                                                                    if (count($attachments) > 0) {
-                                                                        foreach ($attachments as $attachment) {
-                                                                            // перебираем строки с ссылками на файлы
-                                                                            if ($attachment->attr['class'] != 'attachment') continue; // некоторые сразу пропускаем, они не содержат ссылок на файлы
+                                                                    if (
+                                                                        // col-sm-6 b-r => row no-gutters => col-sm-10 => col => row => col-sm
+                                                                        (
+                                                                            (count($row->children(0)->children(0)->children()) > 1 && $chapterText != self::CHAPTER_NAME_44_FILES_PROTOCOL) ||
+                                                                            (count($row->children(0)->children(0)->children(0)->children(0)->children()) > 1 && $chapterText == self::CHAPTER_NAME_44_FILES_PROTOCOL)
+                                                                        ) &&
+                                                                        // col-sm-6 => blockFilesTabDocs
+                                                                        !empty($row->children(1)->children(0))
+                                                                    ) {
+                                                                        if ($chapterText == self::CHAPTER_NAME_44_FILES_PROTOCOL) {
+                                                                            $uploaded_at = strtotime($this->formDateFromString(4, trim($row->children(0)->children(0)->children(0)->children(0)->children(1)->children(0)->children(1)->plaintext)));
+                                                                        }
+                                                                        else {
+                                                                            $uploaded_at = strtotime($this->formDateFromString(4, trim($row->children(0)->children(0)->children(1)->children(0)->children(1)->children(0)->children(1)->plaintext)));
+                                                                        }
 
-                                                                            $link = $attachment->children(1)->children(0);
-                                                                            $src_id = null;
-                                                                            if (preg_match("/.*\?uid=(\w+)$/", $link->attr['href'], $output_array)){
-                                                                                $src_id = $output_array[1];
-                                                                                unset($output_array);
+                                                                        if (false != $uploaded_at) {
+                                                                            $attachments = $row->children(1)->children(0)->find('div.attachment.row');
+                                                                            if (count($attachments) > 0) {
+                                                                                foreach ($attachments as $container) {
+                                                                                    if ($chapterText == self::CHAPTER_NAME_44_FILES_PROTOCOL) {
+                                                                                        $hasLink = !empty($container->children(0)->children(1));
+                                                                                        $link = $container->children(0)->children(1)->children(0);
+                                                                                    }
+                                                                                    else {
+                                                                                        $hasLink = !empty($container->children(0)->children(2));
+                                                                                        $link = $container->children(0)->children(2)->children(0);
+                                                                                    }
+                                                                                    if (!empty($container->children(0)) && $hasLink) {
+                                                                                        // перебираем строки с ссылками на файлы
+                                                                                        if (!empty($link->attr['class'])) continue; // некоторые ссылки относятся к уже недействущим редакциям
+
+                                                                                        $url = $link->attr['href'];
+
+                                                                                        $src_id = null;
+                                                                                        if (preg_match("/.*\?uid=(\w+)$/", $url, $output_array)){
+                                                                                            $src_id = $output_array[1];
+                                                                                            unset($output_array);
+                                                                                        }
+                                                                                        else {
+                                                                                            $urlParsed = parse_url($url);
+                                                                                            if (isset($urlParsed['query'])) {
+                                                                                                parse_str($urlParsed['query'], $output_array);
+                                                                                                if (null !== $output_array['fid']) {
+                                                                                                    $src_id = $output_array['fid'];
+                                                                                                }
+                                                                                            }
+                                                                                            elseif ($chapterText == self::CHAPTER_NAME_44_FILES_PROTOCOL) {
+                                                                                                // для протоколов идентификатор может извлекатсья необычным способом
+                                                                                                if (preg_match("/.*\/id\/(\d+)\/extract.*$/", $url, $output_array)){
+                                                                                                    $src_id = $output_array[1];
+                                                                                                }
+                                                                                            }
+                                                                                        }
+
+                                                                                        $ct_id = null;
+                                                                                        switch ($chapterText) {
+                                                                                            case 'документация, изменение документации':
+                                                                                                $ct_id = TendersContentTypes::CONTENT_TYPE_ДОКУМЕНТАЦИЯ; break;
+                                                                                            case 'разъяснение положений документации об электронном аукционе':
+                                                                                                $ct_id = TendersContentTypes::CONTENT_TYPE_РАЗЪЯСНЕНИЯ_ДОКУМЕНТАЦИИ; break;
+                                                                                            case self::CHAPTER_NAME_44_FILES_PROTOCOL:
+                                                                                                $ct_id = TendersContentTypes::CONTENT_TYPE_ПРОТОКОЛЫ; break;
+                                                                                        }
+
+                                                                                        $ofn = null;
+                                                                                        if (!empty($link->attr['title'])) {
+                                                                                            $ofn = $link->attr['title'];
+                                                                                        }
+
+                                                                                        $result[] = [
+                                                                                            'url' => $url,
+                                                                                            'src_id' => $src_id,
+                                                                                            'uploaded_at' => $uploaded_at, // дата размещения на площадке, одна на все файлы данной строки
+                                                                                            'ct_id' => $ct_id,
+                                                                                            'ofn' => $ofn,
+                                                                                        ];
+
+                                                                                        unset($ofn, $link);
+                                                                                    }
+                                                                                }
                                                                             }
-
-                                                                            $ct_id = null;
-                                                                            switch ($chapterText) {
-                                                                                case 'документация, изменение документации':
-                                                                                    $ct_id = TendersContentTypes::CONTENT_TYPE_ДОКУМЕНТАЦИЯ; break;
-                                                                                case 'разъяснение положений документации об электронном аукционе':
-                                                                                    $ct_id = TendersContentTypes::CONTENT_TYPE_РАЗЪЯСНЕНИЯ_ДОКУМЕНТАЦИИ; break;
-                                                                            }
-
-                                                                            $result[] = [
-                                                                                'url' => $link->attr['href'],
-                                                                                'src_id' => $src_id,
-                                                                                'uploaded_at' => $uploaded_at, // дата размещения на площадке, одна на все файлы данной строки
-                                                                                'ct_id' => $ct_id,
-                                                                            ];
                                                                         }
                                                                     }
                                                                 }
@@ -1088,26 +1519,39 @@ class Tenders extends \yii\db\ActiveRecord
                                                         }
 
                                                         break;
-                                                    case 'протоколы работы комиссии, полученные с электронной площадки (эп)':
-                                                        // nextSibling() - это div, children(0)->children(0) - это table > tbody
-                                                        $block = $chapterTitle->nextSibling()->children(0)->children(0);
+                                                }
+
+                                                break;
+                                            case self::TENDERS_223_PAGE_PROTOCOLS:
+                                                ////////////////////////////////////////////////////////////////////////
+                                                /// СБОР СО СТРАНИЦЫ "ПРОТОКОЛЫ"                                     ///
+                                                ////////////////////////////////////////////////////////////////////////
+                                                switch ($chapterText) {
+                                                    case 'протоколы подэтапа протокол подведения итогов открытого аукциона в электронной форме':
+                                                        $block = $chapterTitle->nextSibling()->children(1)->children(0)->children(1);
                                                         // перебираем строки с ссылками на файлы
-                                                        if (count($block->children()) > 1) {
+                                                        if (count($block->children()) > 0) {
                                                             foreach ($block->children() as $tr) {
-                                                                // ссылка на файл
                                                                 $url = null;
-                                                                if (isset($tr->children(3)->children(1)->children(1)->children(0)->attr['href'])) {
-                                                                    // children(3) - это последний в строке td, children(1) - это <div class=" attachment">, children(1) - это <div class=" width200 w-wrap-break-word minWidth200-pv word-wrap-break-word-pv">, children(0) - это <a>
-                                                                    $url = $tr->children(3)->children(1)->children(1)->children(0)->attr['href'];
+                                                                if (isset($tr->children(1)->children(0)->children(0)->children(0)->attr['onclick'])) {
+                                                                    $url = $tr->children(1)->children(0)->children(0)->children(0)->attr['onclick'];
+                                                                    $url = str_replace('window.open(\'', '', $url);
+                                                                    $url = str_replace('\'); return false;', '', $url);
+                                                                }
+
+                                                                $src_id = null;
+                                                                if (preg_match("/.*\?protocolInfoId=(\d+).*$/", $url, $output_array)){
+                                                                    $src_id = $output_array[1];
+                                                                    unset($output_array);
                                                                 }
 
                                                                 $result[] = [
-                                                                    'url' => $url,
-                                                                    'uploaded_at' => $this->convertDate($tr->children(2)->children(0)->children(1)->plaintext), // дата размещения на площадке
+                                                                    'url' => Tenders::URL_SRC_MAIN . $url,
+                                                                    'revision' => preg_replace("/[^0-9]/", '', trim($tr->children(3)->plaintext)),
+                                                                    'src_id' => $src_id,
+                                                                    'uploaded_at' => $this->convertDate(trim($tr->children(2)->plaintext)), // дата размещения на площадке
                                                                     'ct_id' => TendersContentTypes::CONTENT_TYPE_ПРОТОКОЛЫ,
                                                                 ];
-
-                                                                unset($pizDate);
                                                             }
                                                         }
 
@@ -1115,6 +1559,42 @@ class Tenders extends \yii\db\ActiveRecord
                                                 }
 
                                                 break;
+                                            case self::TENDERS_44_PAGE_RESULTS:
+                                                ////////////////////////////////////////////////////////////////////////////////
+                                                /// СБОР СО СТРАНИЦЫ "РЕЗУЛЬТАТЫ ОПРЕДЕЛЕНИЯ ПОСТАВЩИКА"                     ///
+                                                ////////////////////////////////////////////////////////////////////////////////
+                                                switch ($chapterText) {
+                                                    case 'сведения о контракте из реестра контрактов':
+                                                        if (!empty($chapterTitle->nextSibling())) {
+                                                            $table = $chapterTitle->nextSibling()->children(0);
+                                                            if ($table->tag == 'table') {
+                                                                // если поставщик определен, в этом месте будет таблица, а иначе тег section
+                                                                $tr = $table->children(1)->children(0);
+
+                                                                // в третьей ячейке хранится наименование поставщика
+                                                                if (!empty($tr->children(2))) {
+                                                                    $result['name'] = trim($tr->children(2)->plaintext);
+                                                                }
+
+                                                                // в четвертой ячейке хранится ценовое предложение поставщика
+                                                                if (!empty($tr->children(3))) {
+                                                                    $price = trim($tr->children(3)->plaintext);
+                                                                    $price = preg_replace("/[^,.0-9]/", '', $price);
+                                                                    $price = str_replace([' ', chr(0xC2) . chr(0xA0)], '', $price);
+                                                                    $price = str_replace(',', '.', $price);
+                                                                    $result['price'] = $price;
+                                                                    unset($price);
+                                                                }
+
+                                                                // в пятой ячейке хранится время принятия решения (размещения документа)
+                                                                if (!empty($tr->children(4))) {
+                                                                    $result['placed_at'] = $this->convertDate(trim($tr->children(4)->plaintext));
+                                                                }
+                                                            }
+                                                        }
+
+                                                        break;
+                                                }
                                         }
                                     }
                                 }
@@ -1175,7 +1655,7 @@ class Tenders extends \yii\db\ActiveRecord
      */
     public function getTk()
     {
-        return $this->hasOne(TendersKinds::className(), ['id' => 'tk_id']);
+        return $this->hasOne(TendersKinds::class, ['id' => 'tk_id']);
     }
 
     /**
@@ -1196,11 +1676,20 @@ class Tenders extends \yii\db\ActiveRecord
     }
 
     /**
+     * Возвращает E-mail автор тендера.
+     * @return string
+     */
+    public function getCreatedByEmail()
+    {
+        return !empty($this->createdBy) ? $this->createdBy->email : '';
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getCreatedByRole()
     {
-        return $this->hasOne(AuthAssignment::className(), ['user_id' => 'manager_id']);
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'manager_id']);
     }
 
     /**
@@ -1249,6 +1738,23 @@ class Tenders extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getStage()
+    {
+        return $this->hasOne(TendersStages::class, ['id' => 'stage_id']);
+    }
+
+    /**
+     * Возвращает наименование этапа закупки.
+     * @return string
+     */
+    public function getStageName()
+    {
+        return !empty($this->stage) ? $this->stage->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getOrg()
     {
         return $this->hasOne(Organizations::class, ['id' => 'org_id']);
@@ -1284,7 +1790,7 @@ class Tenders extends \yii\db\ActiveRecord
      */
     public function getManagerRole()
     {
-        return $this->hasOne(AuthAssignment::className(), ['user_id' => 'manager_id']);
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'manager_id']);
     }
 
     /**
@@ -1348,6 +1854,31 @@ class Tenders extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getTenderLossReason()
+    {
+        return $this->hasOne(TendersLr::class, ['tender_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getLossReason()
+    {
+        return $this->hasOne(TendersLossReasons::class, ['id' => 'lr_id'])->via('tenderLossReason');
+    }
+
+    /**
+     * Возвращает наименование причины проигрыша.
+     * @return string
+     */
+    public function getLossReasonName()
+    {
+        return !empty($this->lossReason) ? $this->lossReason->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getTendersTp()
     {
         return $this->hasMany(TendersTp::class, ['tender_id' => 'id']);
@@ -1358,7 +1889,7 @@ class Tenders extends \yii\db\ActiveRecord
      */
     public function getTendersWe()
     {
-        return $this->hasMany(TendersWe::className(), ['tender_id' => 'id']);
+        return $this->hasMany(TendersWe::class, ['tender_id' => 'id']);
     }
 
     /**
@@ -1366,7 +1897,7 @@ class Tenders extends \yii\db\ActiveRecord
      */
     public function getTendersLogs()
     {
-        return $this->hasMany(TendersLogs::className(), ['tender_id' => 'id']);
+        return $this->hasMany(TendersLogs::class, ['tender_id' => 'id']);
     }
 
     /**
@@ -1384,5 +1915,13 @@ class Tenders extends \yii\db\ActiveRecord
     public function getTendersSourceIdsFiles()
     {
         return ArrayHelper::getColumn($this->tendersFiles, 'src_id', false);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getWinner()
+    {
+        return $this->hasOne(TendersResults::class, ['tender_id' => 'id']);
     }
 }

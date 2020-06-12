@@ -29,7 +29,7 @@ use common\models\PoValues;
 
             </div>
             <div class="col-md-2">
-                <label class="control-label">&nbsp;</label>
+                <div class="form-group" style="margin-bottom: 0px;"><label class="control-label">&nbsp;</label></div>
                 <?= Html::submitButton('Добавить <i class="fa fa-arrow-down"></i> ', ['class' => 'btn btn-success btn-xs']) ?>
 
             </div>

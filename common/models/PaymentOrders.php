@@ -26,6 +26,9 @@ use yii\helpers\ArrayHelper;
  * @property int $emf_sent_at Дата и время отправки письма перевозчику
  * @property int $approved_at Дата и время согласования ордера
  * @property int $ccp_at Дата и время прикрепления акта выполненных работ
+ * @property int $or_at Дата и время получения оригиналов документов
+ * @property string $imt_num Трек-номер
+ * @property int $imt_state Статус почтового отправления (1 - в пути, 2 - доставлено, 3 - получено)
  * @property string $comment Комментарий
  *
  * @property string $modelRep
@@ -33,6 +36,7 @@ use yii\helpers\ArrayHelper;
  * @property string $stateName
  * @property string $ferrymanName
  * @property string $pdTypeName
+ * @property string $trackStateName
  *
  * @property Ferrymen $ferryman
  * @property User $createdBy
@@ -53,6 +57,14 @@ class PaymentOrders extends \yii\db\ActiveRecord
      */
     const PAYMENT_ORDER_CREATION_TYPE_ВРУЧНУЮ = 1;
     const PAYMENT_ORDER_CREATION_TYPE_ИМПОРТ_ИЗ_EXCEL = 2;
+
+    /**
+     * Статусы почтового отправления
+     */
+    const INCOMING_MAIL_STATE_В_ПУТИ = 1;
+    const INCOMING_MAIL_STATE_В_ОТДЕЛЕНИИ = 2;
+    const INCOMING_MAIL_STATE_ПОЛУЧЕНО = 3;
+    const INCOMING_MAIL_STATE_НЕВОСТРЕБОВАНО = 4;
 
     /**
      * @var integer количество прикрепленных к платежному ордеру файлов (виртуальное поле)
@@ -79,15 +91,16 @@ class PaymentOrders extends \yii\db\ActiveRecord
     {
         return [
             [['ferryman_id', 'projects'], 'required'],
-            [['created_at', 'created_by', 'creation_type', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'emf_sent_at', 'approved_at', 'ccp_at'], 'integer'],
+            [['created_at', 'created_by', 'creation_type', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'emf_sent_at', 'approved_at', 'ccp_at', 'or_at', 'imt_state'], 'integer'],
             [['projects', 'cas', 'vds', 'comment'], 'string'],
             [['amount'], 'number'],
             [['pay_till', 'payment_date'], 'safe'],
-            [['comment'], 'default', 'value' => null],
+            [['imt_num'], 'string', 'max' => 50],
+            [['imt_num', 'imt_state', 'comment'], 'default', 'value' => null],
             [['fileCc'], 'file', 'skipOnEmpty' => true],
-            [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::className(), 'targetAttribute' => ['ferryman_id' => 'id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
-            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentOrdersStates::className(), 'targetAttribute' => ['state_id' => 'id']],
+            [['ferryman_id'], 'exist', 'skipOnError' => true, 'targetClass' => Ferrymen::class, 'targetAttribute' => ['ferryman_id' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => PaymentOrdersStates::class, 'targetAttribute' => ['state_id' => 'id']],
             // собственные правила валидации
             ['ferryman_id', 'validateFerryman'],
             ['projects', 'validateProjects'],
@@ -118,6 +131,9 @@ class PaymentOrders extends \yii\db\ActiveRecord
             'emf_sent_at' => 'Дата и время отправки письма перевозчику',
             'approved_at' => 'Дата и время согласования ордера',
             'ccp_at' => 'Дата и время прикрепления акта выполненных работ',
+            'or_at' => 'Дата и время получения оригиналов документов',
+            'imt_num' => 'Трек-номер',
+            'imt_state' => 'Статус почтового отправления (1 - в пути, 2 - доставлено, 3 - получено)',
             'comment' => 'Комментарий',
             // виртуальные поля
             'fileCc' => 'Файл с АВР',
@@ -249,9 +265,12 @@ class PaymentOrders extends \yii\db\ActiveRecord
                 'ofn' => $this->fileCc->name,
                 'size' => filesize($ffp),
             ]))->save()) {
-                $this->updateAttributes([
-                    'ccp_at' => time(),
-                ]);
+                if (empty($this->ccp_at)) {
+                    $this->updateAttributes([
+                        'ccp_at' => time(),
+                    ]);
+                }
+
                 return true;
             }
             else {
@@ -289,6 +308,42 @@ class PaymentOrders extends \yii\db\ActiveRecord
     public static function arrayMapForSelect2()
     {
         return ArrayHelper::map(self::fetchPaymentDestinations(), 'id', 'name');
+    }
+
+    /**
+     * Возвращает массив, содержащий статусы отправлений.
+     * @return array
+     */
+    public static function fetchTrackStates()
+    {
+        return [
+            [
+                'id' => self::INCOMING_MAIL_STATE_В_ПУТИ,
+                'name' => 'В пути',
+            ],
+            [
+                'id' => self::INCOMING_MAIL_STATE_В_ОТДЕЛЕНИИ,
+                'name' => 'В отделении',
+            ],
+            [
+                'id' => self::INCOMING_MAIL_STATE_ПОЛУЧЕНО,
+                'name' => 'Получено',
+            ],
+            [
+                'id' => self::INCOMING_MAIL_STATE_НЕВОСТРЕБОВАНО,
+                'name' => 'Невостребовано',
+            ],
+        ];
+    }
+
+    /**
+     * Делает выборку статусов отправлений и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfTrackStatesForSelect2()
+    {
+        return ArrayHelper::map(self::fetchTrackStates(), 'id', 'name');
     }
 
     /**
@@ -442,6 +497,11 @@ class PaymentOrders extends \yii\db\ActiveRecord
                     if ($letter->send()) $this->emf_sent_at = time();
                 }
             }
+            else {
+                if (empty($this->imt_state) && !empty($this->imt_num)) {
+                    $this->imt_state = self::INCOMING_MAIL_STATE_В_ПУТИ;
+                }
+            }
 
             return true;
         }
@@ -476,7 +536,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
      */
     public function getCreatedBy()
     {
-        return $this->hasOne(User::className(), ['id' => 'created_by']);
+        return $this->hasOne(User::class, ['id' => 'created_by']);
     }
 
     /**
@@ -484,7 +544,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'created_by']);
+        return $this->hasOne(Profile::class, ['user_id' => 'created_by']);
     }
 
     /**
@@ -501,7 +561,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
      */
     public function getState()
     {
-        return $this->hasOne(PaymentOrdersStates::className(), ['id' => 'state_id']);
+        return $this->hasOne(PaymentOrdersStates::class, ['id' => 'state_id']);
     }
 
     /**
@@ -518,7 +578,7 @@ class PaymentOrders extends \yii\db\ActiveRecord
      */
     public function getFerryman()
     {
-        return $this->hasOne(Ferrymen::className(), ['id' => 'ferryman_id']);
+        return $this->hasOne(Ferrymen::class, ['id' => 'ferryman_id']);
     }
 
     /**
@@ -548,10 +608,27 @@ class PaymentOrders extends \yii\db\ActiveRecord
     }
 
     /**
+     * Возвращает наименование статуса отправления.
+     * @return string
+     */
+    public function getTrackStateName()
+    {
+        if (null === $this->imt_state) {
+            return '<не определен>';
+        }
+
+        $sourceTable = self::fetchTrackStates();
+        $key = array_search($this->imt_state, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getPaymentOrdersFiles()
     {
-        return $this->hasMany(PaymentOrdersFiles::className(), ['po_id' => 'id']);
+        return $this->hasMany(PaymentOrdersFiles::class, ['po_id' => 'id']);
     }
 }

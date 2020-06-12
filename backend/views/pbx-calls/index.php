@@ -6,6 +6,7 @@ use backend\components\grid\GridView;
 use yii\web\View;
 use common\models\pbxCalls;
 use common\models\pbxCallsSearch;
+use \backend\controllers\PbxCallsController;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\pbxCallsSearch */
@@ -160,7 +161,7 @@ if ($dataProvider->getTotalCount() > 0) {
                     /* @var $column \yii\grid\DataColumn */
 
                     $array = explode('|', $model->{$column->attribute});
-                    if (is_array($array)) {
+                    if (is_array($array) && count($array) == 2) {
                         return trim($array[0]) . ' <small class="text-muted">' . $array[1] . '</small>';
                     }
                     else return $model->{$column->attribute};
@@ -176,11 +177,19 @@ if ($dataProvider->getTotalCount() > 0) {
                     /* @var $column \yii\grid\DataColumn */
 
                     $duration = pbxCalls::formatConversationDuration($model->{$column->attribute});
-                    if ($duration != '-')
-                        return Html::a(
+                    if ($duration != '-') {
+                        $buttons = Html::a(
                             Html::tag('i', '', ['class' => 'fa fa-play-circle-o text-primary', 'aria-hidden' => 'true']) . ' ' . $duration,
                             Url::to(['/pbx-calls/preview-file', 'id' => $model->id]),
                             ['id' => 'btnPlay' . $model->id, 'class' => 'btn btn-default btn-xs', 'title' => 'Воспроизвести эту запись разговора']);
+
+                        // кнопка "Скачать результаты распознавания разговора"
+                        if (!empty($model->recognitionFfp)) {
+                            $buttons .= ' ' . Html::a(Html::tag('i', '', ['class' => 'fa fa-cloud-download', 'aria-hidden' => true]), Url::to(\yii\helpers\ArrayHelper::merge(PbxCallsController::URL_DOWNLOAD_RECOGNITION_RESULT_AS_ARRAY, ['id' => $model->id])), ['class' => 'btn btn-warning btn-xs', 'title' => 'Скачать результаты распознавания разговора']);
+                        }
+
+                        return $buttons;
+                    }
                     else
                         return $duration;
                 },
@@ -259,7 +268,32 @@ if ($dataProvider->getTotalCount() > 0) {
         </div>
     </div>
 </div>
+<div class="global-preloader"></div>
 <?php
+$this->registerCss('
+.global-preloader {
+    display:    none;
+    position:   fixed;
+    z-index:    1000;
+    top:        0;
+    left:       0;
+    height:     100%;
+    width:      100%;
+    background: rgba( 255, 255, 255, .8 )
+    url("/images/preloader96.gif")
+    50% 50%
+    no-repeat;
+}
+
+body.loading {
+    overflow: hidden;
+}
+
+body.loading .global-preloader {
+    display: block;
+}
+');
+
 $this->registerJsFile('https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js', ['depends' => 'yii\web\JqueryAsset', 'position' => View::POS_END]);
 
 $urlRenderPlayConversationForm = Url::to(['/pbx-calls/render-play-conversation-form']);
@@ -269,7 +303,7 @@ $urlGetCounteragentsName = Url::to(['/pbx-calls/get-counteragents-name']);
 $urlFilterByFoCaId = Url::to(['/pbx-calls', $searchModel->formName() => ['fo_ca_id' => '']]);
 $urlIdentifyFoCa = Url::to(['/pbx-calls/identify-counteragent-form']);
 $urlApplyCounteragentsIdentification = Url::to(['/pbx-calls/apply-identification']);
-$urlTranscribeSelected = Url::to(\backend\controllers\PbxCallsController::URL_TRANSCRIBE_SELECTED_FILES_AS_ARRAY);
+$urlTranscribeSelected = Url::to(PbxCallsController::URL_TRANSCRIBE_SELECTED_FILES_AS_ARRAY);
 
 $this->registerJs(<<<JS
 // Функция-обработчик изменения даты в любом из соответствующих полей.
@@ -410,7 +444,7 @@ function btnApplyIdentificationOnClick() {
                 // заменяем только у текущей кнопки наименование
                 element = $("#btnIdentifyCounteragent" + retval.call_id);
             }
-            element.replaceWith('<small><a href="$urlFilterByFoCaId' + retval.ca_id + '" title="Выполнить отбор по этому контрагенту за сегодня">' + retval.ca_name + '</a></small>')
+            element.replaceWith('<small><a href="$urlFilterByFoCaId' + retval.ca_id + '" title="Выполнить отбор по этому контрагенту за сегодня">' + retval.ca_name + '</a></small>');
 
             $("#modalWindow").modal("hide");
         }
@@ -470,8 +504,33 @@ function transcribeSelectedFilesOnClick() {
     var ids = $("#$gwConversationsId").yiiGridView("getSelectedRows");
     if (ids == "") return false;
 
-    if (confirm("Распознание проиизводится в несколько этапов. Для начала файлы будут отправлены на сервер Яндекса и поставлены в очередь, поскольку процесс распознания занимает время. Когда запись будет распознана (наш робот автоматически отслеживает распознанные записи), на этой странице в каждой такой строке появится соответствующий значок. Продолжить?")) {
-        $(this).attr("href", "$urlTranscribeSelected?ids=" + ids);
+    if (confirm("Распознание производится в несколько этапов. Для начала файлы будут отправлены на сервер Яндекса и поставлены в очередь, поскольку процесс распознания занимает время. Когда запись будет распознана (наш робот автоматически отслеживает распознанные записи), на этой странице в каждой такой строке появится соответствующий значок. Продолжить?")) {
+        \$body = $("body");
+        \$body.addClass("loading");
+        $.post("$urlTranscribeSelected", {ids:ids}, function(response) {
+            \$body.removeClass("loading");
+
+            // снимаем все отметки
+            $("input[name ^= 'selection[]']").iCheck("uncheck");
+
+            if (response == true) {
+                alert("Все звонки успешно поставлены в очередь!");
+            }
+            else {
+                $.each(response.ids, function (index, element) {
+                    $("input[value = '" + element + "']").iCheck("check");
+                });
+
+                message = "";
+                $.each(response.errors, function (index, element) {
+                    message += "\\r\\n" + element;
+                });
+
+                alert("Не все звонки были отправлены на распознавание. Проблемные остаются отмеченными." + message);
+            }
+        }).always(function() {
+            \$body.removeClass("loading");
+        });
     }
 
     return false;

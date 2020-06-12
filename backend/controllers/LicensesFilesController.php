@@ -142,6 +142,8 @@ class LicensesFilesController extends Controller
                     'modelRep' => $model->ofn,
                     'buttonCaption' => 'Сканы лицензий',
                     'buttonUrl' => ['/licenses-files'],
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

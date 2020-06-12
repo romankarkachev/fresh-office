@@ -101,7 +101,17 @@ $packagesTypes = CorrespondencePackagesSearch::fetchFilterPackagesTypes();
             </div>
             <div class="row">
                 <?php endif; ?>
-                <div class="col-md-6">
+                <div class="col-md-2">
+                    <?= $form->field($model, 'pd_id')->widget(Select2::className(), [
+                        'data' => \common\models\PostDeliveryKinds::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                        'hideSearch' => true,
+                    ]) ?>
+
+                </div>
+                <div class="col-md-7">
                     <?= $form->field($model, 'searchGroupProjectStates', [
                         'inline' => true,
                     ])->radioList(ArrayHelper::map($groups, 'id', 'name'), [

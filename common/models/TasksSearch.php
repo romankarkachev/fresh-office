@@ -114,6 +114,52 @@ class TasksSearch extends Tasks
     }
 
     /**
+     * Возвращает набор атрибутов, по которым можно сортировать список задач.
+     * @return array
+     */
+    public static function sortAttributes()
+    {
+        return [
+            'id',
+            'created_at',
+            'created_by',
+            'type_id',
+            'state_id',
+            'priority_id',
+            'start_at',
+            'finish_at',
+            'fo_ca_id',
+            'fo_ca_name',
+            'fo_cp_id',
+            'fo_cp_name',
+            'responsible_id',
+            'project_id',
+            'purpose',
+            'solution',
+            'createdByProfileName' => [
+                'asc' => ['createdByProfile.name' => SORT_ASC],
+                'desc' => ['createdByProfile.name' => SORT_DESC],
+            ],
+            'typeName' => [
+                'asc' => [TasksTypes::tableName() . '.name' => SORT_ASC],
+                'desc' => [TasksTypes::tableName() . '.name' => SORT_DESC],
+            ],
+            'stateName' => [
+                'asc' => [TasksStates::tableName() . '.name' => SORT_ASC],
+                'desc' => [TasksStates::tableName() . '.name' => SORT_DESC],
+            ],
+            'priorityName' => [
+                'asc' => [TasksPriorities::tableName() . '.name' => SORT_ASC],
+                'desc' => [TasksPriorities::tableName() . '.name' => SORT_DESC],
+            ],
+            'responsibleProfileName' => [
+                'asc' => ['responsibleProfile.name' => SORT_ASC],
+                'desc' => ['responsibleProfile.name' => SORT_DESC],
+            ],
+        ];
+    }
+
+    /**
      * Creates data provider instance with search query applied
      *
      * @param array $params
@@ -141,44 +187,7 @@ class TasksSearch extends Tasks
             'sort' => [
                 'route' => $route,
                 'defaultOrder' => ['start_at' => SORT_DESC],
-                'attributes' => [
-                    'id',
-                    'created_at',
-                    'created_by',
-                    'type_id',
-                    'state_id',
-                    'priority_id',
-                    'start_at',
-                    'finish_at',
-                    'fo_ca_id',
-                    'fo_ca_name',
-                    'fo_cp_id',
-                    'fo_cp_name',
-                    'responsible_id',
-                    'project_id',
-                    'purpose',
-                    'solution',
-                    'createdByProfileName' => [
-                        'asc' => ['createdByProfile.name' => SORT_ASC],
-                        'desc' => ['createdByProfile.name' => SORT_DESC],
-                    ],
-                    'typeName' => [
-                        'asc' => [TasksTypes::tableName() . '.name' => SORT_ASC],
-                        'desc' => [TasksTypes::tableName() . '.name' => SORT_DESC],
-                    ],
-                    'stateName' => [
-                        'asc' => [TasksStates::tableName() . '.name' => SORT_ASC],
-                        'desc' => [TasksStates::tableName() . '.name' => SORT_DESC],
-                    ],
-                    'priorityName' => [
-                        'asc' => [TasksPriorities::tableName() . '.name' => SORT_ASC],
-                        'desc' => [TasksPriorities::tableName() . '.name' => SORT_DESC],
-                    ],
-                    'responsibleProfileName' => [
-                        'asc' => ['responsibleProfile.name' => SORT_ASC],
-                        'desc' => ['responsibleProfile.name' => SORT_DESC],
-                    ],
-                ],
+                'attributes' => self::sortAttributes(),
             ],
         ]);
 
@@ -189,6 +198,42 @@ class TasksSearch extends Tasks
             // uncomment the following line if you do not want to return any records when validation fails
             // $query->where('0=1');
             return $dataProvider;
+        }
+
+        if (!Yii::$app->user->can('root')) {
+            // пользователи могут видеть только свои задачи (поля "Автор" и "Ответственный")
+            $query->where([
+                'or',
+                [$tableName . '.`created_by`' => Yii::$app->user->id],
+                [$tableName . '.`responsible_id`' => Yii::$app->user->id],
+            ]);
+
+            // начальники отделов продаж и экологии - дополнительно своих подчиненных
+            $role = '';
+            if (Yii::$app->user->can('sales_department_head')) {
+                $role = 'sales_department_manager';
+            }
+            if (Yii::$app->user->can('ecologist_head')) {
+                $role = 'ecologist';
+            }
+            if (!empty($role)) {
+                $query->joinWith(['createdByRoles', 'responsibleRoles']);
+                $query->orWhere([
+                    'or',
+                    [self::JOIN_CREATED_BY_ROLES_ALIAS . '.`item_name`' => $role],
+                    [self::JOIN_RESPONSIBLE_ROLES_ALIAS . '.`item_name`' => $role],
+                ]);
+            }
+            unset($role);
+
+            // включаем задачи всех лиц, кто доверил отображение текущему пользователю
+            $subQuery = UsersTrusted::find()->select(['user_id'])->where(['section' => UsersTrusted::SECTION_ЗАДАЧИ, 'trusted_id' => Yii::$app->user->id]);
+            $query->orWhere([
+                'or',
+                [$tableName . '.`created_by`' => $subQuery],
+                [$tableName . '.`responsible_id`' => $subQuery],
+            ]);
+            unset($subQuery);
         }
 
         // дополним условием отбора за период по дате создания
@@ -400,7 +445,7 @@ class TasksSearch extends Tasks
             'DATE_CREATED' => $this->created_at,
             //'created_by' => $this->created_by, // ???
             'ID_VID_CONTACT' => $this->type_id,
-            'ID_PRIZNAK_CONTACT' => $this->state_id,
+            $tableName . '.ID_PRIZNAK_CONTACT' => $this->state_id,
             'ID_LIST_STATUS_CONTACT' => $this->priority_id,
             'DATA_CONTACT' => $this->start_at,
             'DATA_END_CONTACT' => $this->finish_at,

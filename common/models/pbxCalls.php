@@ -36,11 +36,13 @@ use yii\helpers\ArrayHelper;
  * @property string $regionName
  * @property string $srcEmployeeName
  * @property string $dstEmployeeName
+ * @property string $recognitionFfp
  *
  * @property pbxWebsites $website
  * @property pbxNumbers $number
  * @property pbxEmployees $srcEmployee
  * @property pbxEmployees $dstEmployee
+ * @property PbxCallsRecognitions $recognition
  */
 class pbxCalls extends \yii\db\ActiveRecord
 {
@@ -290,5 +292,22 @@ class pbxCalls extends \yii\db\ActiveRecord
     public function getDstEmployeeName()
     {
         return !empty($this->dstEmployee) ? $this->dstEmployee->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getRecognition()
+    {
+        return $this->hasOne(PbxCallsRecognitions::class, ['call_id' => 'id']);
+    }
+
+    /**
+     * Возвращает полный путь к файлу с распознанным текстом.
+     * @return string
+     */
+    public function getRecognitionFfp()
+    {
+        return !empty($this->recognition) ? $this->recognition->ffp : '';
     }
 }

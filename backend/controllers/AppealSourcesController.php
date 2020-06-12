@@ -22,7 +22,7 @@ class AppealSourcesController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'only' => ['index', 'create', 'update', 'delete'],
                 'rules' => [
                     [
@@ -32,7 +32,7 @@ class AppealSourcesController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                 ],
@@ -52,6 +52,7 @@ class AppealSourcesController extends Controller
         return $this->render('index', [
             'searchModel' => $searchModel,
             'dataProvider' => $dataProvider,
+            'searchApplied' => Yii::$app->request->get($searchModel->formName()) != null,
         ]);
     }
 

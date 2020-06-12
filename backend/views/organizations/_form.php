@@ -17,32 +17,48 @@ $label_ogrn = $model->attributeLabels()['ogrn'];
     <?php $form = ActiveForm::begin(); ?>
 
     <div class="row">
-        <div class="col-md-2">
-            <?= $form->field($model, 'inn')->widget(MaskedInput::className(), [
-                'mask' => '999999999999',
-                'clientOptions' => ['placeholder' => ''],
-            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите ИНН'])
-                ->label($label_inn, ['id' => 'label-inn']) ?>
+        <div class="col-md-4">
+            <div class="row">
+                <div class="col-md-4">
+                    <?= $form->field($model, 'inn')->widget(MaskedInput::class, [
+                        'mask' => '999999999999',
+                        'clientOptions' => ['placeholder' => ''],
+                    ])->textInput(['maxlength' => true, 'placeholder' => 'Введите ИНН'])
+                        ->label($label_inn, ['id' => 'label-inn']) ?>
 
+                </div>
+                <div class="col-md-4">
+                    <?= $form->field($model, 'kpp')->widget(MaskedInput::class, [
+                        'mask' => '999999999',
+                        'clientOptions' => ['placeholder' => ''],
+                    ])->textInput(['maxlength' => true, 'placeholder' => 'Введите КПП']) ?>
+
+                </div>
+                <div class="col-md-4">
+                    <?= $form->field($model, 'ogrn')->widget(MaskedInput::class, [
+                        'mask' => '999999999999999',
+                        'clientOptions' => ['placeholder' => ''],
+                    ])->textInput(['maxlength' => true, 'placeholder' => 'Введите ОГРН или ОГРНИП', 'title' => 'Введите ОГРН или ОГРНИП'])
+                        ->label($label_ogrn, ['id' => 'label-ogrn']) ?>
+
+                </div>
+            </div>
         </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'kpp')->widget(MaskedInput::className(), [
-                'mask' => '999999999',
-                'clientOptions' => ['placeholder' => ''],
-            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите КПП']) ?>
+        <div class="col-md-3">
+            <div class="row">
+                <div class="col-md-4">
+                    <?= $form->field($model, 'doc_num_tmpl')->textInput(['placeholder' => 'Шаблон номера договоров'])->label('Шабл. № договора') ?>
 
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'ogrn')->widget(MaskedInput::className(), [
-                'mask' => '999999999999999',
-                'clientOptions' => ['placeholder' => ''],
-            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите ОГРН или ОГРНИП', 'title' => 'Введите ОГРН или ОГРНИП'])
-                ->label($label_ogrn, ['id' => 'label-ogrn']) ?>
+                </div>
+                <div class="col-md-4">
+                    <?= $form->field($model, 'im_num_tmpl')->textInput(['placeholder' => 'Введите шаблон', 'title' => 'Шаблон номера для входящей корреспонденции'])->label('Шабл. № вх. корр.') ?>
 
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'doc_num_tmpl')->textInput(['placeholder' => 'Шаблон номера договоров']) ?>
+                </div>
+                <div class="col-md-4">
+                    <?= $form->field($model, 'om_num_tmpl')->textInput(['placeholder' => 'Введите шаблон', 'title' => 'Шаблон номера для исходящей корреспонденции'])->label('Шабл. № исх. корр.') ?>
 
+                </div>
+            </div>
         </div>
         <div class="col-md-2">
             <?= $form->field($model, 'license_req')->textInput(['placeholder' => '№ 050 079 от «30» августа 2017 г.']) ?>
@@ -58,7 +74,7 @@ $label_ogrn = $model->attributeLabels()['ogrn'];
     </div>
     <div class="row">
         <div class="col-md-4">
-            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'autofocus' => true, 'placeholder' => 'Введите наименование']) ?>
+            <?= $form->field($model, 'name')->textInput(['maxlength' => true, 'placeholder' => 'Введите наименование']) ?>
 
         </div>
         <div class="col-md-4">
@@ -109,6 +125,10 @@ $label_ogrn = $model->attributeLabels()['ogrn'];
             <?= $form->field($model, 'dir_name_of')->textInput(['maxlength' => true, 'placeholder' => 'Директор в родительном падеже', 'title' => 'Введите полные ФИО директора в родительном падеже']) ?>
 
         </div>
+    </div>
+    <div class="form-group">
+        <p class="text-muted">Примечание. Описание переменных для шаблонов номеров документов и входящей корреспонденции.</p>
+        <p class="text-muted"><strong>[D]</strong> - день, <strong>[M]</strong> - месяц, <strong>[Y]</strong> - год, <strong>[C<em>n</em>]</strong> - счетчик, где <strong><em>n</em></strong> - общее количество символов в цифре с ведущими нулями.</p>
     </div>
     <div class="form-group">
         <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Организации', ['/organizations'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>

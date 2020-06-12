@@ -1,14 +1,18 @@
 <?php
 
+use yii\helpers\Url;
 use ferryman\components\grid\GridView;
 use common\components\grid\TotalsColumn;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\foProjectsSearch */
 /* @var $dataProvider yii\data\ArrayDataProvider */
+/* @var $queryString string */
 
 $this->title = 'Рейсы | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Рейсы';
+
+$this->params['breadcrumbsRight'][] = ['label' => 'Экспорт в Excel', 'icon' => 'fa fa-file-excel-o fa-lg', 'url' => Url::to(['/freights']) . '?export=true' . $queryString, 'class' => 'btn'];
 ?>
 <div class="freights-list">
     <?= $this->render('_search', ['model' => $searchModel]); ?>

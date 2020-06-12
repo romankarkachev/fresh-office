@@ -1,6 +1,8 @@
 <?php
 namespace backend\controllers;
 
+use common\models\DesktopWidgets;
+use common\models\DesktopWidgetsAccess;
 use Yii;
 use yii\web\Controller;
 use yii\filters\VerbFilter;
@@ -18,7 +20,7 @@ class DefaultController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['login', 'error', 'phpinfo'],
@@ -32,7 +34,7 @@ class DefaultController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'logout' => ['post'],
                 ],
@@ -73,7 +75,25 @@ class DefaultController extends Controller
      */
     public function actionIndex()
     {
-        return $this->render('index');
+        $user_id  = Yii::$app->user->id;
+        $roles = Yii::$app->authManager->getRolesByUser($user_id);
+        if (count($roles) > 0) {
+            $role = current($roles)->name;
+        }
+        $widgets = '';
+        foreach (DesktopWidgets::find()->where([
+            'id' => DesktopWidgetsAccess::find()->select('widget_id')->where([
+                'or',
+                ['type' => DesktopWidgetsAccess::TYPE_ROLE, 'entity_id' => $role],
+                ['type' => DesktopWidgetsAccess::TYPE_USER, 'entity_id' => $user_id],
+            ])
+        ])->all() as $widget) {
+            if (file_exists(Yii::getAlias('@backend') . '/views/desktop-widgets/widgets/_' . $widget->alias . '.php')) {
+                $widgets .= $this->renderPartial('/desktop-widgets/widgets/_' . $widget->alias, ['model' => $widget]);
+            }
+        }
+
+        return $this->render('index', ['widgets' => $widgets]);
     }
 
     /**

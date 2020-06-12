@@ -51,7 +51,8 @@ class DocumentsTp extends \yii\db\ActiveRecord
     {
         return [
             [['doc_id'], 'required'],
-            [['doc_id', 'unit_id', 'hk_id', 'dc_id', 'fkko_id', 'fo_id', 'is_printable'], 'integer'],
+            [['doc_id', 'unit_id', 'hk_id', 'dc_id', 'fkko_id', 'fo_id'], 'integer'],
+            ['is_printable', 'boolean'],
             [['quantity'], 'number'],
             [['name', 'src_name'], 'string', 'max' => 255],
             [['src_dc'], 'string', 'max' => 10],

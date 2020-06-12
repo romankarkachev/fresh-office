@@ -20,7 +20,7 @@ $this->params['breadcrumbs'][] = $modelRep;
     <?= $this->render('_form', ['model' => $model, 'contactEmails' => $contactEmails]) ?>
 
     <?php if ($model->is_manual): ?>
-    <?= $this->render('_history', ['dataProvider' => $dpHistory]); ?>
+    <?= $this->render('_history', ['dataProvider' => $dpHistory, 'cpsName' => $model->cpsName]); ?>
 
     <?php endif; ?>
     <?= $this->render('_files', ['dataProvider' => $dpFiles]); ?>

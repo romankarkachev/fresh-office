@@ -71,7 +71,7 @@ class EcoTypes extends \yii\db\ActiveRecord
      */
     public function getEcoProjects()
     {
-        return $this->hasMany(EcoProjects::className(), ['type_id' => 'id']);
+        return $this->hasMany(EcoProjects::class, ['type_id' => 'id']);
     }
 
     /**
@@ -79,6 +79,6 @@ class EcoTypes extends \yii\db\ActiveRecord
      */
     public function getEcoTypesMilestones()
     {
-        return $this->hasMany(EcoTypesMilestones::className(), ['type_id' => 'id']);
+        return $this->hasMany(EcoTypesMilestones::class, ['type_id' => 'id']);
     }
 }

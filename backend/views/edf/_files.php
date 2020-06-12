@@ -13,7 +13,14 @@ use backend\controllers\EdfController;
 /* @var $model \common\models\Edf */
 /* @var $dataProvider yii\data\ActiveDataProvider */
 
-$btnDownloadFewPrompt = 'скачать выбранные файлы';
+$btnEmailFewPrompt = '<i class="fa fa-paper-plane text-info" aria-hidden="true"></i> файлы';
+$btnDownloadFewPrompt = '<i class="fa fa-cloud-download" aria-hidden="true"></i> файлы';
+$btnDeleteFewPrompt = '<i class="fa fa-trash" aria-hidden="true"></i> файлы';
+
+$btnEmailFewId = 'emailSelectedFiles';
+$btnDownloadFewId = 'downloadSelectedFiles';
+$btnDeleteFewId = 'deleteSelectedFiles';
+
 $gridViewId = 'gw-files';
 ?>
 <div class="panel with-nav-tabs panel-success">
@@ -164,9 +171,11 @@ function(ev, suggestion) {
             ]); ?>
 
             <div class="form-group">
-                <?= Html::a($btnDownloadFewPrompt, '#', ['id' => 'downloadSelectedFiles', 'class' => 'btn btn-default btn-xs', 'title' => 'Скачать выделенные файлы одним архивом', 'data-pjax' => '0']) ?>
+                <?= Html::a($btnEmailFewPrompt, '#', ['id' => $btnEmailFewId, 'class' => 'btn btn-default btn-xs', 'title' => 'Отправить выделенные файлы на E-mail', 'data-pjax' => '0']) ?>
 
-                <?= Html::a('удалить выделенные файлы', '#', ['id' => 'deleteSelectedFiles', 'class' => 'btn btn-danger btn-xs', 'title' => 'Удалить выделенные файлы', 'data-pjax' => true]) ?>
+                <?= Html::a($btnDownloadFewPrompt, '#', ['id' => $btnDownloadFewId, 'class' => 'btn btn-default btn-xs', 'title' => 'Скачать выделенные файлы одним архивом', 'data-pjax' => '0']) ?>
+
+                <?= Html::a($btnDeleteFewPrompt, '#', ['id' => $btnDeleteFewId, 'class' => 'btn btn-danger btn-xs', 'title' => 'Удалить выделенные файлы', 'data-pjax' => true]) ?>
 
             </div>
             <?php Pjax::end(); ?>
@@ -193,6 +202,7 @@ function(ev, suggestion) {
 <?php
 $modelId = $model->id;
 $url = Url::to(EdfController::PREVIEW_FILE_URL_AS_ARRAY);
+$urlEmailFew = Url::to(EdfController::URL_EMAIL_SELECTED_FILES_AS_ARRAY);
 $urlDownloadFew = Url::to(EdfController::URL_DOWNLOAD_SELECTED_FILES_AS_ARRAY);
 $urlDeleteFew = Url::to(EdfController::DELETE_FEW_FILES_URL_AS_ARRAY);
 
@@ -203,12 +213,20 @@ var checked = false;
 //
 function recountSelectedFiles() {
     var count = $("input[name ^= 'selection[]']:checked").length;
-    var prompt = "$btnDownloadFewPrompt";
+    var prompt = "";
+    var promptEmail = '$btnEmailFewPrompt';
+    var promptDownload = '$btnDownloadFewPrompt';
+    var promptDelete = '$btnDeleteFewPrompt';
     if (count > 0) {
-        prompt += " <strong>(" + count + ")</strong>";
+        prompt = " <strong>(" + count + ")</strong>";
+        promptEmail += prompt;
+        promptDownload += prompt;
+        promptDelete += prompt;
     }
 
-    $("#downloadSelectedFiles").html(prompt);
+    $("#$btnEmailFewId").html(promptEmail);
+    $("#$btnDownloadFewId").html(promptDownload);
+    $("#$btnDeleteFewId").html(promptDelete);
 } // recountSelectedFiles()
 
 // Обработчик щелчка по ссылке "Отметить все".
@@ -242,6 +260,23 @@ function previewFileOnClick() {
     return false;
 } // previewFileOnClick()
 
+// Обработчик щелчка по ссылке "Отправить выделенные файлы".
+//
+function emailSelectedFilesOnClick() {
+    var ids = $("#$gridViewId").yiiGridView("getSelectedRows");
+    if (ids == "") return false;
+
+    $("#btnGenerateDocs").hide();
+    $("#btnFinishEdf").hide();
+    $("#modalTitle").text("Отправка файлов заказчику");
+    \$body = $("#modalBody");
+    \$body.html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+    $("#modalWindow").modal();
+    \$body.load("$urlEmailFew?id=$modelId&files=" + ids);
+
+    return false;
+} // emailSelectedFilesOnClick()
+
 // Обработчик щелчка по ссылке "Скачать выделенные файлы".
 //
 function downloadSelectedFilesOnClick() {
@@ -268,8 +303,9 @@ function deleteSelectedFilesOnClick() {
 
 $("input[name ^= 'selection[]']").on("ifChanged", recountSelectedFiles);
 $(".select-on-check-all").on("ifClicked", checkAllOnClick);
-$(document).on("click", "#downloadSelectedFiles", downloadSelectedFilesOnClick);
-$(document).on("click", "#deleteSelectedFiles", deleteSelectedFilesOnClick);
+$(document).on("click", "#$btnEmailFewId", emailSelectedFilesOnClick);
+$(document).on("click", "#$btnDownloadFewId", downloadSelectedFilesOnClick);
+$(document).on("click", "#$btnDeleteFewId", deleteSelectedFilesOnClick);
 $(document).on("click", "a[id ^= 'previewFile']", previewFileOnClick);
 JS
 , \yii\web\View::POS_READY);

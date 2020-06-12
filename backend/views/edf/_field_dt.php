@@ -1,6 +1,7 @@
 <?php
 
 use kartik\select2\Select2;
+use common\models\DocumentsTypes;
 use common\models\EdfStates;
 
 /* @var $this yii\web\View */
@@ -8,9 +9,9 @@ use common\models\EdfStates;
 /* @var $form yii\bootstrap\ActiveForm */
 /* @var $hasAccess bool наличие доступа к нескольким объектам электронного документа (менеджер не имеет) */
 ?>
-<?php if ($model->type_id == \common\models\DocumentsTypes::TYPE_ДОГОВОР): ?>
+<?php if ($model->type_id == DocumentsTypes::TYPE_ДОГОВОР): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'ct_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'ct_id')->widget(Select2::class, [
                 'data' => \common\models\ContractTypes::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -20,9 +21,9 @@ use common\models\EdfStates;
             ]) ?>
 
         </div>
-<?php elseif ($model->type_id == \common\models\DocumentsTypes::TYPE_ДОП_СОГЛАШЕНИЕ): ?>
+<?php elseif ($model->type_id == DocumentsTypes::TYPE_ДОП_СОГЛАШЕНИЕ): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'parent_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'parent_id')->widget(Select2::class, [
                 'data' => \common\models\Edf::arrayMapOfContractsForSelect2($model->fo_ca_id),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],

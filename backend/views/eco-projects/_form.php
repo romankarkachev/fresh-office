@@ -22,58 +22,16 @@ $formNameId = strtolower($formName);
 
     <div class="row">
         <div class="col-md-2">
-            <?= $form->field($model, 'date_start')->widget(DateControl::className(), [
-                'value' => $model->date_start,
-                'type' => DateControl::FORMAT_DATE,
-                'displayFormat' => 'php:d.m.Y',
-                'saveFormat' => 'php:Y-m-d',
-                'widgetOptions' => [
-                    'layout' => '{input}{picker}',
-                    'options' => ['placeholder' => '- выберите дату -'],
-                    'pluginOptions' => [
-                        'weekStart' => 1,
-                        'autoclose' => true,
-                    ],
-                ],
-            ]) ?>
-
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'date_finish_contract')->widget(DateControl::className(), [
-                'value' => $model->date_finish_contract,
-                'type' => DateControl::FORMAT_DATE,
-                'displayFormat' => 'php:d.m.Y',
-                'saveFormat' => 'php:Y-m-d',
-                'widgetOptions' => [
-                    'layout' => '{input}{picker}',
-                    'options' => ['placeholder' => '- выберите дату -'],
-                    'pluginOptions' => [
-                        'weekStart' => 1,
-                        'autoclose' => true,
-                    ],
-                ],
-            ]) ?>
-
-        </div>
-        <div class="col-md-2">
-            <?= $form->field($model, 'type_id')->widget(Select2::className(), [
-                'data' => EcoTypes::arrayMapForSelect2(),
+            <?= $form->field($model, 'org_id')->widget(Select2::class, [
+                'data' => \common\models\Organizations::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
                 'hideSearch' => true,
-                'pluginOptions' => ['allowClear' => true],
-                'pluginEvents' => [
-                    'select2:select' => new JsExpression('function() {
-    typeOnChange();
-}'),
-                ],
             ]) ?>
 
         </div>
-        <?= $this->render('_contract_amount_field', ['model' => $model, 'form' => $form]); ?>
-
         <div class="col-md-2">
-            <?= $form->field($model, 'ca_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'ca_id')->widget(Select2::class, [
                 'initValueText' => \common\models\TransportRequests::getCustomerName($model->ca_id),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'language' => 'ru',
@@ -95,9 +53,60 @@ $formNameId = strtolower($formName);
             ]) ?>
 
         </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'date_start')->widget(DateControl::class, [
+                'value' => $model->date_start,
+                'type' => DateControl::FORMAT_DATE,
+                'displayFormat' => 'php:d.m.Y',
+                'saveFormat' => 'php:Y-m-d',
+                'widgetOptions' => [
+                    'layout' => '{input}{picker}',
+                    'options' => ['placeholder' => '- выберите дату -', 'autocomplete' => 'off', 'title' => $model->getAttributeLabel('date_start')],
+                    'pluginOptions' => [
+                        'weekStart' => 1,
+                        'autoclose' => true,
+                    ],
+                ],
+            ])->label('Дата запуска') ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'date_finish_contract')->widget(DateControl::class, [
+                'value' => $model->date_finish_contract,
+                'type' => DateControl::FORMAT_DATE,
+                'displayFormat' => 'php:d.m.Y',
+                'saveFormat' => 'php:Y-m-d',
+                'widgetOptions' => [
+                    'layout' => '{input}{picker}',
+                    'options' => ['placeholder' => '- выберите дату -', 'autocomplete' => 'off', 'title' => $model->getAttributeLabel('date_finish_contract')],
+                    'pluginOptions' => [
+                        'weekStart' => 1,
+                        'autoclose' => true,
+                    ],
+                ],
+            ])->label('Дата завершения') ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'type_id')->widget(Select2::class, [
+                'data' => EcoTypes::arrayMapForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -'],
+                'hideSearch' => true,
+                'pluginOptions' => ['allowClear' => true],
+                'pluginEvents' => [
+                    'select2:select' => new JsExpression('function() {
+    typeOnChange();
+}'),
+                ],
+            ]) ?>
+
+        </div>
+        <?= $this->render('_contract_amount_field', ['model' => $model, 'form' => $form]); ?>
+
         <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head')): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'responsible_id')->widget(Select2::class, [
                 'data' => \common\models\EcoProjectsAccess::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],

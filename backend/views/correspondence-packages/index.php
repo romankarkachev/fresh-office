@@ -14,13 +14,24 @@ use common\models\CorrespondencePackagesStates;
 $this->title = 'Корреспонденция | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Пакеты корреспонденции';
 
+$canRoot = Yii::$app->user->can('root');
+$canOperatorHead = Yii::$app->user->can('operator_head');
 $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selection']);
+
+$gridViewId = 'gw-packages';
+
+$btnDeleteFewPrompt = '<i class="fa fa-trash-o" aria-hidden="true"></i> удалить выбранные';
+$btnDeleteFewId = 'deleteSelected';
+$btnDeleteFew = '';
+if ($canRoot || $canOperatorHead) {
+    $btnDeleteFew = Html::a($btnDeleteFewPrompt, '#', ['id' => $btnDeleteFewId, 'class' => 'btn btn-danger btn-xs', 'title' => 'Удалить выделенные пакеты корреспонденции']);
+}
 ?>
 <div class="correspondence-packages-list">
     <?= $this->render('_search', ['model' => $searchModel]); ?>
 
     <p>
-        <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('operator_head')): ?>
+        <?php if ($canRoot || $canOperatorHead): ?>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
         <?= Html::a('<i class="fa fa-truck"></i> Сформировать пакет', $urlComposePackage, [
@@ -32,9 +43,9 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
         <?php endif; ?>
     </p>
     <?= GridView::widget([
+        'id' => $gridViewId,
         'dataProvider' => $dataProvider,
-        'id' => 'gw-packages',
-
+        'layout' => "<div style=\"position: relative; min-height: 20px;\"><small class=\"pull-right form-text text-muted\" style=\"position: absolute; bottom: 0; right: 0;\">{summary}</small></div>\n{items}\n<div class=\"row\"><div class=\"col-md-6\">$btnDeleteFew</div><div class=\"col-md-6\"><small class=\"pull-right form-text text-muted\">{summary}</small></div></div>\n{pager}",
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'rowOptions' => function ($model, $key, $index, $grid) {
             /* @var $model \common\models\CorrespondencePackages */
@@ -56,7 +67,7 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
             [
                 'class' => 'yii\grid\CheckboxColumn',
                 'options' => ['width' => '30'],
-                'visible' => Yii::$app->user->can('root') || Yii::$app->user->can('operator_head'),
+                'visible' => $canRoot || $canOperatorHead,
             ],
             [
                 'attribute' => 'fo_project_id',
@@ -112,29 +123,53 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
             ],
             [
                 'attribute' => 'customer_name',
-                'value' => function($model, $key, $index, $column) {
-                    /* @var $model \common\models\CorrespondencePackages */
-                    /* @var $column \yii\grid\DataColumn */
-
-                    $contactPerson = '';
-                    if ($model->contact_person != null && $model->contact_person != '') $contactPerson = ' [' . $model->contact_person . ']';
-
-                    return $model->{$column->attribute} . $contactPerson;
-                },
-            ],
-            [
-                'attribute' => 'cpsName',
-                'visible' => Yii::$app->user->can('operator_head') || Yii::$app->user->can('sales_department_manager'),
-            ],
-            [
-                'attribute' => 'stateName',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) {
                     /* @var $model \common\models\CorrespondencePackages */
                     /* @var $column \yii\grid\DataColumn */
 
+                    // присоединяем контактное лицо
+                    $contactPerson = '';
+                    if (!empty($model->contact_person)) $contactPerson = ' [' . $model->contact_person . ']';
+
+                    // присоединяем ответственного
+                    $managerName = '';
+                    if (!empty($model->managerProfileName)) $managerName = '<br /><small class="text-muted"><em> ' . $model->managerProfileName . '</em></small>';
+
+                    return $model->{$column->attribute} . $contactPerson . $managerName;
+                },
+            ],
+            [
+                'attribute' => 'cpsName',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $result = $model->{$column->attribute};
+                    if (!empty($model->lastCpsChangedAt)) {
+                        $result = Html::tag('abbr', $result, ['title' => 'Статус приобретен ' . Yii::$app->formatter->asDate($model->lastCpsChangedAt, 'php:d.m.Y в H:i')]);
+                    }
+
+                    return $result;
+                },
+                'visible' => $canOperatorHead || Yii::$app->user->can('sales_department_manager'),
+            ],
+            [
+                'attribute' => 'stateName',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) use ($canRoot) {
+                    /* @var $model \common\models\CorrespondencePackages */
+                    /* @var $column \yii\grid\DataColumn */
+
                     $cpsName = '';
-                    if ($model->is_manual && Yii::$app->user->can('root')) $cpsName = ' <small class="text-muted"><em>' . $model->cpsName . '</em></small>';
+                    if ($model->is_manual && $canRoot) {
+                        $cpsName = $model->cpsName;
+                        if (!empty($model->lastCpsChangedAt)) {
+                            $cpsName = Html::tag('abbr', $cpsName, ['title' => 'Статус приобретен ' . Yii::$app->formatter->asDate($model->lastCpsChangedAt, 'php:d.m.Y в H:i')]);
+                        }
+                        $cpsName = ' <small class="text-muted"><em>' . $cpsName . '</em></small>';
+                    }
 
                     return $model->{$column->attribute} . $cpsName;
                 },
@@ -166,10 +201,10 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
                 //'template' => '{compose-envelope} {update} {edf} {pochtaRuPrint} {delete}',
-                'template' => '{update} {edf} {pochtaRuPrint} {delete}',
+                'template' => '{update} {compose-envelope} {edf} {pochtaRuPrint} {delete}',
                 'buttons' => [
                     'compose-envelope' => function ($url, $model) {
-                        return Html::a('<i class="fa fa-envelope"></i>', ['/correspondence-packages/compose-envelope', 'id' => $model->id], ['title' => 'Вывести на печать конверт', 'class' => 'btn btn-xs btn-default']);
+                        return Html::a('<i class="fa fa-envelope-open-o"></i>', ['/correspondence-packages/compose-envelope', 'id' => $model->id], ['title' => 'Вывести на печать конверт', 'class' => 'btn btn-xs btn-default']);
                     },
                     'pochtaRuPrint' => function ($url, $model) {
                         if ($model->pd_id == \common\models\PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ && $model->pochta_ru_order_id != null)
@@ -191,9 +226,9 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
                     }
                 ],
                 'visibleButtons' => [
-                    'delete' => Yii::$app->user->can('root') || Yii::$app->user->can('operator_head'),
+                    'delete' => $canRoot || $canOperatorHead,
                 ],
-                'options' => ['width' => '100'],
+                'options' => ['width' => '120'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
@@ -220,9 +255,25 @@ $urlComposePackage = Url::to(['/correspondence-packages/compose-package-by-selec
 <?php
 $name = 'ComposePackageForm[tpPad]';
 
+$urlDeleteFew = Url::to(\backend\controllers\CorrespondencePackagesController::URL_DELETE_SELECTED_AS_ARRAY);
+
 $this->registerJs(<<<JS
 var checked = false;
 $("input[type='checkbox']").iCheck({checkboxClass: 'icheckbox_square-green'});
+
+// Выполняет пересчет количества выделенных пользователем файлов и подставляет отличное от нуля значение в текст кнопки.
+//
+function recountSelected() {
+    var count = $("input[name ^= 'selection[]']:checked").length;
+    var prompt = "";
+    var promptDelete = '$btnDeleteFewPrompt';
+    if (count > 0) {
+        prompt = " <strong>(" + count + ")</strong>";
+        promptDelete += prompt;
+    }
+
+    $("#$btnDeleteFewId").html(promptDelete);
+} // recountSelected()
 
 // Обработчик щелчка по ссылке "Отметить все".
 //
@@ -237,9 +288,23 @@ function checkAllOnClick() {
     }
 
     $("input[name ^= 'selection[]']").iCheck(operation);
+    recountSelected();
 
     return false;
 } // checkAllOnClick()
+
+// Обработчик щелчка по ссылке "Удалить выделенные файлы".
+//
+function deleteSelectedOnClick() {
+    var ids = $("#$gridViewId").yiiGridView("getSelectedRows");
+    if (ids == "") return false;
+
+    if (confirm("Вы действительно хотите удалить выделенные пакеты корреспонденции безвозвратно?")) {
+        $.post("$urlDeleteFew", {ids: ids}, function() {});
+    }
+
+    return false;
+} // deleteSelectedOnClick()
 
 // Обработчик щелчка по кнопке "Сформировать пакет".
 //
@@ -261,9 +326,11 @@ function composePackageOnClick() {
     return false;
 } // composePackageOnClick()
 
+$("input[name ^= 'selection[]']").on("ifChanged", recountSelected);
 $(".select-on-check-all").on("ifClicked", checkAllOnClick);
 $(document).on("click", "#btnComposePackage", btnComposePackageFormOnClick);
 $(document).on("click", "#btn-process", composePackageOnClick);
+$(document).on("click", "#$btnDeleteFewId", deleteSelectedOnClick);
 JS
 , \yii\web\View::POS_READY);
 ?>

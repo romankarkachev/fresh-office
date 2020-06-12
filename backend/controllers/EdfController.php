@@ -6,6 +6,7 @@ use Yii;
 use common\models\DangerClasses;
 use common\models\DocumentsTypes;
 use common\models\ContractTypes;
+use common\models\Units;
 use common\models\Edf;
 use common\models\EdfSearch;
 use common\models\EdfTp;
@@ -35,6 +36,10 @@ use common\models\EdfDialogs;
 use common\models\EdfDialogsSearch;
 use common\models\LicensesRequests;
 use common\models\LicensesRequestsFkko;
+use common\models\EdfEmailFilesForm;
+use common\models\foProjects;
+use common\models\DadataAPI;
+use common\models\UsersTrusted;
 use yii\helpers\ArrayHelper;
 use yii\helpers\FileHelper;
 use yii\web\Controller;
@@ -77,9 +82,21 @@ class EdfController extends Controller
     const ROOT_BREADCRUMB = ['label' => self::ROOT_LABEL, 'url' => self::ROOT_URL_AS_ARRAY];
 
     /**
+     * URL для создания электронного документа
+     */
+    const URL_CREATE = 'create';
+    const URL_CREATE_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_CREATE];
+
+    /**
      * URL для редактирования электронного документа
      */
     const UPDATE_URL = 'update';
+
+    /**
+     * URL для удаления нескольких выделенных документов
+     */
+    const URL_DELETE_SELECTED = 'delete-selected';
+    const URL_DELETE_SELECTED_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DELETE_SELECTED];
 
     /**
      * URL для подбора отходов по коду ФККО
@@ -189,13 +206,19 @@ class EdfController extends Controller
     const URL_DOWNLOAD_SELECTED_FILES_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_DOWNLOAD_SELECTED_FILES];
 
     /**
+     * URL для отправки выделенных пользователем файлов на указанный E-mail
+     */
+    const URL_EMAIL_SELECTED_FILES = 'email-selected-files';
+    const URL_EMAIL_SELECTED_FILES_AS_ARRAY = ['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::URL_EMAIL_SELECTED_FILES];
+
+    /**
      * @inheritdoc
      */
     public function behaviors()
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => [self::DOWNLOAD_FILE_URL],
@@ -204,7 +227,7 @@ class EdfController extends Controller
                     ],
                     [
                         'actions' => [
-                            'index', 'create', self::UPDATE_URL,
+                            'index', self::URL_CREATE, self::UPDATE_URL, self::URL_DELETE_SELECTED,
                             'render-fields',
                             self::FKKO_LIST_FOR_TYPEAHEAD_URL, self::FKKO_ONCHANGE_URL, self::PARENT_ONCHANGE_URL,
                             'render-fkko-row', 'delete-fkko-row',
@@ -213,9 +236,10 @@ class EdfController extends Controller
                             self::URL_PUSH_TO_FRESH, self::URL_PULL_GOODS_TO_FRESH,
                             self::DIALOGS_MESSAGES_LIST_URL, self::ADD_DIALOG_MESSAGE_URL,
                             self::LIST_FS_TYPEAHEAD_URL, self::ADD_FILE_FROM_STORAGE_URL, self::URL_DOWNLOAD_SELECTED_FILES,
+                            self::URL_EMAIL_SELECTED_FILES,
                         ],
                         'allow' => true,
-                        'roles' => ['root', 'sales_department_manager', 'operator_head', 'edf', 'ecologist', 'ecologist_head', 'tenders_manager'],
+                        'roles' => ['root', 'sales_department_head', 'sales_department_manager', 'operator_head', 'edf', 'ecologist', 'ecologist_head', 'tenders_manager'],
                     ],
                     [
                         'actions' => ['delete'],
@@ -225,9 +249,10 @@ class EdfController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
+                    self::URL_DELETE_SELECTED => ['POST'],
                     self::DELETE_FEW_FILES_URL => ['POST'],
                     self::ADD_FILE_FROM_STORAGE_URL => ['POST'],
                 ],
@@ -378,10 +403,12 @@ class EdfController extends Controller
                 return false;
             }
 
+            // именно для экспорта постраничный переход отключается, чтобы в файл выгружались все записи
+            $dataProvider->pagination = false;
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Список электронных документов (сформирован '.date('Y-m-d в H i').').xlsx',
-                'format' => 'Excel2007',
+                'asAttachment' => true,
                 'columns' => [
                     [
                         'attribute' => 'created_at',
@@ -498,7 +525,35 @@ class EdfController extends Controller
                     throw $e;
                 }
             }
-        } else {
+        }
+        else {
+            $key = 'fo_ca_id_for_edf_' . Yii::$app->user->id;
+            $fo_ca_id = Yii::$app->session->get($key);
+            if (!empty($fo_ca_id)) {
+                // перенаправлено со страницы контрагента
+                // заполняем документ сразу данными этого контрагента
+                Yii::$app->session->remove($key);
+                $company = foCompany::find()->where([foCompany::tableName() . '.[ID_COMPANY]' => intval($fo_ca_id)])->joinWith('companyDetails', false)->one();
+                if ($company) {
+                    $model->fo_ca_id = $company->ID_COMPANY;
+                    $dadataInfo = DadataAPI::fetchCounteragentsInfo($company->companyDetailsInn, $company->companyDetailsKpp);
+                    if (!empty($dadataInfo)) {
+                        $model->req_inn = $dadataInfo['inn'];
+                        if (!empty($dadataInfo['kpp'])) {
+                            $model->req_kpp = $dadataInfo['kpp'];
+                        }
+                        $model->req_ogrn = $dadataInfo['ogrn'];
+                        $model->req_name_full = $dadataInfo['name_full'];
+                        $model->req_name_short = $dadataInfo['name_short'];
+                        $model->req_address_j = $dadataInfo['address'];
+                        $model->req_dir_name = $dadataInfo['dir_name'];
+                        $model->req_dir_post = $dadataInfo['dir_post'];
+
+                        unset($company);
+                    }
+                }
+            }
+
             $model->doc_date_expires = date('Y-m-d', strtotime("+11 months")); // плюс 11 месяцев от текущей даты
             $model->is_typical_form = true;
             $model->state_id = EdfStates::STATE_ЧЕРНОВИК;
@@ -514,6 +569,7 @@ class EdfController extends Controller
             'model' => $model,
             'tp' => $postTp,
             'hasAccess' => $hasAccess,
+            'canEditManager' => Yii::$app->user->can('root'),
         ]);
     }
 
@@ -526,6 +582,7 @@ class EdfController extends Controller
     public function actionUpdate($id)
     {
         $hasAccess = Yii::$app->user->can('sales_department_manager');
+        $canEditManager = false;
         $model = $this->findModel($id);
 
         if ($model->load(Yii::$app->request->post())) {
@@ -672,12 +729,19 @@ class EdfController extends Controller
                 $postTp = $this->fetchTp($model);
             }
             */
+
+            // возможность изменить ответственного: для автора, для пользователей с полными правами, для доверенных
+            $canEditManager = $model->created_by == Yii::$app->user->id || Yii::$app->user->can('root') || (null !== UsersTrusted::find()->where([
+                'user_id' => $model->created_by,
+                'trusted_id' => Yii::$app->user->id,
+            ])->one());
         }
 
         return $this->render('update', [
             'model' => $model,
             'tp' => $postTp,
             'hasAccess' => $hasAccess,
+            'canEditManager' => $canEditManager,
             'dpDialogs' => $this->fetchDialogs($model),
             'dpFiles' => $this->fetchFiles($id),
             'dpHistory' => $this->fetchHistory($model),
@@ -695,6 +759,51 @@ class EdfController extends Controller
         $this->findModel($id)->delete();
 
         return $this->redirect(self::ROOT_URL_AS_ARRAY);
+    }
+
+    /**
+     * Выполняет удаление нескольких, выбранных пользователем, электронных документов.
+     * @return mixed
+     * @throws \Throwable
+     * @throws \yii\db\StaleObjectException
+     */
+    public function actionDeleteSelected()
+    {
+        if (Yii::$app->request->post('ids') !== null) {
+            $totalCount = 0;
+            $deletedCount = 0;
+            $ids = Yii::$app->request->post('ids');
+            $undead = Edf::find()->where(['id' => $ids])->all();
+            if (count($undead) > 0) {
+                $totalCount = count($undead);
+                foreach ($undead as $model) {
+                    try {
+                        if ($model->delete() > 0) { $deletedCount++; }
+                    }
+                    catch (\Exception $e) {}
+                }
+            }
+
+            if ($deletedCount > 0) {
+                $deletedPrompt = foProjects::declension($deletedCount, ['удален','удалено','удалено']);
+                $deletedPrompt = str_replace($deletedCount, '', $deletedPrompt);
+                $countPrompt = foProjects::declension($deletedCount, ['документ','документа','документов']);
+                $countPrompt = str_replace($deletedCount, $deletedCount . ' / ' . $totalCount, $countPrompt);
+                Yii::$app->session->setFlash('success', 'Успешно ' . $deletedPrompt . ' ' . $countPrompt . '.');
+            }
+            else {
+                if (!empty($totalCount)) {
+                    $suffix = 'удалить не удалось';
+                }
+                else {
+                    $suffix = 'не был удален';
+                }
+
+                Yii::$app->session->setFlash('info', 'Процесс завершился, но ни один документ ' . $suffix . '.');
+            }
+
+            return $this->redirect(self::ROOT_URL_AS_ARRAY);
+        }
     }
 
     /**
@@ -969,18 +1078,6 @@ class EdfController extends Controller
                 $transaction->rollBack();
             }
         }
-
-        /*
-        $model = EdfFiles::findOne($id);
-        if ($model != null) {
-            $record_id = $model->ed_id;
-            $model->delete();
-
-            return $this->redirect(['/' . self::ROOT_URL_FOR_SORT_PAGING . '/' . self::UPDATE_URL, 'id' => $record_id]);
-        }
-        else
-            throw new NotFoundHttpException('Файл не обнаружен.');
-        */
     }
 
     /**
@@ -1178,8 +1275,19 @@ class EdfController extends Controller
                     FileHelper::createDirectory($model->files_full_path);
                 }
 
+                $templateFfp = $template->ffp;
+                if (!empty($model->organization) && !empty($model->organization->ogrn) == '1157746796756') {
+                    // для некоторых организаций берем индивидуальные шаблоны
+                    // но только если они действительно будут обнаружены на диске
+                    $newTemplateFfp = str_replace('.docx', '_' . $model->organization->ogrn . '.docx', $templateFfp);
+                    if (file_exists($newTemplateFfp)) {
+                        // если индивидуальный шаблон существует, то подставляем имя
+                        $templateFfp = $newTemplateFfp;
+                    }
+                }
+
                 $docx_gen = new \DocXGen;
-                $docx_gen->docxTemplate($template->ffp, $array_subst, $ffp);
+                $docx_gen->docxTemplate($templateFfp, $array_subst, $ffp);
 
                 if (preg_match('/^[a-z0-9]+\.[a-z0-9]+$/i', $ffp) !== 0 || !is_file("$ffp")) {
                     throw new NotFoundHttpException('Запрошенный файл не существует.');
@@ -1213,19 +1321,91 @@ class EdfController extends Controller
 
         if (Yii::$app->request->isPost) {
             if ($model->load(Yii::$app->request->post())) {
-                $counter = intval(Yii::$app->request->get('counter'));
+                $counter = intval(Yii::$app->request->post('counter'));
                 $counter = $counter + 1;
                 $result = '';
                 $edf = new Edf();
                 switch ($model->src) {
-                    case 1:
+                    case EdfFillFkkoBasisForm::SRC_TR:
                         // в качестве источника данных выбран запрос на транспорт
                         $waste = TransportRequestsWaste::find()->where(['tr_id' => $model->tr_id])->all();
 
                         break;
-                    case 2:
+                    case EdfFillFkkoBasisForm::SRC_LR:
                         // в качестве источника данных выбран запрос лицензий
                         $waste = LicensesRequestsFkko::find()->where(['lr_id' => $model->lr_id])->all();
+
+                        break;
+                    case EdfFillFkkoBasisForm::SRC_EXCEL:
+                        // в качестве источника данных пользователь отправляет файл Excel
+                        $waste = [];
+                        $model->importFile = UploadedFile::getInstance($model, 'importFile');
+                        try {
+                            $data = Excel::import($model->importFile->tempName, [
+                                'setFirstRecordAsKeys' => false,
+                            ]);
+                        }
+                        catch (\Exception $exception) {
+                            echo $exception->getMessage();
+                            //Yii::$app->session->setFlash('error', $exception->getMessage() . '<p>Попробуйте разблокировать файл (кнопка Разрешить редактирование и Сохранить) или же пересохранить файл в формате XLS.</p>');
+                        }
+
+                        if (isset($data) && count($data) > 0) {
+                            // единицы измерения
+                            $units = Units::find()->asArray()->all();
+
+                            // коды ФККО
+                            $fkkos = Fkko::find()->asArray()->all();
+
+                            $spaces = 0; // количество накопленных пробелов для остановки всей процедуры импорта
+                            $row_number = 1; // 0-я строка - это заголовок
+                            foreach ($data as $row) {
+                                $newItem = [];
+                                $fkkoCode = trim($row['A']);
+
+                                // проверим, не является ли эта строка пустой
+                                if (empty($fkkoCode)) {
+                                    $spaces++;
+                                    $row_number++;
+                                    continue;
+                                }
+                                // если достигнут конец файла, то заканчиваем процедуру
+                                if ($spaces == 2) break;
+
+                                // идентификация кода ФККО
+                                $key = array_search($fkkoCode, array_column($fkkos, 'fkko_code'));
+                                if ($key !== false) {
+                                    $newItem['fkko_id'] = $fkkos[$key]['id'];
+                                    $newItem['fkko_name'] = $fkkos[$key]['fkko_name'];
+                                }
+                                else {
+                                    // ФККО не идентифицирован - пропускаем такую строку
+                                    continue;
+                                }
+                                unset($key);
+
+                                $unit = trim($row['B']);
+                                // идентификация единицы измерения
+                                $key = array_search($unit, array_column($units, 'name'));
+                                if ($key !== false) {
+                                    $newItem['unit_id'] = $units[$key]['id'];
+                                }
+                                unset($key);
+
+                                if (!empty(trim($row['C']))) {
+                                    // количество
+                                    $newItem['quantity'] = trim($row['C']);
+                                }
+
+                                if (!empty(trim($row['D']))) {
+                                    // сумма
+                                    $newItem['amount'] = trim($row['D']);
+                                }
+
+                                $waste[] = $newItem;
+                                unset($newItem);
+                            }
+                        }
 
                         break;
                 }
@@ -1233,19 +1413,27 @@ class EdfController extends Controller
                 foreach ($waste as $fkko) {
                     /* @var $fkko TransportRequestsWaste|LicensesRequestsFkko */
 
-                    $tp = new EdfTp([
-                        'fkko_id' => $fkko->fkko_id,
-                    ]);
+                    $tp = new EdfTp();
 
                     switch ($model->src) {
-                        case 1:
+                        case EdfFillFkkoBasisForm::SRC_TR:
+                            $tp->fkko_id = $fkko->fkko_id;
                             $tp->fkko_name = $fkko->fkko_name;
                             $tp->unit_id = $fkko->unit_id;
                             $tp->measure = $fkko->measure;
 
                             break;
-                        case 2:
+                        case EdfFillFkkoBasisForm::SRC_LR:
+                            $tp->fkko_id = $fkko->fkko_id;
                             $tp->fkko_name = $fkko->fkko->fkko_name;
+
+                            break;
+                        case EdfFillFkkoBasisForm::SRC_EXCEL:
+                            $tp->fkko_id = $fkko['fkko_id'];
+                            $tp->fkko_name = $fkko['fkko_name'];
+                            $tp->unit_id = $fkko['unit_id'];
+                            $tp->measure = $fkko['measure'];
+                            $tp->amount = $fkko['amount'];
 
                             break;
                     }
@@ -1288,47 +1476,55 @@ class EdfController extends Controller
 
         if (Yii::$app->request->isPost) {
             if ($model->load(Yii::$app->request->post())) {
-                foreach ($model->files as $file) {
-                    $edfFileModel = EdfFiles::findOne($file);
-                    if ($edfFileModel && false !== mb_stripos($edfFileModel->ffp, FileStorage::ROOT_FOLDER)) {
-                        // делаем запрос вручную, чтобы не выполнялись дополительные действия
-                        /*
-                        Yii::$app->db->createCommand()->batchInsert(FileStorage::tableName(), [
-                            'uploaded_at' => 'Дата и время загрузки',
-                            'uploaded_by' => 'Автор загрузки',
-                            'ca_id' => 'Контрагент',
-                            'ca_name' => 'Контрагент',
-                            'type_id' => 'Тип контента',
-                            'ffp' => 'Полный путь к файлу',
-                            'fn' => 'Имя файла',
-                            'ofn' => 'Оригинальное имя файла',
-                            'size' => 'Размер файла'
-                        ], []);
-                        */
+                $success = true;
+                $transaction = Yii::$app->db->beginTransaction();
+                try {
+                    foreach ($model->files as $file) {
+                        $edfFileModel = EdfFiles::findOne($file);
+                        if ($edfFileModel) {
+                            if (false === mb_stripos($edfFileModel->ffp, FileStorage::ROOT_FOLDER)) {
+                                // запись о файле должна существовать, а также это не должен быть файл из хранилища
+                                $modelStorage = new FileStorage();
+                                $modelStorage->attributes = $edfFileModel->attributes;
+                                if (!empty($edfFileModel->ed)) {
+                                    switch ($edfFileModel->ed->type_id) {
+                                        case DocumentsTypes::TYPE_ДОГОВОР:
+                                            $modelStorage->type_id = UploadingFilesMeanings::ТИП_КОНТЕНТА_ДОГОВОР;
+                                            break;
+                                        case DocumentsTypes::TYPE_ДОП_СОГЛАШЕНИЕ:
+                                            $modelStorage->type_id = UploadingFilesMeanings::ТИП_КОНТЕНТА_ДОПСОГЛАШЕНИЕ;
+                                            break;
+                                    }
+                                    $modelStorage->ca_id = $edfFileModel->ed->fo_ca_id;
+                                    $modelStorage->ca_name = $edfFileModel->ed->req_name_short;
+                                }
+                                $modelStorage->file = true; // просто, чтобы пропустило
 
-                        $modelStorage = new FileStorage();
-                        $modelStorage->attributes = $edfFileModel->attributes;
-                        if (!empty($edfFileModel->ed)) {
-                            switch ($edfFileModel->ed->type_id) {
-                                case DocumentsTypes::TYPE_ДОГОВОР:
-                                    $modelStorage->type_id = UploadingFilesMeanings::ТИП_КОНТЕНТА_ДОГОВОР;
-                                    break;
-                                case DocumentsTypes::TYPE_ДОП_СОГЛАШЕНИЕ:
-                                    $modelStorage->type_id = UploadingFilesMeanings::ТИП_КОНТЕНТА_ДОПСОГЛАШЕНИЕ;
-                                    break;
+                                $modelStorage->save() ? null : $success = false;
                             }
-                            $modelStorage->ca_id = $edfFileModel->ed->fo_ca_id;
-                            $modelStorage->ca_name = $edfFileModel->ed->req_name_short;
                         }
-                        $modelStorage->file = true; // просто, чтобы пропустило
-
-                        $modelStorage->save();
+                        else {
+                            $success = false;
+                            break;
+                        }
                     }
+
+                    if ($success) {
+                        $edf = $model->edf;
+                        $edf->state_id = EdfStates::STATE_ЗАВЕРШЕНО;
+                        $edf->is_received_original = true;
+                        $edf->save() ? null : $success = false;
+                    }
+
+                    $success ? $transaction->commit() : $transaction->rollBack();
+                    return $success;
+                } catch (\Exception $e) {
+                    $transaction->rollBack();
+                    throw $e;
+                } catch (\Throwable $e) {
+                    $transaction->rollBack();
+                    throw $e;
                 }
-                $edf = $model->edf;
-                $edf->state_id = EdfStates::STATE_ЗАВЕРШЕНО;
-                $edf->is_received_original = true;
-                return $edf->save();
             }
         }
         else {
@@ -1644,6 +1840,44 @@ class EdfController extends Controller
                     if (file_exists($tempFfp)) unlink($tempFfp);
                 }
             }
+        }
+    }
+
+    /**
+     * Рендерит окно отправки выделенных файлов на E-mail или выполняет такую отправку в зависимости от типа запроса.
+     * email-selected-files
+     * @return mixed
+     */
+    public function actionEmailSelectedFiles()
+    {
+        $model = new EdfEmailFilesForm();
+
+        if (Yii::$app->request->isPost) {
+            if ($model->load(Yii::$app->request->post())) {
+                Yii::$app->mailer->compose()
+                    ->setTextBody('Письмо тестового направления\r\n' . $model->comment)
+                    ->setFrom([Yii::$app->params['senderEmail'] => Yii::$app->params['senderNashville']])
+                    ->setSubject('Тестовая отправка')
+                    ->setFrom($model->email_sender)
+                    ->setTo($model->email_receiver)
+                    ->send();
+            }
+        }
+        else {
+            if (Yii::$app->request->get('id') !== null) {
+                $model->ed_id = Yii::$app->request->get('id');
+            }
+            if (Yii::$app->request->get('files') !== null) {
+                $model->files = Yii::$app->request->get('files');
+            }
+
+            $model->email_receiver = 'post@romankarkachev.ru';
+            $model->email_sender = 'mr@romankarkachev.ru';
+
+            return $this->renderAjax('_email_files_form', [
+                'model' => $model,
+                'form' => new \yii\bootstrap\ActiveForm(),
+            ]);
         }
     }
 }

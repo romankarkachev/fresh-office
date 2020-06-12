@@ -19,7 +19,6 @@ use moonland\phpexcel\Excel;
 use yii\bootstrap\ActiveForm;
 use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
-use yii\helpers\FileHelper;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\Controller;
@@ -51,7 +50,7 @@ class StorageController extends Controller
     {
         return [
             'access' => [
-                'class' => AccessControl::className(),
+                'class' => AccessControl::class,
                 'rules' => [
                     [
                         'actions' => ['download-from-outside'],
@@ -84,7 +83,7 @@ class StorageController extends Controller
                 ],
             ],
             'verbs' => [
-                'class' => VerbFilter::className(),
+                'class' => VerbFilter::class,
                 'actions' => [
                     'delete' => ['POST'],
                     'store-enumerated-files' => ['POST'],
@@ -928,7 +927,7 @@ class StorageController extends Controller
                                 'sort' => false,
                             ]))->getModels(),
                             'fileName' => 'Список обязательных ТТН.xlsx',
-                            'format' => 'Excel2007',
+                            'asAttachment' => true,
                             'columns' => [
                                 [
                                     'attribute' => 'project_id',

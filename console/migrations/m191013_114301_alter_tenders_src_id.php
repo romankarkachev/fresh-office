@@ -18,7 +18,7 @@ class m191013_114301_alter_tenders_src_id extends Migration
      */
     public function safeUp()
     {
-        $this->alterColumn(self::TABLE_NAME, 'src_id', $this->string(32)->comment('Идентификатор в источнике'));
+        $this->alterColumn(self::TABLE_NAME, 'src_id', $this->string(50)->comment('Идентификатор в источнике'));
     }
 
     /**

@@ -178,6 +178,8 @@ class CompaniesController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => self::ROOT_LABEL,
                     'buttonUrl' => self::ROOT_URL_AS_ARRAY,
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

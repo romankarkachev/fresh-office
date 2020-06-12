@@ -18,7 +18,7 @@ $gridViewId = TendersFiles::DOM_IDS['GRIDVIEW_ID'];
 
 <?= $this->render('_search_files', ['model' => $searchModel]); ?>
 
-<?= \backend\components\grid\GridView::widget([
+<?= backend\components\grid\GridView::widget([
     'id' => $gridViewId,
     'dataProvider' => $dataProvider,
     'showOnEmpty' => false,
@@ -74,7 +74,7 @@ $gridViewId = TendersFiles::DOM_IDS['GRIDVIEW_ID'];
             'headerOptions' => ['class' => 'text-center'],
             'contentOptions' => ['class' => 'text-center'],
             'options' => ['width' => '200'],
-            'visible' => empty($searchModel->ct_id),
+            'visible' => (empty($searchModel->ct_id) || $searchModel->ct_id == -1),
         ],
         [
             'attribute' => 'revision',

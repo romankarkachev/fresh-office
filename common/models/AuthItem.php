@@ -26,6 +26,42 @@ use yii\helpers\ArrayHelper;
 class AuthItem extends \yii\db\ActiveRecord
 {
     /**
+     * Доступные в системе роли
+     */
+    const ROLE_ACCOUNTANT = 'accountant';
+    const ROLE_ACCOUNTANT_B = 'accountant_b';
+    const ROLE_ACCOUNTANT_SALARY = 'accountant_s';
+    const ROLE_ASSISTANT = 'assistant';
+    const ROLE_CUSTOMER = 'customer';
+    const ROLE_DPC_HEAD = 'dpc_head';
+    const ROLE_ECOLOGIST = 'ecologist';
+    const ROLE_ECOLOGIST_HEAD = 'ecologist_head';
+    const ROLE_EDF = 'edf';
+    const ROLE_FERRYMAN = 'ferryman';
+    const ROLE_FOREIGNDRIVER = 'foreignDriver';
+    const ROLE_HEAD_ASSIST = 'head_assist';
+    const ROLE_LICENSES_UPLOAD = 'licenses_upload';
+    const ROLE_LOGIST = 'logist';
+    const ROLE_OPERATOR = 'operator';
+    const ROLE_OPERATOR_HEAD = 'operator_head';
+    const ROLE_PBX = 'pbx';
+    const ROLE_PROD_DEPARTMENT_HEAD = 'prod_department_head';
+    const ROLE_PROD_FEEDBACK = 'prod_feedback';
+    const ROLE_ROLE_DOCUMENTS = 'role_documents';
+    const ROLE_ROOT = 'root';
+    const ROLE_SALES_DEPARTMENT_HEAD = 'sales_department_head';
+    const ROLE_SALES_DEPARTMENT_MANAGER = 'sales_department_manager';
+    const ROLE_TENDERS_MANAGER = 'tenders_manager';
+
+    /**
+     * Набор экологических ролей
+     */
+    const ROLES_SET_ECOLOGISTS = [
+        self::ROLE_ECOLOGIST,
+        self::ROLE_ECOLOGIST_HEAD,
+    ];
+
+    /**
      * @inheritdoc
      */
     public static function tableName()

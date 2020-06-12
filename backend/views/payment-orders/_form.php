@@ -1,5 +1,6 @@
 <?php
 
+use common\models\PostDeliveryKinds;
 use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\helpers\Url;
@@ -10,6 +11,7 @@ use common\models\Ferrymen;
 use common\models\FerrymenBankDetails;
 use common\models\FerrymenBankCards;
 use common\models\PaymentOrders;
+use common\models\CorrespondencePackages;
 
 /* @var $this yii\web\View */
 /* @var $model common\models\PaymentOrders */
@@ -34,7 +36,7 @@ switch ($model->pd_type) {
 
     <div class="row">
         <div class="col-md-2">
-            <?= $form->field($model, 'ferryman_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'ferryman_id')->widget(Select2::class, [
                 'data' => Ferrymen::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -51,7 +53,7 @@ switch ($model->pd_type) {
         <div class="col-md-2">
             <?= $form->field($model, 'amount', [
                 'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
-            ])->widget(MaskedInput::className(), [
+            ])->widget(MaskedInput::class, [
                 'clientOptions' => [
                     'alias' =>  'numeric',
                     'groupSeparator' => ' ',
@@ -83,6 +85,16 @@ switch ($model->pd_type) {
             ]) ?>
 
         </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'imt_num', ['template' => CorrespondencePackages::FORM_FIELD_TRACK_TEMPLATE])
+                ->textInput([
+                    'maxlength' => true,
+                    'placeholder' => 'Введите идентификатор отправления',
+                    'title' => 'Введите идентификатор отправления',
+                    'disabled' => !empty($model->imt_num),
+                ]) ?>
+
+        </div>
     </div>
     <?php if ($model->isNewRecord): ?>
     <div class="form-group">
@@ -107,7 +119,7 @@ switch ($model->pd_type) {
 
     <?php endif; ?>
     <div class="form-group">
-        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Платежные ордеры', ['/payment-orders'], ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
+        <?= Html::a('<i class="fa fa-arrow-left" aria-hidden="true"></i> Платежные ордеры', (!empty(Yii::$app->request->referrer) ? Yii::$app->request->referrer : ['/payment-orders']), ['class' => 'btn btn-default btn-lg', 'title' => 'Вернуться в список. Изменения не будут сохранены']) ?>
 
         <?php if ($model->isNewRecord): ?>
         <?= Html::submitButton('<i class="fa fa-plus-circle" aria-hidden="true"></i> Создать черновик', ['class' => 'btn btn-success btn-lg']) ?>
@@ -117,13 +129,31 @@ switch ($model->pd_type) {
         <?= Html::submitButton('Сохранить и отправить на согласование <i class="fa fa-arrow-circle-right" aria-hidden="true"></i>', ['class' => 'btn btn-success btn-lg', 'name' => 'order_ready', 'title' => 'Создать и сразу отправить на согласование']) ?>
         <?php endif; ?>
 
+        <?php if (!$model->isNewRecord): ?>
+        <?= Html::a('<i class="fa fa-check text-success" aria-hidden="true"></i> АВР', '#', ['id' => 'btnCcr', 'class' => 'btn btn-lg btn-default', 'title' => 'Установить пометку о том, что акт выполненных работ получен']) ?>
+
+        <?php endif; ?>
     </div>
     <?php ActiveForm::end(); ?>
 
 </div>
+<div id="modalWindow" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-info" role="document">
+        <div class="modal-content">
+            <div class="modal-header"><h4 id="modalTitle" class="modal-title">Modal title</h4></div>
+            <div id="modalBody" class="modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?php
 $url = Url::to(['/payment-orders/compose-pd-field']);
+$urlCcProvided = Url::to(\backend\controllers\PaymentOrdersController::URL_SET_CCP_ON_THE_FLY_AS_ARRAY);
+$urlTrackByNumber = Url::to(['/tracking/track-by-number']);
 
+$pdkRu = PostDeliveryKinds::DELIVERY_KIND_ПОЧТА_РФ;
 $this->registerJs(<<<JS
 
 // Обработчик изменения перевозчика или способа расчетов с перевозчиком.
@@ -153,8 +183,46 @@ function composeFerrymanPaymentDestination() {
 JS
 , yii\web\View::POS_BEGIN);
 
+$imTrackNumberId = Html::getInputId($model, 'imt_num');
 $this->registerJs(<<<JS
+
+// Обработчик щелчка по кнопкам, позволяющим отметить признак наличия актов выполненных работ.
+//
+function btnSetCcProvidedOnTheFlyOnClick() {
+    \$button = $(this);
+    id = $(this).attr("data-id");
+    if (id) {
+        $.post("$urlCcProvided?id=" + id, function(data) {
+            var response = jQuery.parseJSON(data);
+            if (response != false) {
+                \$button.replaceWith('<i class="fa fa-check text-success"></i>');
+            }
+            else
+                \$button.replaceWith('<i class="fa fa-times text-danger"></i>');
+        });
+    }
+
+    return false;
+} // btnSetCcProvidedOnTheFlyOnClick()
+
+// Обработчик щелчка по кнопке "Отследить".
+//
+function btnTrackNumberOnClick() {
+    tracknum = $("#$imTrackNumberId").val();
+    if (tracknum) {
+        \$body = $("#modalBody");
+        $("#modalTitle").text("Отслеживание");
+        \$body.html('<p class="text-center"><i class="fa fa-cog fa-spin fa-3x text-info"></i><span class="sr-only">Подождите...</span></p>');
+        $("#modalWindow").modal();
+        \$body.load("$urlTrackByNumber?pd_id=$pdkRu&track_num=" + tracknum);
+    }
+
+    return false;
+} // btnTrackNumberOnClick()
+
 $("input[name='PaymentOrders[pd_type]']").on("change", composeFerrymanPaymentDestination);
+$(document).on("click", "a[id ^= 'btnCcr']", btnSetCcProvidedOnTheFlyOnClick);
+$(document).on("click", "#btnTrackNumber", btnTrackNumberOnClick);
 JS
 , yii\web\View::POS_READY);
 ?>

@@ -45,8 +45,7 @@ $formName = strtolower($model->formName());
                         'widgetOptions' => [
                             'options' => ['placeholder' => '- выберите -', 'autocomplete' => 'off'],
                             'type' => \kartik\date\DatePicker::TYPE_COMPONENT_APPEND,
-                            'layout' => '<div class="input-group">{input}{picker}</div>',
-                            'pickerButton' => '<span class="input-group-addon kv-date-calendar" title="Выбрать дату"><i class="fa fa-calendar" aria-hidden="true"></i></span>',
+                            'layout' => '{input}{picker}',
                             'pluginOptions' => [
                                 'todayHighlight' => true,
                                 'weekStart' => 1,

@@ -1,11 +1,12 @@
 <?php
 
-use backend\components\TotalsColumn;
 use yii\web\View;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use backend\components\grid\GridView;
+use backend\components\grid\TotalAmountColumn;
 use backend\controllers\PoController;
+use common\models\AuthItem;
 use common\models\PaymentOrdersStates;
 
 /* @var $this yii\web\View */
@@ -13,19 +14,38 @@ use common\models\PaymentOrdersStates;
 /* @var $dataProvider yii\data\ActiveDataProvider */
 /* @var $eiAmount float сумма, в пределах которой включительно бухгалтер может согласовывать ордера без руководства */
 /* @var $eiApproved array массив доступных для согласования без ведома руководства статей расходов */
+/* @var $queryString string */
+/* @var $roleName string */
 
 $this->title = PoController::ROOT_LABEL . ' | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = PoController::ROOT_LABEL;
 
 if (!isset($eiApproved)) $eiApproved = false; // если массив не передается, то процедура согласования и не нужна
+
+$btnDelete = Html::a('<i class="fa fa-trash-o"></i>', '%URL_DELETE%', ['title' => Yii::t('yii', 'Удалить'), 'class' => 'btn btn-xs btn-danger', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post']);
+if (!Yii::$app->user->can(AuthItem::ROLE_ROOT)) {
+    $btnDelete = Html::a('<i class="fa fa-trash text-danger"></i>', '%URL_DELETE%', ['title' => 'Установить пометку удаления', 'class' => 'btn btn-xs btn-default', 'aria-label' => Yii::t('yii', 'Delete'), 'data-confirm' => Yii::t('yii', 'Are you sure you want to delete this item?'), 'data-method' => 'post']);
+}
 ?>
 <div class="po-list">
-    <?= $this->render('_search', ['model' => $searchModel]); ?>
+    <?= $this->render('_search', ['model' => $searchModel, 'roleName' => $roleName]); ?>
 
-    <p>
-        <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
+    <div class="row form-group">
+        <div class="col-md-6">
+            <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
-    </p>
+        </div>
+        <div class="col-md-6 text-right">
+            <?= Html::a('<i class="fa fa-file-excel-o"></i> Импорт зарплаты', PoController::URL_IMPORT_SALARY_AS_ARRAY, ['class' => 'btn btn-default', 'title' => 'Импорт платежных ордеров по зарплате']) ?>
+
+            <?= Html::a('<i class="fa fa-file-excel-o"></i> Импорт налогов', PoController::URL_IMPORT_WAGE_FUND_AS_ARRAY, ['class' => 'btn btn-default', 'title' => 'Импорт платежных ордеров по отчислениям с ФОТ']) ?>
+
+            <?php if ($roleName != AuthItem::ROLE_ACCOUNTANT_SALARY): ?>
+            <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Экспорт в Excel', PoController::ROOT_URL_FOR_SORT_PAGING . '?export=true' . $queryString, ['class' => 'btn btn-default']) ?>
+
+            <?php endif; ?>
+        </div>
+    </div>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'rowOptions' => function ($model, $key, $index, $grid) {
@@ -49,14 +69,31 @@ if (!isset($eiApproved)) $eiApproved = false; // если массив не пе
             [
                 'attribute' => 'created_at',
                 'label' => 'Создан',
-                'format' => ['datetime', 'dd.MM.YYYY HH:mm'],
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\Po */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $deletedAddon = '';
+                    if ($model->is_deleted) {
+                        $deletedAddon = '<br/><i class="fa fa-times btn-block text-danger" aria-hidden="true" title="Элемент помечен на удаление"></i>';
+                    }
+
+                    $arAddon = '';
+                    if (!empty($model->isAdvancedReportInThePast)) {
+                        $arAddon = '<br/><span class="text-cende text-muted small">авансовый</span>';
+                    }
+
+                    return Yii::$app->formatter->asDate($model->{$column->attribute}, 'php:d.m.Y H:i') . $arAddon . $deletedAddon;
+                },
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
                 'options' => ['width' => '130'],
             ],
-            'createdByProfileName',
+            'createdByProfileName:ntext:Автор',
             [
                 'attribute' => 'stateName',
+                'label' => 'Статус',
                 'format' => 'raw',
                 'value' => function ($model, $key, $index, $column) {
                     /* @var $model \common\models\Po */
@@ -76,9 +113,15 @@ if (!isset($eiApproved)) $eiApproved = false; // если массив не пе
                 'footerOptions' => ['class' => 'text-right'],
             ],
             [
-                'class' => TotalsColumn::className(),
+                'class' => TotalAmountColumn::class,
                 'attribute' => 'amount',
-                'format' => 'currency',
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\Po */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return \common\models\FinanceTransactions::getPrettyAmount($model->{$column->attribute}, 'html');
+                },
                 'options' => ['width' => '150'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-right'],
@@ -145,8 +188,10 @@ if (!isset($eiApproved)) $eiApproved = false; // если массив не пе
             ],
             [
                 'class' => 'backend\components\grid\ActionColumn',
-                'visibleButtons' => [
-                    'delete' => Yii::$app->user->can('root'),
+                'buttons' => [
+                    'delete' => function ($url, $model) use ($btnDelete) {
+                        return str_replace('%URL_DELETE%', $url, $btnDelete);
+                    },
                 ],
             ],
         ],

@@ -27,24 +27,13 @@ use common\models\EcoTypes;
         <div class="panel-heading">Форма отбора</div>
         <div class="panel-body">
             <div class="row">
-                <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head')): ?>
                 <div class="col-md-2">
-                    <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
-                        'data' => \common\models\EcoProjectsAccess::arrayMapForSelect2(),
+                    <?= $form->field($model, 'org_id')->widget(Select2::className(), [
+                        'data' => \common\models\Organizations::arrayMapForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],
-                        'pluginOptions' => ['allowClear' => true],
-                    ]) ?>
-
-                </div>
-                <?php endif; ?>
-                <div class="col-md-2">
-                    <?= $form->field($model, 'type_id')->widget(Select2::className(), [
-                        'data' => EcoTypes::arrayMapForSelect2(),
-                        'theme' => Select2::THEME_BOOTSTRAP,
-                        'options' => ['placeholder' => '- выберите -'],
-                        'pluginOptions' => ['allowClear' => true],
                         'hideSearch' => true,
+                        'pluginOptions' => ['allowClear' => true],
                     ]) ?>
 
                 </div>
@@ -68,6 +57,27 @@ use common\models\EcoTypes;
                             'templateResult' => new JsExpression('function(result) { return result.text; }'),
                             'templateSelection' => new JsExpression('function (result) { return result.text; }'),
                         ],
+                    ]) ?>
+
+                </div>
+                <?php if (Yii::$app->user->can('root') || Yii::$app->user->can('ecologist_head')): ?>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
+                        'data' => \common\models\EcoProjectsAccess::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                    ]) ?>
+
+                </div>
+                <?php endif; ?>
+                <div class="col-md-2">
+                    <?= $form->field($model, 'type_id')->widget(Select2::className(), [
+                        'data' => EcoTypes::arrayMapForSelect2(),
+                        'theme' => Select2::THEME_BOOTSTRAP,
+                        'options' => ['placeholder' => '- выберите -'],
+                        'pluginOptions' => ['allowClear' => true],
+                        'hideSearch' => true,
                     ]) ?>
 
                 </div>

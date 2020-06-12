@@ -1,5 +1,6 @@
 <?php
 
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use yii\web\View;
@@ -28,15 +29,16 @@ $columns = [
 ];
 
 if ($searchModel->searchSource == TasksSearch::TASK_SOURCE_WEB_APP) {
-    $columns = \yii\helpers\ArrayHelper::merge($columns, [
+    $columns = ArrayHelper::merge($columns, [
         [
             'attribute' => 'createdByProfileName',
             'label' => 'Автор',
         ],
+        'fo_ca_name',
     ]);
 }
 
-$columns = \yii\helpers\ArrayHelper::merge($columns, [
+$columns = ArrayHelper::merge($columns, [
     'responsibleProfileName',
     'typeName',
     'stateName',
@@ -77,7 +79,6 @@ $columns = \yii\helpers\ArrayHelper::merge($columns, [
         'options' => ['width' => '60'],
     ],
     //'fo_ca_id',
-    //'fo_ca_name',
     //'fo_cp_id',
     //'fo_cp_name',
     //'responsible_id',
@@ -90,12 +91,12 @@ if ($searchModel->searchSource == TasksSearch::TASK_SOURCE_WEB_APP) {
 $formName = strtolower($searchModel->formName());
 ?>
 <div class="tasks-list">
+    <?= $this->render('_search', ['model' => $searchModel]); ?>
+
     <p>
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
     </p>
-    <?= $this->render('_search', ['model' => $searchModel]); ?>
-
     <?= GridView::widget([
         'id' => 'gw-tasks',
         'dataProvider' => $dataProvider,

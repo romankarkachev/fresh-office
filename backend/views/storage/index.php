@@ -3,6 +3,7 @@
 use yii\helpers\Html;
 use backend\components\grid\GridView;
 use common\models\TransportRequests;
+use common\models\AuthItem;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\FileStorageSearch */
@@ -55,10 +56,12 @@ $this->params['breadcrumbs'][] = 'Файловое хранилище';
                     /* @var $model \common\models\FileStorage */
                     /* @var $column \yii\grid\DataColumn */
 
-                    if (Yii::$app->user->can('root'))
+                    if (Yii::$app->user->can(AuthItem::ROLE_ROOT) || Yii::$app->user->can(AuthItem::ROLE_SALES_DEPARTMENT_MANAGER)) {
                         return Html::a($model->ofn, ['download', 'id' => $model->id]);
-                    else
+                    }
+                    else {
                         return $model->ofn;
+                    }
                 }
             ],
             'size:shortSize',

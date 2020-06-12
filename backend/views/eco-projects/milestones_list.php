@@ -122,7 +122,7 @@ $prevMilestoneClosedAt = strtotime($model->date_start . ' 00:00:00');
         ],
     ]); ?>
 
-    <p class="text-justify">
+    <p class="text-justify small">
         Строка, шрифт которой выводится полностью серым цветом, не принимает участия в расчетах сроков завершения проекта.
     </p>
 </div>

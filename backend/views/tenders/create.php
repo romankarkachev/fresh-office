@@ -11,3 +11,9 @@ $this->params['breadcrumbs'][] = 'Новый *';
     <?= $this->render('_form', ['model' => $model]) ?>
 
 </div>
+<?php
+$this->registerJs(<<<JS
+initializeCheckboxes();
+JS
+, yii\web\View::POS_READY);
+?>

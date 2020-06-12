@@ -16,6 +16,17 @@ use Yii;
 class PoValues extends \yii\db\ActiveRecord
 {
     /**
+     * Некоторые идентификаторы значений свойств статей расходов
+     */
+    const VALUE_НДФЛ = 28;
+    const VALUE_ПФ = 31;
+    const VALUE_ФСС = 27;
+    const VALUE_ФСС_НС = 33;
+    const VALUE_ФОМС = 32;
+
+    const IMPORT_WAGE_FUND_FIELD_PREFIX = 'prop';
+
+    /**
      * Идентификаторы элементов страницы
      */
     const DOM_IDS = [
@@ -66,6 +77,7 @@ class PoValues extends \yii\db\ActiveRecord
         $array = self::find()->select([
             self::tableName() . '.id',
             self::tableName() . '.name',
+            'property_id',
             'groupName' => PoProperties::tableName() . '.name',
         ])->joinWith(['property'])->orderBy(PoProperties::tableName() . '.name, ' . self::tableName() . '.name')->asArray()->all();
         if (empty($array)) return [];

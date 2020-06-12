@@ -16,6 +16,9 @@ use yii\helpers\ArrayHelper;
 class PoEig extends \yii\db\ActiveRecord
 {
     const ГРУППА_ТРАНСПОРТ = 1;
+    const ГРУППА_ЗАРПЛАТА = 2;
+    const ГРУППА_ЭКОЛОГИЯ = 10;
+    const ГРУППА_НАЛОГИ = 11;
 
     /**
      * {@inheritdoc}

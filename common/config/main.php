@@ -1,4 +1,7 @@
 <?php
+
+use common\models\AuthItem;
+
 return [
     'vendorPath' => dirname(dirname(__DIR__)) . '/vendor',
     'modules' => [
@@ -20,26 +23,38 @@ return [
                 'security' => [
                     'class' => 'backend\controllers\SecurityController',
                     'on ' . backend\controllers\SecurityController::EVENT_AFTER_LOGIN => function ($e) {
-                        if (Yii::$app->user->can('operator')) {
-                            // пользователя с правами оператора сразу переводим на страницу добавления нового обращения
-                            Yii::$app->response->redirect(['/appeals/create'])->send();
-                            Yii::$app->end();
+                        $roleName = Yii::$app->user->identity->getRoleName();
+
+                        switch ($roleName) {
+                            case AuthItem::ROLE_OPERATOR:
+                                // пользователя с правами оператора сразу переводим на страницу добавления нового обращения
+                                Yii::$app->response->redirect(['/appeals/create'])->send();
+                                Yii::$app->end();
+                                break;
+                            case AuthItem::ROLE_LOGIST:
+                                // пользователя с правами логиста сразу переводим на страницу проектов
+                                Yii::$app->response->redirect(['/projects'])->send();
+                                Yii::$app->end();
+                                break;
+                            case AuthItem::ROLE_SALES_DEPARTMENT_MANAGER:
+                                // пользователя с правами логиста сразу переводим на страницу проектов
+                                Yii::$app->response->redirect(['/transport-requests'])->send();
+                                Yii::$app->end();
+                                break;
+                            case (in_array($roleName, AuthItem::ROLES_SET_ECOLOGISTS)):
+                                // пользователя с правами эколога сразу переводим на страницу проектов по экологии
+                                Yii::$app->response->redirect(\backend\controllers\EcoProjectsController::ROOT_URL_AS_ARRAY)->send();
+                                Yii::$app->end();
+                                break;
+                            case AuthItem::ROLE_ACCOUNTANT_SALARY:
+                                // бухгалтера по зарплате сразу перекидываем в платежные ордера по бюджету,
+                                // ему больше вообще ничего не доступно
+                                Yii::$app->response->redirect(\backend\controllers\PoController::ROOT_URL_AS_ARRAY)->send();
+                                Yii::$app->end();
+                                break;
                         }
-                        if (Yii::$app->user->can('logist')) {
-                            // пользователя с правами логиста сразу переводим на страницу проектов
-                            Yii::$app->response->redirect(['/projects'])->send();
-                            Yii::$app->end();
-                        }
-                        if (Yii::$app->user->can('sales_department_manager')) {
-                            // пользователя с правами логиста сразу переводим на страницу проектов
-                            Yii::$app->response->redirect(['/transport-requests'])->send();
-                            Yii::$app->end();
-                        }
-                        if (Yii::$app->user->can('ecologist') || Yii::$app->user->can('ecologist_head')) {
-                            // пользователя с правами эколога сразу переводим на страницу проектов по экологии
-                            Yii::$app->response->redirect(['/eco-projects'])->send();
-                            Yii::$app->end();
-                        }
+
+                        unset($roleName);
                     }
                 ],
             ],
@@ -54,8 +69,8 @@ return [
         ],
         'gii' => [
             'class' => \yii\gii\Module::className(),
-            //'allowedIPs' => ['*'],
-            'allowedIPs' => ['127.0.0.1', '185.154.73.*'],
+            'allowedIPs' => ['*'],
+            //'allowedIPs' => ['127.0.0.1', '193.160.204.148'],
         ]
     ],
     'components' => [

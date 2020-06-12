@@ -3,15 +3,20 @@
 namespace common\models;
 
 use Yii;
+use yii\data\ArrayDataProvider;
 use yii\db\ActiveRecord;
+use yii\helpers\ArrayHelper;
 use yii\helpers\Html;
+use yii\helpers\StringHelper;
 
 /**
- * This is the model class for table "eco_projects".
+ * Проекты по экологии.
  *
  * @property int $id
  * @property int $created_at Дата и время создания
  * @property int $created_by Автор создания
+ * @property int $state_id Статус
+ * @property int $org_id Организация-исполнитель
  * @property int $responsible_id Ответственный
  * @property int $type_id Тип проекта
  * @property int $ca_id Заказчик
@@ -22,26 +27,48 @@ use yii\helpers\Html;
  * @property int $closed_at Фактическая дата завершения проекта
  * @property string $comment Примечание
  *
+ * @property string $representation
  * @property string $createdByProfileName
+ * @property string $createdByRoleName
+ * @property string $stateName
+ * @property string $organizationName
+ * @property string $organizationShortName
  * @property string $responsibleProfileName
  * @property string $typeName
  * @property string $customerName
+ * @property string $responsibleRoleName
  * @property integer $ecoProjectsMilestonesPendingCount
  * @property bool $hasCurrentProjectAccess
+ * @property string $statesSummary
  *
  * @property EcoTypes $type
  * @property foCompany $customer
  * @property User $createdBy
- * @property User $responsible
+ * @property AuthAssignment $createdByRoles
+ * @property AuthItem $createdByRole
  * @property Profile $createdByProfile
+ * @property StatesEcoProjects $state
+ * @property Organizations $organization
+ * @property User $responsible
  * @property Profile $responsibleProfile
+ * @property AuthAssignment $responsibleRoles
+ * @property AuthItem $responsibleRole
  * @property EcoProjectsMilestones $lastMilestone
  * @property EcoProjectsMilestones $currentMilestone
  * @property EcoProjectsAccess[] $ecoProjectsAccesses
+ * @property EcoProjectsLogs[] $ecoProjectsLogs
  * @property EcoProjectsMilestones[] $ecoProjectsMilestones
  */
 class EcoProjects extends \yii\db\ActiveRecord
 {
+    /**
+     * Псевдонимы присоединяемых таблиц
+     */
+    const JOIN_CREATED_BY_PROFILE_ALIAS = 'createdByProfile';
+    const JOIN_CREATED_BY_ROLES_ALIAS = 'createdByRoles';
+    const JOIN_RESPONSIBLE_PROFILE_ALIAS = 'responsibleProfile';
+    const JOIN_RESPONSIBLE_ROLES_ALIAS = 'responsibleRoles';
+
     /**
      * @var string наименование текущего этапа проекта (виртуальное вычисляемое поле)
      */
@@ -77,13 +104,15 @@ class EcoProjects extends \yii\db\ActiveRecord
     {
         return [
             [['type_id', 'ca_id', 'date_start'], 'required'],
-            [['created_at', 'created_by', 'responsible_id', 'type_id', 'ca_id', 'closed_at'], 'integer'],
+            [['created_at', 'created_by', 'state_id', 'org_id', 'responsible_id', 'type_id', 'ca_id', 'closed_at'], 'integer'],
             [['contract_amount'], 'number'],
             [['date_start', 'date_finish_contract', 'date_close_plan'], 'safe'],
             [['comment'], 'string'],
-            [['responsible_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['responsible_id' => 'id']],
-            [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => EcoTypes::className(), 'targetAttribute' => ['type_id' => 'id']],
-            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::className(), 'targetAttribute' => ['created_by' => 'id']],
+            [['created_by'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['created_by' => 'id']],
+            [['state_id'], 'exist', 'skipOnError' => true, 'targetClass' => StatesEcoProjects::className(), 'targetAttribute' => ['state_id' => 'id']],
+            [['responsible_id'], 'exist', 'skipOnError' => true, 'targetClass' => User::class, 'targetAttribute' => ['responsible_id' => 'id']],
+            [['type_id'], 'exist', 'skipOnError' => true, 'targetClass' => EcoTypes::class, 'targetAttribute' => ['type_id' => 'id']],
+            [['org_id'], 'exist', 'skipOnError' => true, 'targetClass' => Organizations::class, 'targetAttribute' => ['org_id' => 'id']],
         ];
     }
 
@@ -96,6 +125,8 @@ class EcoProjects extends \yii\db\ActiveRecord
             'id' => 'ID',
             'created_at' => 'Дата и время создания',
             'created_by' => 'Автор создания',
+            'state_id' => 'Статус',
+            'org_id' => 'Исполнитель',
             'responsible_id' => 'Ответственный',
             'type_id' => 'Тип проекта',
             'ca_id' => 'Заказчик',
@@ -107,6 +138,7 @@ class EcoProjects extends \yii\db\ActiveRecord
             'comment' => 'Примечание',
             // вычисляемые поля
             'createdByProfileName' => 'Автор создания',
+            'organizationName' => 'Исполнитель',
             'responsibleProfileName' => 'Ответственный',
             'typeName' => 'Тип проекта',
             'customerName' => 'Заказчик',
@@ -188,6 +220,23 @@ class EcoProjects extends \yii\db\ActiveRecord
                 'user_id' => $this->responsible_id,
             ]))->save();
         }
+        else {
+            if (isset($changedAttributes['state_id'])) {
+                // проверим, изменился ли статус проекта по экологии
+                if ($changedAttributes['state_id'] != $this->state_id) {
+                    $oldStateName = '';
+                    $oldState = StatesEcoProjects::findOne($changedAttributes['state_id']);
+                    if ($oldState != null) $oldStateName = ' с ' . $oldState->name;
+
+                    (new EcoProjectsLogs([
+                        'created_by' => Yii::$app->user->id,
+                        'project_id' => $this->id,
+                        'state_id' => $this->state_id,
+                        'description' => 'Изменение статуса' . $oldStateName . ' на ' . $this->stateName . '.',
+                    ]))->save();
+                }
+            }
+        }
     }
 
     /**
@@ -221,6 +270,25 @@ class EcoProjects extends \yii\db\ActiveRecord
         }
 
         return false;
+    }
+
+    /**
+     * Делает выборку проектов по экологии и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     * @throws \yii\base\InvalidConfigException
+     */
+    public static function arrayMapForSelect2()
+    {
+        $result = [];
+        foreach (self::find()->with('customer')->joinWith('type')->where(['is', 'closed_at', null])->all() as $ecoProject) {
+            $result[] = [
+                'id' => $ecoProject->id,
+                'name' => $ecoProject->representation,
+            ];
+        }
+
+        return ArrayHelper::map($result, 'id', 'name');
     }
 
     /**
@@ -415,11 +483,27 @@ class EcoProjects extends \yii\db\ActiveRecord
     }
 
     /**
+     * Возвращает представление проекта по экологии.
+     * @return string
+     * @throws \yii\base\InvalidConfigException
+     */
+    public function getRepresentation()
+    {
+        return '№ ' . $this->id . ' от ' .
+            Yii::$app->formatter->asDate($this->created_at, 'php:d.m.Y') .
+            ' (' .
+            StringHelper::truncate($this->customerName, 30) . ', ' .
+            $this->typeName .
+            (!empty($this->contract_amount) ? ', ' . FinanceTransactions::getPrettyAmount($this->contract_amount, 'name') : '') .
+            ')';
+    }
+
+    /**
      * @return \yii\db\ActiveQuery
      */
     public function getCreatedBy()
     {
-        return $this->hasOne(User::className(), ['id' => 'created_by']);
+        return $this->hasOne(User::class, ['id' => 'created_by']);
     }
 
     /**
@@ -427,7 +511,75 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'created_by'])->from(['createdByProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATED_BY_PROFILE_ALIAS => Profile::tableName()]);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedByRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATED_BY_ROLES_ALIAS => AuthAssignment::tableName()]);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedByRole()
+    {
+        return $this->hasOne(AuthItem::class, ['name' => 'item_name'])->via('createdByRoles');
+    }
+
+    /**
+     * Возвращает наименование роли пользователя.
+     * @return string
+     */
+    public function getCreatedByRoleName()
+    {
+        return !empty($this->createdByRole) ? $this->createdByRole->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getState()
+    {
+        return $this->hasOne(StatesEcoProjects::class, ['id' => 'state_id']);
+    }
+
+    /**
+     * Возвращает наименование текущего статуса проекта.
+     * @return string
+     */
+    public function getStateName()
+    {
+        return !empty($this->state) ? $this->state->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getOrganization()
+    {
+        return $this->hasOne(Organizations::class, ['id' => 'org_id']);
+    }
+
+    /**
+     * Возвращает наименование (внутреннее) организации-исполнителя.
+     * @return string
+     */
+    public function getOrganizationName()
+    {
+        return !empty($this->organization) ? $this->organization->name : '';
+    }
+
+    /**
+     * Возвращает наименование (сокращенное) организации-исполнителя.
+     * @return string
+     */
+    public function getOrganizationShortName()
+    {
+        return !empty($this->organization) ? $this->organization->name_short : '';
     }
 
     /**
@@ -444,7 +596,7 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getResponsible()
     {
-        return $this->hasOne(User::className(), ['id' => 'responsible_id']);
+        return $this->hasOne(User::class, ['id' => 'responsible_id']);
     }
 
     /**
@@ -452,7 +604,7 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getResponsibleProfile()
     {
-        return $this->hasOne(Profile::className(), ['user_id' => 'responsible_id'])->from(['responsibleProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'responsible_id'])->from([self::JOIN_RESPONSIBLE_PROFILE_ALIAS => Profile::tableName()]);
     }
 
     /**
@@ -467,9 +619,34 @@ class EcoProjects extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getResponsibleRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'responsible_id'])->from([self::JOIN_RESPONSIBLE_ROLES_ALIAS => AuthAssignment::tableName()]);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getResponsibleRole()
+    {
+        return $this->hasOne(AuthItem::class, ['name' => 'item_name'])->via('responsibleRoles');
+    }
+
+    /**
+     * Возвращает наименование роли пользователя.
+     * @return string
+     */
+    public function getResponsibleRoleName()
+    {
+        return !empty($this->responsibleRole) ? $this->responsibleRole->name : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getType()
     {
-        return $this->hasOne(EcoTypes::className(), ['id' => 'type_id']);
+        return $this->hasOne(EcoTypes::class, ['id' => 'type_id']);
     }
 
     /**
@@ -486,7 +663,7 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getCustomer()
     {
-        return $this->hasOne(foCompany::className(), ['ID_COMPANY' => 'ca_id']);
+        return $this->hasOne(foCompany::class, ['ID_COMPANY' => 'ca_id']);
     }
 
     /**
@@ -504,7 +681,7 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getLastMilestone()
     {
-        return $this->hasOne(EcoProjectsMilestones::className(), ['project_id' => 'id'])->where('`closed_at` IS NOT NULL')->orderBy('closed_at DESC');
+        return $this->hasOne(EcoProjectsMilestones::class, ['project_id' => 'id'])->where('`closed_at` IS NOT NULL')->orderBy('closed_at DESC');
     }
 
     /**
@@ -513,7 +690,7 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getCurrentMilestone()
     {
-        return $this->hasOne(EcoProjectsMilestones::className(), ['project_id' => 'id'])->where('`closed_at` IS NULL')->orderBy('order_no');
+        return $this->hasOne(EcoProjectsMilestones::class, ['project_id' => 'id'])->where('`closed_at` IS NULL')->orderBy('order_no');
     }
 
     /**
@@ -522,7 +699,7 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getHasCurrentProjectAccess()
     {
-        return $this->hasOne(EcoProjectsAccess::className(), ['project_id' => 'id'])->where(['user_id' => Yii::$app->user->id])->count() > 0;
+        return $this->hasOne(EcoProjectsAccess::class, ['project_id' => 'id'])->where(['user_id' => Yii::$app->user->id])->count() > 0;
     }
 
     /**
@@ -530,7 +707,68 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getEcoProjectsAccesses()
     {
-        return $this->hasMany(EcoProjectsAccess::className(), ['project_id' => 'id']);
+        return $this->hasMany(EcoProjectsAccess::class, ['project_id' => 'id']);
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getEcoProjectsLogs()
+    {
+        return $this->hasMany(EcoProjectsLogs::class, ['project_id' => 'id'])->orderBy(['created_at' => SORT_ASC]);
+    }
+
+    /**
+     * Рассчитывает, сколько проект провел в определенных статусах и возвращает в виде строки.
+     * @return ArrayDataProvider
+     */
+    public function getStatesSummary()
+    {
+        $result = [
+            [
+                'id' => StatesEcoProjects::STATE_ОЖИДАНИЕ_ЗАКАЗЧИКА,
+                'name' => 'Провел времени у Заказчика',
+                'time' => 0,
+            ],
+            [
+                'id' => StatesEcoProjects::STATE_ОЖИДАНИЕ_ИСПОЛНИТЕЛЯ,
+                'name' => 'Провел времени у Исполнителя',
+                'time' => 0,
+            ],
+            [
+                'id' => StatesEcoProjects::STATE_НАДЗОРНЫЙ_ОРГАН,
+                'name' => 'Провел времени в Надзорном органе',
+                'time' => 0,
+            ],
+        ];
+
+        $ecoProjectsLogs = $this->ecoProjectsLogs;
+        if (!empty($ecoProjectsLogs)) {
+            $currentStateId = -1;
+            $currentCreatedAt = -1;
+            foreach ($ecoProjectsLogs as $record) {
+                $key = array_search($record->state_id, array_column($result, 'id'));
+                if (false !== $key) {
+                    // статус есть в массиве тех, которые нам интересны
+                    if ($currentStateId != -1) {
+                        $diff = $record->created_at - $currentCreatedAt;
+                        //if ($diff > 0) {
+                        $result[$key]['time'] += $diff;
+                        //}
+                    }
+                }
+
+                $currentStateId = $record->state_id;
+                $currentCreatedAt = $record->created_at;
+            }
+        }
+
+        return new ArrayDataProvider([
+            'allModels' => $result,
+            'key' => 'table1_id', // поле, которое заменяет primary key
+            'pagination' => false,
+            'sort' =>  false,
+        ]);
     }
 
     /**
@@ -538,7 +776,7 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getEcoProjectsMilestones()
     {
-        return $this->hasMany(EcoProjectsMilestones::className(), ['project_id' => 'id']);
+        return $this->hasMany(EcoProjectsMilestones::class, ['project_id' => 'id']);
     }
 
     /**
@@ -547,6 +785,6 @@ class EcoProjects extends \yii\db\ActiveRecord
      */
     public function getEcoProjectsMilestonesPendingCount()
     {
-        return $this->hasMany(EcoProjectsMilestones::className(), ['project_id' => 'id'])->where('closed_at IS NULL')->count();
+        return $this->hasMany(EcoProjectsMilestones::class, ['project_id' => 'id'])->where('closed_at IS NULL')->count();
     }
 }

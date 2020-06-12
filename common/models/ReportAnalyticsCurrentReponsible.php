@@ -6,7 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
-use backend\components\TotalsColumn;
+use backend\components\grid\TotalsColumn;
 
 /**
  * ReportAnalyticsCurrentReponsible - это набор отчетов для анализа обращений (отчет строится только по текущим

@@ -4,6 +4,7 @@ use yii\helpers\Html;
 use yii\helpers\Url;
 use backend\components\grid\GridView;
 use backend\controllers\TendersController;
+use \common\models\TendersStates;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\TendersSearch */
@@ -21,6 +22,27 @@ $this->params['breadcrumbs'][] = TendersController::ROOT_LABEL;
     </p>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
+        'rowOptions' => function ($model, $key, $index, $grid) {
+            /* @var $model \common\models\Tenders */
+
+            $options = [];
+            switch ($model->state_id) {
+                case TendersStates::STATE_ОТКАЗ:
+                    $options = ['class' => 'danger'];
+                    break;
+                case TendersStates::STATE_В_РАБОТЕ:
+                    $options = ['class' => 'info'];
+                    break;
+                case TendersStates::STATE_СОГЛАСОВАНА:
+                    $options = ['class' => 'warning'];
+                    break;
+                case TendersStates::STATE_ЗАЯВКА_ПОДАНА:
+                    $options = ['class' => 'success'];
+                    break;
+            }
+
+            return $options;
+        },
         'columns' => [
             'orgName',
             [
@@ -30,7 +52,6 @@ $this->params['breadcrumbs'][] = TendersController::ROOT_LABEL;
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
                 'options' => ['width' => '130'],
-                'visible' => Yii::$app->user->can('tenders_manager'),
             ],
             [
                 'attribute' => 'responsibleProfileName',
@@ -66,7 +87,17 @@ $this->params['breadcrumbs'][] = TendersController::ROOT_LABEL;
             //'tp_id',
             //'we',
             //'manager_id',
-            'conditions:ntext:Примечание',
+            [
+                'attribute' => 'conditions',
+                'label' => 'Примечание',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Tenders */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return Html::tag('div', $model->{$column->attribute}, ['style' => 'max-width:400px; word-wrap: break-word;']);
+                },
+            ],
             //'date_complete',
             //'date_stop',
             //'ta_id',

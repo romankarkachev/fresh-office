@@ -13,6 +13,12 @@ use common\models\Tenders;
 class TendersSearch extends Tenders
 {
     /**
+     * Значение для отбора по полю "Статус"
+     */
+    const FIELD_SEARCH_STATE_DEFAULT = -1;
+    const FIELD_SEARCH_STATE_IGNORE = -2; // любой статус
+
+    /**
      * {@inheritdoc}
      */
     public function rules()
@@ -111,7 +117,7 @@ class TendersSearch extends Tenders
         ]);
 
         $this->load($params);
-        $query->joinWith(['org']);
+        $query->joinWith(['org', 'responsibleProfile']);
 
         if (!$this->validate()) {
             // uncomment the following line if you do not want to return any records when validation fails
@@ -119,8 +125,12 @@ class TendersSearch extends Tenders
             return $dataProvider;
         }
 
+        if (empty($this->state_id)) {
+            $this->state_id = self::FIELD_SEARCH_STATE_DEFAULT;
+        }
+
         // менеджеры по продажам видят только свои тендеры (только те, которые они сами создавали)
-        if (Yii::$app->user->can('sales_department_manager')) {
+        if (Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('ecologist_head')) {
             $query->where([
                 $tableName . '.created_by' => Yii::$app->user->id,
             ]);
@@ -130,7 +140,7 @@ class TendersSearch extends Tenders
                 $query->where([
                     'or',
                     [$tableName . '.created_by' => Yii::$app->user->id],
-                    $tableName . '.state_id >= ' . TendersStates::STATE_СОГЛАСОВАНА,
+                    ['>=', $tableName . '.state_id', TendersStates::STATE_СОГЛАСОВАНА],
                 ]);
             }
             elseif (Yii::$app->user->can('sales_department_head')) {
@@ -147,12 +157,26 @@ class TendersSearch extends Tenders
             }
         }
 
+        switch ($this->state_id) {
+            case self::FIELD_SEARCH_STATE_DEFAULT:
+                // отбор по умолчанию для всех - исключая финальные статусы
+                $query->andWhere(self::tableName() . '.state_id < ' . TendersStates::STATE_ПОБЕДА);
+                break;
+            case self::FIELD_SEARCH_STATE_IGNORE:
+                // ничего не делаем
+                break;
+            default:
+                $query->andFilterWhere([
+                    self::tableName() . '.state_id' => $this->state_id,
+                ]);
+                break;
+        }
+
         // grid filtering conditions
         $query->andFilterWhere([
             'id' => $this->id,
             'created_at' => $this->created_at,
             'tk_id' => $this->tk_id,
-            'state_id' => $this->state_id,
             'org_id' => $this->org_id,
             'fo_ca_id' => $this->fo_ca_id,
             'tp_id' => $this->tp_id,

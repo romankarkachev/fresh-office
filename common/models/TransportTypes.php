@@ -34,7 +34,8 @@ class TransportTypes extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['is_spec', 'unloading_time'], 'integer'],
+            [['unloading_time'], 'integer'],
+            [['is_spec'], 'boolean'],
             [['name'], 'string', 'max' => 30],
         ];
     }

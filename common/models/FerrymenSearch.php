@@ -6,6 +6,8 @@ use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
 use common\models\Ferrymen;
+use yii\data\ArrayDataProvider;
+use yii\db\Expression;
 use yii\helpers\ArrayHelper;
 
 /**
@@ -197,5 +199,30 @@ class FerrymenSearch extends Ferrymen
                 ->andFilterWhere(['like', 'ferrymen.ati_code', $this->ati_code]);
 
         return $dataProvider;
+    }
+
+    public function searchEmpty()
+    {
+        $tableName = Ferrymen::tableName();
+        $ferrymanExpression = new Expression('`' . $tableName . '`.`id`');
+        $query = Ferrymen::find()->select([
+            $tableName . '.*',
+            'poCount' => PaymentOrders::find()->select('COUNT(*)')->where([PaymentOrders::tableName() . '.`ferryman_id`' => $ferrymanExpression]),
+            'transportCount' => Transport::find()->select('COUNT(*)')->where([Transport::tableName() . '.`ferryman_id`' => $ferrymanExpression]),
+            'driversCount' => Drivers::find()->select('COUNT(*)')->where([Drivers::tableName() . '.`ferryman_id`' => $ferrymanExpression]),
+        ])->having('`poCount` > 0')->andHaving([
+            'or',
+            ['transportCount' => 0],
+            ['driversCount' => 0],
+        ]);
+        unset($ferrymanExpression);
+
+        return new ArrayDataProvider([
+            'modelClass' => 'common\models\Ferrymen',
+            'allModels' => $query->all(),
+            'key' => 'id', // поле, которое заменяет primary key
+            'pagination' => false,
+            'sort' => false,
+        ]);
     }
 }

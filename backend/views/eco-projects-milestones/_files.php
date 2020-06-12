@@ -89,7 +89,7 @@ use backend\controllers\EcoProjectsController;
     </div>
 </div>
 <?php
-$url = \yii\helpers\Url::to(['/' . EcoProjectsController::ROOT_URL_FOR_SORT_PAGING . '/preview-file']);
+$url = \yii\helpers\Url::to(EcoProjectsController::URL_PREVIEW_MILESTONE_FILE_AS_ARRAY);
 
 $this->registerJs(<<<JS
 $("#new_files").on("filebatchuploadsuccess", function(event, data, previewId, index) {

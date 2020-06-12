@@ -11,6 +11,7 @@ use backend\controllers\TendersController;
 use common\models\TendersPlatforms;
 use common\models\TendersApplications;
 use common\models\TendersKinds;
+use common\models\TendersStates;
 use common\models\WasteEquipment;
 use common\models\Organizations;
 use common\models\User;
@@ -39,12 +40,17 @@ $urlFindTenderByNumber = Url::to(TendersController::FIND_TENDER_BY_NUMBER_AS_ARR
 $urlAddWasteRow = Url::to(TendersController::URL_RENDER_WASTE_AS_ARRAY);
 $urlFetchLicenseRequests = Url::to(TendersController::URL_LR_CASTING_AS_ARRAY);
 $urlFillFkko = Url::to(TendersController::URL_FILL_FKKO_AS_ARRAY);
+$urlRenderFieldReason = Url::to(TendersController::URL_RENDER_FIELD_REASON_AS_ARRAY);
 
+$formId = Tenders::DOM_IDS['FORM_ID'];
 $blockWasteId = TendersTp::DOM_IDS['BLOCK_ID'];
 $wasteRowId = TendersTp::DOM_IDS['ROW_ID'];
 $wastePreloaderId = TendersTp::DOM_IDS['PRELOADER'];
 $btnAddWasteId = TendersTp::DOM_IDS['ADD_BUTTON'];
 $btnDeleteWasteId = TendersTp::DOM_IDS['DELETE_BUTTON'];
+$btnRejectId = Tenders::DOM_IDS['BUTTON_REJECT_ID'];
+$fieldModeId = Tenders::DOM_IDS['REASON_MODE_ID'];
+$blockCCId = Tenders::DOM_IDS['BLOCK_CC_ID'];
 
 // наименование контрагента для вывода в форме
 // если оно явно указано в соответствующем поле, то выводим его
@@ -55,6 +61,9 @@ if (empty($model->fo_ca_name)) {
         $company = \common\models\foCompany::findOne($model->fo_ca_id);
         if ($company) {
             $initValueText = trim($company->COMPANY_NAME);
+            $model->updateAttributes([
+                'fo_ca_name' => $initValueText,
+            ]);
             unset($company);
         }
     }
@@ -65,7 +74,7 @@ else {
 ?>
 
 <div class="tenders-form">
-    <?php $form = ActiveForm::begin(['id' => 'frmTender']); ?>
+    <?php $form = ActiveForm::begin(['encodeErrorSummary' => false, 'id' => $formId]); ?>
 
     <?php if ($model->isNewRecord): ?>
     <div class="panel panel-success">
@@ -85,23 +94,24 @@ else {
                     </div>
                 </div>
                 <div id="find_manual" class="tab-pane fade" style="padding-top: 10px;">
+                    <p>Поиск закупок по реквизитам заказчиков недоступен.</p>
                     <div class="row">
                         <div class="col-md-2">
-                            <?= $form->field($model, 'ftInn')->widget(MaskedInput::className(), [
+                            <?= $form->field($model, 'ftInn')->widget(MaskedInput::class, [
                                 'mask' => '999999999999',
                                 'clientOptions' => ['placeholder' => ''],
-                            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите ИНН']) ?>
+                            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите ИНН', 'disabled' => true]) ?>
 
                         </div>
                         <div class="col-md-2">
-                            <?= $form->field($model, 'ftKpp')->widget(MaskedInput::className(), [
+                            <?= $form->field($model, 'ftKpp')->widget(MaskedInput::class, [
                                 'mask' => '999999999',
                                 'clientOptions' => ['placeholder' => ''],
-                            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите КПП']) ?>
+                            ])->textInput(['maxlength' => true, 'placeholder' => 'Введите КПП', 'disabled' => true]) ?>
 
                         </div>
                         <div class="col-md-3">
-                            <?= $form->field($model, 'ftTitle')->textInput(['placeholder' => 'Введите часть наименования закупки']) ?>
+                            <?= $form->field($model, 'ftTitle')->textInput(['placeholder' => 'Введите часть наименования закупки', 'disabled' => true]) ?>
 
                         </div>
                     </div>
@@ -114,10 +124,14 @@ else {
         </div>
     </div>
     <?php endif; ?>
+    <?php if (!Yii::$app->user->can('root')): ?>
+    <?= $form->errorSummary($model, ['id' => 'block-errors']) ?>
+
+    <?php endif; ?>
     <div class="row">
         <div class="col-md-2">
-            <?= $form->field($model, 'org_id')->widget(Select2::className(), [
-                'data' => Organizations::arrayMapForSelect2(2),
+            <?= $form->field($model, 'org_id')->widget(Select2::class, [
+                'data' => Organizations::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
                 'hideSearch' => true,
@@ -125,7 +139,6 @@ else {
 
         </div>
         <div class="col-md-2">
-            <?php if (!Yii::$app->user->can('sales_department_manager')): ?>
             <?= $form->field($model, 'tp_id')->widget(Select2::class, [
                 'data' => TendersPlatforms::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
@@ -133,13 +146,9 @@ else {
                 'hideSearch' => true,
             ]) ?>
 
-            <?php else: ?>
-            <?= $form->field($model, 'tp_id', ['template' => '{label}{input}<span id="tp_id" class="form-control text-muted" readonly="readonly">- не определено -</span>{error}'])->hiddenInput() ?>
-
-            <?php endif; ?>
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'ta_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'ta_id')->widget(Select2::class, [
                 'data' => TendersApplications::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -158,7 +167,7 @@ else {
         </div>
         <div class="col-md-4">
             <?php if (!Yii::$app->user->can('tenders_manager')): ?>
-            <?= $form->field($model, 'fo_ca_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'fo_ca_id')->widget(Select2::class, [
                 'initValueText' => $initValueText,
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'language' => 'ru',
@@ -189,7 +198,7 @@ else {
     <div class="row">
         <?php if (!Yii::$app->user->can('sales_department_manager')): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'manager_id')->widget(Select2::className(), [
+            <?= $form->field($model, 'manager_id')->widget(Select2::class, [
                 'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_ALL_ROLES),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -197,13 +206,13 @@ else {
 
         </div>
         <?php else: ?>
-        <?= $form->field($model, 'manager_id')->hiddenInput()->label(false) ?>
+        <?= $form->field($model, 'manager_id', ['template' => '{input}', 'options' => ['tag' => null]])->hiddenInput()->label(false) ?>
 
         <?php endif; ?>
         <?php if (Yii::$app->user->can('root')): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'state_id')->widget(Select2::className(), [
-                'data' => \common\models\TendersStates::arrayMapForSelect2(),
+            <?= $form->field($model, 'state_id')->widget(Select2::class, [
+                'data' => TendersStates::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
             ])->label('Статус') ?>
@@ -227,7 +236,7 @@ else {
         </div>
         <!--
         <div class="col-md-2">
-            <?= $form->field($model, 'date_complete')->widget(DateControl::className(), [
+            <?= $form->field($model, 'date_complete')->widget(DateControl::class, [
                 'value' => $model->date_complete,
                 'type' => DateControl::FORMAT_DATE,
                 'displayFormat' => 'php:d.m.Y',
@@ -242,7 +251,7 @@ else {
         </div>
         -->
         <div class="col-md-2">
-            <?= $form->field($model, 'date_stop')->widget(DateControl::className(), [
+            <?= $form->field($model, 'date_stop')->widget(DateControl::class, [
                 'value' => $model->date_stop,
                 'type' => DateControl::FORMAT_DATETIME,
                 'displayFormat' => 'php:d.m.Y H:i',
@@ -252,12 +261,11 @@ else {
                     'options' => ['placeholder' => '- выберите дату -', 'title' => $model->getAttributeLabel('date_stop'), 'autocomplete' => 'off'],
                     'pluginOptions' => ['weekStart' => 1, 'autoclose' => true],
                 ],
-                'disabled' => Yii::$app->user->can('sales_department_manager') || Yii::$app->user->can('sales_department_head'),
             ])->label('Окончание приема') ?>
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'date_sumup')->widget(DateControl::className(), [
+            <?= $form->field($model, 'date_sumup')->widget(DateControl::class, [
                 'value' => $model->date_sumup,
                 'type' => DateControl::FORMAT_DATE,
                 'displayFormat' => 'php:d.m.Y',
@@ -272,7 +280,7 @@ else {
 
         </div>
         <div class="col-md-2">
-            <?= $form->field($model, 'date_auction')->widget(DateControl::className(), [
+            <?= $form->field($model, 'date_auction')->widget(DateControl::class, [
                 'value' => $model->date_auction,
                 'type' => DateControl::FORMAT_DATETIME,
                 'displayFormat' => 'php:d.m.Y H:i',
@@ -292,23 +300,45 @@ else {
     <?= $form->field($model, 'conditions')->textarea(['rows' => 3, 'placeholder' => 'Введите особые требования (например: только размещение, самопривоз, применение конкретной технологии и т.д.)']) ?>
 
     <div class="row">
-        <!--
+        <?php if (Yii::$app->user->can('root')): ?>
         <div class="col-md-2">
-            <?= $form->field($model, 'responsible_id')->widget(Select2::className(), [
-                'data' => User::arrayMapForSelect2(User::ARRAY_MAP_OF_USERS_BY_MANAGER_AND_ECOLOGIST_ROLE),
+            <?= $form->field($model, 'oos_number')->widget(MaskedInput::class, [
+                'clientOptions' => ['alias' =>  'numeric'],
+            ])->textInput([
+                'maxlength' => true,
+                'placeholder' => '0',
+                'title' => 'Введите номер закупки',
+            ]) ?>
+
+        </div>
+        <div class="col-md-2">
+            <?= $form->field($model, 'responsible_id')->widget(Select2::class, [
+                'data' => User::arrayMapForSelect2(User::USERS_TENDERS),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
             ]) ?>
 
         </div>
-        -->
+        <?php else: ?>
+        <?= $form->field($model, 'oos_number', ['template' => '{input}', 'options' => ['tag' => null]])->hiddenInput()->label(false) ?>
+
+        <?php endif; ?>
         <div class="col-md-3">
-            <?= $form->field($model, 'we')->widget(Select2::className(), [
+            <?= $form->field($model, 'we')->widget(Select2::class, [
                 'data' => WasteEquipment::arrayMapForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -', 'multiple' => true],
                 'hideSearch' => true,
             ]) ?>
+
+        </div>
+        <div class="col-md-1">
+            <?= $form->field($model, 'complexity')->widget(Select2::class, [
+                'data' => Tenders::arrayMapOfComplexityForSelect2(),
+                'theme' => Select2::THEME_BOOTSTRAP,
+                'options' => ['placeholder' => '- выберите -', 'title' => 'Выберите уровень сложности'],
+                'hideSearch' => true,
+            ])->label('Уровень') ?>
 
         </div>
     </div>
@@ -326,7 +356,7 @@ else {
         <div class="col-md-2">
             <?= $form->field($model, 'amount_start', [
                 'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
-            ])->widget(MaskedInput::className(), [
+            ])->widget(MaskedInput::class, [
                 'clientOptions' => [
                     'alias' =>  'numeric',
                     'groupSeparator' => ' ',
@@ -344,7 +374,7 @@ else {
         <div class="col-md-2">
             <?= $form->field($model, 'amount_offer', [
                 'template' => '{label}<div class="input-group">{input}<span class="input-group-addon"><i class="fa fa-rub"></i></span></div>{error}'
-            ])->widget(MaskedInput::className(), [
+            ])->widget(MaskedInput::class, [
                 'clientOptions' => [
                     'alias' =>  'decimal',
                     'digits' => 2,
@@ -402,7 +432,7 @@ else {
         </div>
         <!--
         <div class="col-md-2">
-            <?= $form->field($model, 'deferral')->widget(MaskedInput::className(), [
+            <?= $form->field($model, 'deferral')->widget(MaskedInput::class, [
                 'mask' => '9999',
                 'clientOptions' => ['placeholder' => ''],
             ])->textInput(['maxlength' => true, 'placeholder' => 'Введите число', 'title' => $model->getAttributeLabel('deferral')])->label('Отсрочка') ?>
@@ -410,7 +440,7 @@ else {
         </div>
         -->
         <div class="col-md-2">
-            <?= $form->field($model, 'is_contract_approved')->widget(Select2::className(), [
+            <?= $form->field($model, 'is_contract_approved')->widget(Select2::class, [
                 'data' => Tenders::arrayMapOfIsContractApprovedForSelect2(),
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
@@ -419,6 +449,8 @@ else {
 
         </div>
     </div>
+    <?= $form->field($model, 'contract_comments', ['options' => ['id' => $blockCCId, 'class' => 'form-group' . ($model->is_contract_edit ? '' : ' collapse')]])->textarea(['rows' => 3, 'placeholder' => 'Введите изменения в договоре']) ?>
+
     <?php if ($model->isNewRecord): ?><div class="panel panel-success">
         <div class="panel-heading">
             <small>Отходы</small>
@@ -453,27 +485,52 @@ else {
         </div>
     </div>
     <?php endif; ?>
-    <?= $form->field($model, 'comment')->textarea(['rows' => 3, 'placeholder' => 'Введите произвольный комментарий']) ?>
+    <?= $form->field($model, 'comment')->textarea(['rows' => 8, 'placeholder' => 'Введите произвольный комментарий']) ?>
 
     <div class="form-group">
+        <?php if (!$model->isNewRecord): ?>
+        <p class="text-muted">Создан <?= Yii::$app->formatter->asDate($model->created_at, 'php:d.m.Y в H:i') ?></p>
+        <?php if ($model->state_id == TendersStates::STATE_ПРОИГРЫШ): ?>
+        <p class="text-muted">Причина проигрыша: <?= $model->lossReasonName ?>.</p>
+        <?php endif; ?>
+        <?php endif; ?>
         <?= $model->renderSubmitButtons() ?>
 
     </div>
-    <?= $form->field($model, 'law_no')->hiddenInput()->label(false) ?>
+    <?= $form->field($model, 'law_no', ['template' => '{input}', 'options' => ['tag' => null]])->hiddenInput()->label(false) ?>
 
-    <?= $form->field($model, 'oos_number')->hiddenInput()->label(false) ?>
+    <?= $form->field($model, 'revision', ['template' => '{input}', 'options' => ['tag' => null]])->hiddenInput()->label(false) ?>
 
-    <?= $form->field($model, 'revision')->hiddenInput()->label(false) ?>
+    <?= $form->field($model, 'fo_ca_name', ['template' => '{input}', 'options' => ['tag' => null]])->hiddenInput()->label(false) ?>
 
-    <?= $form->field($model, 'fo_ca_name')->hiddenInput()->label(false) ?>
+    <?= $form->field($model, 'findTool', ['template' => '{input}', 'options' => ['tag' => null]])->hiddenInput()->label(false) ?>
 
-    <?= $form->field($model, 'findTool')->hiddenInput()->label(false) ?>
-
+    <?php if (!$model->isNewRecord && $model->state_id == TendersStates::STATE_ЗАЯВКА_ПОДАНА): ?>
+    <?= $form->field($model, 'loss_reason_id', ['template' => '{input}', 'options' => ['tag' => null]])->hiddenInput()->label(false)  ?>
+    <?php endif; ?>
     <?php ActiveForm::end(); ?>
 
 </div>
+<div id="modalWindow" class="modal fade" tabindex="false" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-info" role="document">
+        <div class="modal-content">
+            <div class="modal-header"><h4 id="modalTitle" class="modal-title">Введите комментарий</h4></div>
+            <div id="modalBody" class="modal-body"></div>
+            <div class="modal-footer">
+                <button type="button" id="btnSubmit" class="btn btn-success" data-dismiss="modal">Продолжить</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
 <?php
+
+$isContractEditId = Html::getInputId($model, 'is_contract_edit');
+$contractCommentsId = Html::getInputId($model, 'contract_comments');
+$lossReasonId = Html::getInputId($model, 'loss_reason_id');
+
 $this->registerJs(<<<JS
+
 function fetchLicenseRequests() {
     var data = $("#$formNameId-fo_ca_id").select2("data");
     ca_id = data[0].id;
@@ -486,6 +543,12 @@ function fetchLicenseRequests() {
         });        
     }
 } // fetchLicenseRequests()
+
+// Выполняет инициализацию галочек (необходимо например в случае интерактивной перезагрузки страницы).
+//
+function initializeCheckboxes() {
+    $("input[type='checkbox']").iCheck({checkboxClass: "icheckbox_square-green"});
+} // initializeCheckboxes()
 JS
 , yii\web\View::POS_BEGIN);
 
@@ -525,46 +588,46 @@ function findTenderOnClick() {
 
             // номер закона
             if (response.law_no) $("#$formNameId-law_no").val(response.law_no);
-    
+
             // номер закупки
             if (response.regNumber) $("#$formNameId-oos_number").val(response.regNumber);
-    
+
             // способ размещения закупки
             if (response.tk_id) $("#$formNameId-tk_id").val(response.tk_id).trigger("change");
-    
+
             // номер редакции извещения
             if (response.revision) $("#$formNameId-revision").val(response.revision);
-    
+
             // наименование закупки
             if (response.name) $("#$formNameId-title").val(response.name);
-    
+
             // НМЦ
             if (response.price) $("#$formNameId-amount_start").val(response.price);
-    
+
             // размер обеспечения заявки
             if (response.amount_fo) $("#$formNameId-amount_fo").val(response.amount_fo);
-    
+
             // размер обеспечения контракта
             if (response.amount_fc) $("#$formNameId-amount_fc").val(response.amount_fc);
-    
+
             // дата размещения закупки
             if (response.placed_at_f) {
                 $("#$formNameId-placed_at-disp").val(response.placed_at_f);
                 $("#$formNameId-placed_at").val(response.placed_at_u);
             }
-    
+
             // дата окончания приема заявок
             if (response.pf_date_u) {
                 $("#$formNameId-date_stop-disp").val(response.pf_date_f);
                 $("#$formNameId-date_stop").val(response.pf_date_u);
             }
-    
+
             // дата подведения итогов
             if (response.su_date_u) {
                 $("#$formNameId-date_sumup-disp").val(response.su_date_f);
                 $("#$formNameId-date_sumup").val(response.su_date_u);
             }
-    
+
             // дата проведения аукциона
             if (response.auction_at_u) {
                 $("#$formNameId-date_auction-disp").val(response.auction_at_f);
@@ -621,12 +684,72 @@ function licenseRequestOnChange() {
         $("#$blockWasteId").append(data);
         $("#$wastePreloaderId").hide();
         count = $("div[id ^= '$wasteRowId-']").last().attr("data-counter");
-        alert("count: " + count);
+        //alert("count: " + count);
         if (count) {
             $("#$btnAddWasteId").attr("data-count", count);
         }
     });
 } // licenseRequestOnChange
+
+// Обработчик щелчка по кнопке "Проигрыш".
+//
+function btnDefeatOnClick(e) {
+    e.preventDefault();
+    $("#modalBody").load("$urlRenderFieldReason?mode=1");
+    $("#modalWindow").modal();
+
+    return false;
+} // btnDefeatOnClick()
+
+// Обработчик щелчка по кнопке "Отказ".
+//
+function btnRejectOnClick(e) {
+    e.preventDefault();
+    $("#modalBody").load("$urlRenderFieldReason?mode=2");
+    $("#modalWindow").modal();
+
+    return false;
+} // btnRejectOnClick()
+
+// Обработчик нажатия на кнопку "Продолжить" в модальном окне.
+//
+function btnSubmitRecede() {
+    mode = $("#$fieldModeId").val();
+    switch (mode) {
+        case "1":
+            $("#$lossReasonId").val($("#$formNameId-loss_reason").val());
+
+            break;
+        case "2":
+            reason = "Причина отказа: " + $("#$formNameId-reject_reason").val() + ".";
+            \$fieldComment = $("#$formNameId-comment");
+            var comment = \$fieldComment.val();
+            if (reason) {
+                if (comment.trim() != "") {
+                    comment = comment.trim() + "\\r\\n";
+                }
+                comment += reason;
+                \$fieldComment.val(comment);
+            }
+            break;
+    }
+
+    $("#$formId").submit();
+
+    return false;
+} // btnSubmitRecede()
+
+// Обработчик изменения состояния флажка "Возможность внести изменения в договор".
+//
+function isContractEditOnChange() {
+    if ($(this).prop("checked")) {
+        $("#$blockCCId").show();
+    }
+    else {
+        $("#$contractCommentsId").val("");
+        $("#$blockCCId").hide();
+    }
+} // isContractEditOnChange()
 
 $(document).on("click", "a[data-toggle ^= 'pill']", findToolOnClick);
 $(document).on("click", "#findTender", findTenderOnClick);
@@ -635,6 +758,10 @@ $(document).on("change", "#$formNameId-org_id", fetchLicenseRequests);
 $(document).on("click", "#$btnAddWasteId", btnAddNewWasteOnClick);
 $(document).on("click", "a[id ^= '$btnDeleteWasteId']", btnDeleteNewWasteOnClick);
 $(document).on("change", "#$formNameId-lr_id", licenseRequestOnChange);
+$(document).on("click", "#$btnRejectId", btnRejectOnClick);
+$(document).on("click", "#btnDefeat", btnDefeatOnClick);
+$(document).on("click", "#btnSubmit", btnSubmitRecede);
+$(document).on("change ifChanged", "#$isContractEditId", isContractEditOnChange);
 JS
 , yii\web\View::POS_READY);
 ?>

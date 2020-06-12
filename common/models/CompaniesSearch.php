@@ -5,8 +5,8 @@ namespace common\models;
 use Yii;
 use yii\base\Model;
 use yii\data\ActiveDataProvider;
-use common\models\Companies;
 use yii\helpers\ArrayHelper;
+use backend\controllers\CompaniesController;
 
 /**
  * CompaniesSearch represents the model behind the search form of `common\models\Companies`.
@@ -54,7 +54,7 @@ class CompaniesSearch extends Companies
      * @param $route string URL для перехода в список записей
      * @return ActiveDataProvider
      */
-    public function search($params, $route = 'companies')
+    public function search($params, $route = CompaniesController::ROOT_URL_FOR_SORT_PAGING)
     {
         $query = Companies::find();
         $dataProvider = new ActiveDataProvider([

@@ -139,15 +139,15 @@ class ReportPoAnalytics extends Model
         if (!empty($this->searchPaidAtStart) || !empty($this->searchPaidAtEnd)) {
             if (!empty($this->searchPaidAtStart) && !empty($this->searchPaidAtEnd)) {
                 // если указаны обе даты
-                $query->andFilterWhere(['between', Po::tableName() . '.paid_at', $this->searchPaidAtStart . ' 00:00:00', $this->searchPaidAtEnd . ' 23:59:59']);
+                $query->andFilterWhere(['between', Po::tableName() . '.paid_at', strtotime($this->searchPaidAtStart . ' 00:00:00'), strtotime($this->searchPaidAtEnd . ' 23:59:59')]);
             }
             elseif (!empty($this->searchPaidAtStart) && empty($this->searchPaidAtEnd)) {
                 // если указано только начало периода
-                $query->andFilterWhere(['>=', Po::tableName() . '.paid_at', $this->searchPaidAtStart . ' 00:00:00']);
+                $query->andFilterWhere(['>=', Po::tableName() . '.paid_at', strtotime($this->searchPaidAtStart . ' 00:00:00')]);
             }
             elseif (empty($this->searchPaidAtStart) && !empty($this->searchPaidAtEnd)) {
                 // если указан только конец периода
-                $query->andFilterWhere(['<=', Po::tableName() . '.paid_at', $this->searchPaidAtEnd . ' 23:59:59']);
+                $query->andFilterWhere(['<=', Po::tableName() . '.paid_at', strtotime($this->searchPaidAtEnd . ' 23:59:59')]);
             }
         }
         else {

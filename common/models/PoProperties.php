@@ -3,6 +3,7 @@
 namespace common\models;
 
 use Yii;
+use yii\helpers\ArrayHelper;
 
 /**
  * This is the model class for table "po_properties".
@@ -95,6 +96,22 @@ class PoProperties extends \yii\db\ActiveRecord
         if ($this->getPoEips()->count() > 0) return true;
 
         return false;
+    }
+
+    /**
+     * Делает выборку свойств статьи расходов и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @param $filter array массив условий для отбора
+     * @return array
+     */
+    public static function arrayMapForSelect2($filter = null)
+    {
+        $query = self::find();
+        if (!empty($filter)) {
+            $query->andWhere($filter);
+        }
+
+        return ArrayHelper::map($query->all(), 'id', 'name');
     }
 
     /**

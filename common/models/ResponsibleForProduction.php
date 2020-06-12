@@ -4,6 +4,7 @@ namespace common\models;
 
 use Yii;
 use yii\helpers\ArrayHelper;
+use yii\helpers\Json;
 
 /**
  * This is the model class for table "responsible_for_production".
@@ -11,6 +12,8 @@ use yii\helpers\ArrayHelper;
  * @property integer $id
  * @property integer $type
  * @property string $receiver
+ *
+ * @property string $typeName
  */
 class ResponsibleForProduction extends \yii\db\ActiveRecord
 {
@@ -19,12 +22,8 @@ class ResponsibleForProduction extends \yii\db\ActiveRecord
      */
     const TYPE_ALWAYS = 1;
     const TYPE_MISMATCH = 2;
-
-    /**
-     * Наименование типа получателя.
-     * @var string
-     */
-    public $typeName;
+    const TYPE_SHIPMENT = 3;
+    const TYPE_NEW_TENDER = 4;
 
     /**
      * @inheritdoc
@@ -75,6 +74,14 @@ class ResponsibleForProduction extends \yii\db\ActiveRecord
                 'id' => self::TYPE_MISMATCH,
                 'name' => 'При несовпадении',
             ],
+            [
+                'id' => self::TYPE_SHIPMENT,
+                'name' => 'Отправка техники',
+            ],
+            [
+                'id' => self::TYPE_NEW_TENDER,
+                'name' => 'Создание тендера',
+            ],
         ];
     }
 
@@ -119,7 +126,7 @@ class ResponsibleForProduction extends \yii\db\ActiveRecord
 
         $response = FreshOfficeAPI::makePostRequestToApi('tasks', $params);
         // проанализируем результат, который возвращает API Fresh Office
-        $decoded_response = json_decode($response, true);
+        $decoded_response = Json::decode($response, true);
         if (isset($decoded_response['error'])) {
             $inner_message = '';
             if (isset($decoded_response['error']['innererror']))
@@ -132,5 +139,14 @@ class ResponsibleForProduction extends \yii\db\ActiveRecord
             return $decoded_response['d']['id'];
 
         return false;
+    }
+
+    public function getTypeName()
+    {
+        $sourceTable = $this::fetchTypes();
+        $key = array_search($this->type, array_column($sourceTable, 'id'));
+        if (false !== $key) return $sourceTable[$key]['name'];
+
+        return '';
     }
 }

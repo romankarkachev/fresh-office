@@ -165,8 +165,8 @@ class FileStorage extends \yii\db\ActiveRecord
             // удалим статы
             FileStorageStats::deleteAll(['fs_id' => $this->id]);
 
-            // удалим сам файл
-            if (file_exists($this->ffp)) unlink($this->ffp);
+            // удалим сам файл, но только если он физически расположен в хранилище, чужие не можем удалять
+            if (file_exists($this->ffp) && false !== stripos($this->ffp, FileStorage::ROOT_FOLDER)) unlink($this->ffp);
 
             return true;
         }

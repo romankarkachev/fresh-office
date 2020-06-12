@@ -253,7 +253,7 @@ class ProjectsController extends Controller
             Excel::export([
                 'models' => $dataProvider->getModels(),
                 'fileName' => 'Матрица статусов проектов (сформирован ' . date('Y-m-d в H i') . ').xlsx',
-                'format' => 'Excel2007',
+                'asAttachment' => true,
                 'columns' => $columns,
             ]);
         } else {
@@ -514,9 +514,7 @@ class ProjectsController extends Controller
         $model = new FerrymanOrderForm();
 
         if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            echo Json::encode(ActiveForm::validate($model));
-            Yii::$app->end();
+            return Json::encode(ActiveForm::validate($model));
         }
     }
 

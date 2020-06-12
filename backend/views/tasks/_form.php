@@ -20,6 +20,7 @@ use backend\controllers\TasksController;
 
 $formNameId = strtolower($model->formName());
 $urlFetchContactPersons = Url::to(['/correspondence-packages/fetch-contact-persons']);
+$urlLatestProject = Url::to(['/tasks/latest-project']);
 ?>
 
 <div class="tasks-form">
@@ -98,6 +99,12 @@ $.get("' . $urlFetchContactPersons . '?id=" + result.id, function (response) {
         $contactField.append(newOption).trigger("change");
     });
 });
+
+$.get("' . $urlLatestProject . '?id=" + result.id, function (response) {
+    if (response != false) {
+        $("#' . $formNameId . '-project_id").val(response);
+    }
+});
 return result.text;
 }'),
                 ],
@@ -107,7 +114,7 @@ return result.text;
         <div class="col-md-3">
             <?= $form->field($model, 'fo_cp_id')->widget(Select2::class, [
                 'initValueText' => $model->fo_cp_name != null ? $model->fo_cp_name : '',
-                'data' => !empty($model->fo_cp_id) ? $model->arrayMapOfContactPersonsForSelect2() : [],
+                'data' => !empty($model->fo_ca_id) ? $model->arrayMapOfContactPersonsForSelect2() : [],
                 'theme' => Select2::THEME_BOOTSTRAP,
                 'options' => ['placeholder' => '- выберите -'],
             ]) ?>

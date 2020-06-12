@@ -14,6 +14,11 @@ use common\models\EdfStates;
 
 $this->title = EdfController::ROOT_LABEL . ' | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = EdfController::ROOT_LABEL;
+
+$gridViewId = 'gw-edf';
+$btnDeleteFewPrompt = '<i class="fa fa-trash-o" aria-hidden="true"></i> удалить выбранные';
+$btnDeleteFewId = 'deleteSelected';
+$btnDeleteFew = '<div class="col-md-6">' . Html::a($btnDeleteFewPrompt, '#', ['id' => $btnDeleteFewId, 'class' => 'btn btn-danger btn-xs', 'title' => 'Удалить выделенные электронные документы']) . '</div>';
 ?>
 <div class="edf-list">
     <p>
@@ -27,7 +32,9 @@ $this->params['breadcrumbs'][] = EdfController::ROOT_LABEL;
     <?= $this->render('_search', ['model' => $searchModel, 'searchApplied' => $searchApplied]); ?>
 
     <?= GridView::widget([
+        'id' => $gridViewId,
         'dataProvider' => $dataProvider,
+        'layout' => "<div style=\"position: relative; min-height: 20px;\"><small class=\"pull-right form-text text-muted\" style=\"position: absolute; bottom: 0; right: 0;\">{summary}</small></div>\n{items}\n<div class=\"row\">$btnDeleteFew<div class=\"col-md-6\"><small class=\"pull-right form-text text-muted\">{summary}</small></div></div>\n{pager}",
         'rowOptions' => function ($model, $key, $index, $grid) {
             /* @var $model \common\models\Edf */
 
@@ -54,6 +61,11 @@ $this->params['breadcrumbs'][] = EdfController::ROOT_LABEL;
             return $options;
         },
         'columns' => [
+            [
+                'class' => 'yii\grid\CheckboxColumn',
+                'options' => ['width' => '30'],
+                'visible' => Yii::$app->user->can('root'),
+            ],
             [
                 'attribute' => 'created_at',
                 'label' => 'Создан',
@@ -113,29 +125,6 @@ $this->params['breadcrumbs'][] = EdfController::ROOT_LABEL;
                 },
                 'visible' => $isFilterDs,
             ],
-            // 'ba_id',
-            // 'manager_id',
-            //
-            // 'doc_date',
-            // 'ca_name',
-            // 'ca_contact_person',
-            // 'ca_basis',
-            // 'req_name',
-            // 'req_ogrn',
-            // 'req_inn',
-            // 'req_kpp',
-            // 'req_address_j',
-            // 'req_address_f',
-            // 'req_an',
-            // 'req_bik',
-            // 'req_bn',
-            // 'req_ca',
-            // 'req_phone',
-            // 'req_email:email',
-            // 'req_dir_post',
-            // 'req_dir_name',
-            // 'is_received_scan',
-            // 'is_received_original',
             [
                 'class' => 'backend\components\grid\ActionColumn',
                 'visibleButtons' => [
@@ -147,10 +136,61 @@ $this->params['breadcrumbs'][] = EdfController::ROOT_LABEL;
 
 </div>
 <?php
-$url = \yii\helpers\Url::to(['/edf/']);
+$urlDeleteFew = \yii\helpers\Url::to(EdfController::URL_DELETE_SELECTED_AS_ARRAY);
 
 $this->registerJs(<<<JS
 
+var checked = false;
+$("input[type='checkbox']").iCheck({checkboxClass: 'icheckbox_square-green'});
+
+// Выполняет пересчет количества выделенных пользователем документов и подставляет отличное от нуля значение в текст кнопки.
+//
+function recountSelected() {
+    var count = $("input[name ^= 'selection[]']:checked").length;
+    var prompt = "";
+    var promptDelete = '$btnDeleteFewPrompt';
+    if (count > 0) {
+        prompt = " <strong>(" + count + ")</strong>";
+        promptDelete += prompt;
+    }
+
+    $("#$btnDeleteFewId").html(promptDelete);
+} // recountSelected()
+
+// Обработчик щелчка по ссылке "Отметить все".
+//
+function checkAllOnClick() {
+    if (checked) {
+    operation = "uncheck";
+    checked = false;
+    }
+    else {
+        operation = "check";
+        checked = true;
+    }
+
+    $("input[name ^= 'selection[]']").iCheck(operation);
+    recountSelected();
+
+    return false;
+} // checkAllOnClick()
+
+// Обработчик щелчка по ссылке "Удалить выделенные документы".
+//
+function deleteSelectedOnClick() {
+    var ids = $("#$gridViewId").yiiGridView("getSelectedRows");
+    if (ids == "") return false;
+
+    if (confirm("Вы действительно хотите удалить выделенные электронные документы безвозвратно?")) {
+        $.post("$urlDeleteFew", {ids: ids}, function() {});
+    }
+
+    return false;
+} // deleteSelectedOnClick()
+
+$("input[name ^= 'selection[]']").on("ifChanged", recountSelected);
+$(".select-on-check-all").on("ifClicked", checkAllOnClick);
+$(document).on("click", "#$btnDeleteFewId", deleteSelectedOnClick);
 JS
 , \yii\web\View::POS_READY);
 ?>

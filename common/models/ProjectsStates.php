@@ -22,6 +22,7 @@ class ProjectsStates extends \yii\db\ActiveRecord
     const STATE_СЧЕТ_ОЖИДАЕТ_ОПЛАТЫ = 4;
     const STATE_ОПЛАЧЕНО = 5;
     const STATE_СОГЛАСОВАНИЕ_ВЫВОЗА = 6;
+    const STATE_НЕВОСТРЕБОВАНО = 7;
     const STATE_ВЫВОЗ_ЗАВЕРШЕН = 13;
     const STATE_ОДОБРЕНО_ПРОИЗВОДСТВОМ = 14;
     const STATE_НЕСОВПАДЕНИЕ = 15;

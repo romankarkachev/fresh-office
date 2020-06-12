@@ -2,7 +2,9 @@
 
 namespace common\models;
 
+use backend\controllers\PbxCallsController;
 use Yii;
+use yii\db\ActiveRecord;
 
 /**
  * This is the model class for table "yskrq".
@@ -25,7 +27,7 @@ class YandexSpeechKitRecognitionQueue extends \yii\db\ActiveRecord
     /**
      * URL, применяемый для просмотра списка записей, сортировки и постраничного перехода
      */
-    const URL_ROOT = 'pbx-calls';
+    const URL_ROOT = 'recognition-queue';
 
     /**
      * URL, ведущий в список записей без отбора
@@ -56,7 +58,7 @@ class YandexSpeechKitRecognitionQueue extends \yii\db\ActiveRecord
     public function rules()
     {
         return [
-            [['created_at', 'call_id'], 'required'],
+            [['call_id'], 'required'],
             [['created_at', 'created_by', 'check_after', 'call_id'], 'integer'],
             [['url_bucket'], 'string', 'max' => 255],
             [['operation_id'], 'string', 'max' => 30],
@@ -77,7 +79,50 @@ class YandexSpeechKitRecognitionQueue extends \yii\db\ActiveRecord
             'call_id' => 'Звонок',
             'url_bucket' => 'Ссылка на файл, размещенный в бакете',
             'operation_id' => 'Идентификатор операции для проверки готовности распознавания',
+            // вычисляемые поля
+            'createdByProfileName' => 'Отправитель',
         ];
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function behaviors()
+    {
+        return [
+            'timestamp' => [
+                'class' => 'yii\behaviors\TimestampBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
+                ],
+                'preserveNonEmptyValues' => true,
+            ],
+            'blameable' => [
+                'class' => 'yii\behaviors\BlameableBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
+                ],
+                'preserveNonEmptyValues' => true,
+            ],
+        ];
+    }
+
+    /**
+     * Возвращает путь к папке, в которую необходимо поместить распознанные Яндексом файлы.
+     * Если папка не существует, она будет создана. Если создание провалится, будет возвращено false.
+     * @param $model PbxCalls
+     * @return bool|string
+     * @throws \yii\base\Exception
+     */
+    public static function getUploadsFilepath($model)
+    {
+        $created_at = strtotime($model->calldate);
+        $filepath = Yii::getAlias('@uploads-yrr-fs') . '/' . date('Y', $created_at) . '/' . date('m', $created_at) . '/' . date('d', $created_at);
+        if (!is_dir($filepath)) {
+            if (!\yii\helpers\FileHelper::createDirectory($filepath, 0775, true)) return false;
+        }
+
+        return realpath($filepath);
     }
 
     /**

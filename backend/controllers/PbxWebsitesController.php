@@ -187,6 +187,8 @@ class PbxWebsitesController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => self::MAIN_MENU_LABEL,
                     'buttonUrl' => self::ROOT_URL_AS_ARRAY,
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

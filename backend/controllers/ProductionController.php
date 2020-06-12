@@ -145,7 +145,7 @@ class ProductionController extends Controller
                 unset($tmpArr);
             }
 
-            if (count($model->tp) > 0) {
+            if (!empty($model->tp)) {
                 foreach ($model->tp as $row) {
                     if ($row['fact'] != null) $params['mismatches'][] = $row;
                 }
@@ -186,9 +186,9 @@ class ProductionController extends Controller
                 ];
 
                 // дополняем Акт табличной частью
-                if (!empty($params['mismatches'])) {
-                    $iterator = 1;
+                $iterator = 1;
 
+                if (!empty($params['mismatches'])) {
                     foreach ($params['mismatches'] as $row) {
                         $arraySubst['%TP_NAME_' . $iterator . '%'] = $row['name'];
                         $arraySubst['%TP_VT_' . $iterator . '%'] = $row['value'];
@@ -196,14 +196,14 @@ class ProductionController extends Controller
 
                         $iterator++;
                     }
+                }
 
-                    // очистим от переменных оставшиеся строки шаблона, всего их там 10
-                    // часть уже заполнена, остальные очищаем
-                    for ($i = $iterator; $i <= 10; $i++) {
-                        $arraySubst['%TP_NAME_' . $i . '%'] = '';
-                        $arraySubst['%TP_VT_' . $i . '%'] = '';
-                        $arraySubst['%TP_VF_' . $i . '%'] = '';
-                    }
+                // очистим от переменных оставшиеся строки шаблона, всего их там 10
+                // часть уже заполнена, остальные очищаем
+                for ($i = $iterator; $i <= 10; $i++) {
+                    $arraySubst['%TP_NAME_' . $i . '%'] = '';
+                    $arraySubst['%TP_VT_' . $i . '%'] = '';
+                    $arraySubst['%TP_VF_' . $i . '%'] = '';
                 }
 
                 $docx_gen = new \DocXGen;

@@ -163,7 +163,7 @@ class foCompanyTasks extends \yii\db\ActiveRecord
      */
     public function getContactPerson()
     {
-        return $this->hasOne(foCompanyContactPersons::className(), ['ID_CONTACT_MAN' => 'ID_CONTACT_MAN']);
+        return $this->hasOne(foCompanyContactPersons::class, ['ID_CONTACT_MAN' => 'ID_CONTACT_MAN']);
     }
 
     /**

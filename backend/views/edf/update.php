@@ -8,6 +8,7 @@ use common\models\EdfDialogs;
 /* @var $model common\models\Edf */
 /* @var $tp common\models\EdfTp[]|\yii\data\ActiveDataProvider */
 /* @var $hasAccess bool наличие доступа к нескольким объектам электронного документа (менеджер не имеет) */
+/* @var $canEditManager bool возможность изменить ответственного */
 /* @var $dpDialogs \yii\data\ActiveDataProvider */
 /* @var $dpFiles \yii\data\ActiveDataProvider */
 /* @var $dpHistory \yii\data\ActiveDataProvider */
@@ -18,7 +19,7 @@ $this->params['breadcrumbs'][] = EdfController::ROOT_BREADCRUMB;
 $this->params['breadcrumbs'][] = $modelRep;
 ?>
 <div class="edf-update">
-    <?= $this->render('_form', ['model' => $model, 'tp' => $tp, 'hasAccess' => $hasAccess]) ?>
+    <?= $this->render('_form', ['model' => $model, 'tp' => $tp, 'hasAccess' => $hasAccess, 'canEditManager' => $canEditManager]) ?>
 
     <?= $this->render('_history', ['dataProvider' => $dpHistory]); ?>
 

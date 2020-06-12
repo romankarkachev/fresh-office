@@ -61,7 +61,7 @@ class HandlingKinds extends \yii\db\ActiveRecord
     {
         return [
             [['name'], 'required'],
-            [['is_active'], 'integer'],
+            ['is_active', 'boolean'],
             [['name'], 'string', 'max' => 150],
         ];
     }

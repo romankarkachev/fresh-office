@@ -6,7 +6,7 @@ use Yii;
 use yii\base\Model;
 use yii\data\ArrayDataProvider;
 use yii\helpers\ArrayHelper;
-use backend\components\TotalsColumn;
+use backend\components\grid\TotalsColumn;
 
 /**
  * ReportAnalytics - это набор отчетов для анализа обращений.
@@ -131,7 +131,7 @@ class ReportAnalytics extends Model
                 // если ответственного нет в результирующем массиве, то просто добавляем его с единицей
                 $result[] = [
                     'table1_id' => $appeal['responsible_id'],
-                    'table1_name' => $appeal['responsible_name'],
+                    'table1_name' => !empty($appeal['responsible_name']) ? $appeal['responsible_name'] : '',
                     'table1_count' => 1,
                 ];
             }
@@ -243,7 +243,7 @@ class ReportAnalytics extends Model
 
         // добавляем колонки со статусами обращений
         $columns[] = [
-            'class' => TotalsColumn::className(),
+            'class' => TotalsColumn::class,
             'attribute' => 'table' . $table_num . '_total_state',
             'headerOptions' => ['class' => 'text-center', 'style' => 'vertical-align: middle;'],
             'contentOptions' => ['class' => 'text-center'],
@@ -255,7 +255,7 @@ class ReportAnalytics extends Model
             $states_columns[$column_name] = null;
             $sort_attributes[] = $column_name;
             $columns[] = [
-                'class' => TotalsColumn::className(),
+                'class' => TotalsColumn::class,
                 'attribute' => $column_name,
                 'label' => '<small>' . Appeals::getIndepAppealStateName($state['id']) . '</small>',
                 'encodeLabel' => false,
@@ -268,7 +268,7 @@ class ReportAnalytics extends Model
 
         // добавляем колонки со статусами клиентов
         $columns[] = [
-            'class' => TotalsColumn::className(),
+            'class' => TotalsColumn::class,
             'attribute' => 'table' . $table_num . '_total_ca_state',
             'headerOptions' => ['class' => 'text-center', 'style' => 'vertical-align: middle;'],
             'contentOptions' => ['class' => 'text-center'],
@@ -280,7 +280,7 @@ class ReportAnalytics extends Model
             $states_columns[$column_name] = null;
             $sort_attributes[] = $column_name;
             $columns[] = [
-                'class' => TotalsColumn::className(),
+                'class' => TotalsColumn::class,
                 'attribute' => $column_name,
                 'label' => '<small>' . Appeals::getIndepCaStateName($state['id']) . '</small>',
                 'encodeLabel' => false,
@@ -332,7 +332,7 @@ class ReportAnalytics extends Model
                 $new_states[$column_total_ca_state] = 1;
                 $result[] = ArrayHelper::merge([
                     'table' . $table_num . '_id' => $appeal[$field_id],
-                    'table' . $table_num . '_name' => $appeal[$field_name],
+                    'table' . $table_num . '_name' => !empty($appeal[$field_name]) ? $appeal[$field_name] : '',
                 ], $new_states);
             }
         }

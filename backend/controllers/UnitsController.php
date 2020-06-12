@@ -111,6 +111,8 @@ class UnitsController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => 'Единицы измерения',
                     'buttonUrl' => ['/units'],
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

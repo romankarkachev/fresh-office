@@ -30,13 +30,17 @@ use yii\helpers\ArrayHelper;
  * @property string $typeName
  * @property string $stateName
  * @property string $priorityName
+ * @property string $contactPersonName
  * @property string $responsibleProfileName
  *
  * @property User $createdBy
  * @property Profile $createdByProfile
+ * @property AuthAssignment $createdByRoles
  * @property TasksPriorities $priority
  * @property User $responsible
+ * @property foCompanyContactPersons $contactPerson
  * @property Profile $responsibleProfile
+ * @property AuthAssignment $responsibleRoles
  * @property TasksStates $state
  * @property TasksTypes $type
  * @property TasksFiles[] $tasksFiles
@@ -44,6 +48,14 @@ use yii\helpers\ArrayHelper;
  */
 class Tasks extends \yii\db\ActiveRecord
 {
+    /**
+     * Псевдонимы присоединяемых таблиц
+     */
+    const JOIN_CREATED_BY_PROFILE_ALIAS = 'createdByProfile';
+    const JOIN_CREATED_BY_ROLES_ALIAS = 'createdByRoles';
+    const JOIN_RESPONSIBLE_PROFILE_ALIAS = 'responsibleProfile';
+    const JOIN_RESPONSIBLE_ROLES_ALIAS = 'responsibleRoles';
+
     /**
      * @var integer количество переносов
      */
@@ -121,12 +133,14 @@ class Tasks extends \yii\db\ActiveRecord
                 'attributes' => [
                     ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
                 ],
+                'preserveNonEmptyValues' => true,
             ],
             'blameable' => [
                 'class' => 'yii\behaviors\BlameableBehavior',
                 'attributes' => [
                     ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
                 ],
+                'preserveNonEmptyValues' => true,
             ],
         ];
     }
@@ -176,7 +190,7 @@ class Tasks extends \yii\db\ActiveRecord
      */
     public function getCreatedByProfile()
     {
-        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from(['createdByProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATED_BY_PROFILE_ALIAS => Profile::tableName()]);
     }
 
     /**
@@ -186,6 +200,14 @@ class Tasks extends \yii\db\ActiveRecord
     public function getCreatedByProfileName()
     {
         return $this->createdByProfile != null ? ($this->createdByProfile->name != null ? $this->createdByProfile->name : $this->createdBy->username) : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getCreatedByRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'created_by'])->from([self::JOIN_CREATED_BY_ROLES_ALIAS => AuthAssignment::tableName()]);
     }
 
     /**
@@ -242,6 +264,23 @@ class Tasks extends \yii\db\ActiveRecord
     /**
      * @return \yii\db\ActiveQuery
      */
+    public function getContactPerson()
+    {
+        return $this->hasOne(foCompanyContactPersons::class, ['ID_CONTACT_MAN' => 'fo_cp_id']);
+    }
+
+    /**
+     * Возвращает имя контактного лица контрагента.
+     * @return string
+     */
+    public function getContactPersonName()
+    {
+        return !empty($this->contactPerson) ? $this->contactPerson->CONTACT_MAN_NAME : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
     public function getResponsible()
     {
         return $this->hasOne(User::class, ['id' => 'responsible_id']);
@@ -252,7 +291,7 @@ class Tasks extends \yii\db\ActiveRecord
      */
     public function getResponsibleProfile()
     {
-        return $this->hasOne(Profile::class, ['user_id' => 'created_by'])->from(['responsibleProfile' => 'profile']);
+        return $this->hasOne(Profile::class, ['user_id' => 'responsible_id'])->from([self::JOIN_RESPONSIBLE_PROFILE_ALIAS => Profile::tableName()]);
     }
 
     /**
@@ -261,7 +300,15 @@ class Tasks extends \yii\db\ActiveRecord
      */
     public function getResponsibleProfileName()
     {
-        return $this->responsibleProfile != null ? ($this->responsibleProfile->name != null ? $this->responsibleProfile->name : $this->responsible->username) : '';
+        return !empty($this->responsibleProfile) ? (!empty($this->responsibleProfile->name) ? $this->responsibleProfile->name : $this->responsible->username) : '';
+    }
+
+    /**
+     * @return \yii\db\ActiveQuery
+     */
+    public function getResponsibleRoles()
+    {
+        return $this->hasOne(AuthAssignment::class, ['user_id' => 'responsible_id'])->from([self::JOIN_RESPONSIBLE_ROLES_ALIAS => AuthAssignment::tableName()]);
     }
 
     /**

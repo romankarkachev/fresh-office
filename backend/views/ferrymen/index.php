@@ -161,6 +161,7 @@ $this->params['breadcrumbs'][] = 'Перевозчики';
                 'options' => ['width' => '80'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
+                'visible' => !Yii::$app->user->can('accountant_b'),
             ],
         ],
     ]); ?>

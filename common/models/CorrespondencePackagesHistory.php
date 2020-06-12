@@ -72,6 +72,13 @@ class CorrespondencePackagesHistory extends \yii\db\ActiveRecord
                     ActiveRecord::EVENT_BEFORE_INSERT => ['created_at'],
                 ],
             ],
+            'blameable' => [
+                'class' => 'yii\behaviors\BlameableBehavior',
+                'attributes' => [
+                    ActiveRecord::EVENT_BEFORE_INSERT => ['created_by'],
+                ],
+                'preserveNonEmptyValues' => true,
+            ],
         ];
     }
 

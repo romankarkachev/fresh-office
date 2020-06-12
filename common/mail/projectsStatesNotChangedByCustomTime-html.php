@@ -2,7 +2,7 @@
 
 use common\models\foProjects;
 
-/* @var $projects array массив проектов со значительно просроченными статусами */
+/* @var $items array массив проектов со значительно просроченными статусами */
 ?>
 <table width="100%" cellpadding="0" cellspacing="0">
     <tr>
@@ -15,11 +15,11 @@ use common\models\foProjects;
             Обратите внимание на проекты, у которых статусы не изменялись критическое время.
         </td>
     </tr>
-    <?php foreach ($projects as $project): ?>
+    <?php foreach ($items as $item): ?>
     <tr>
         <td class="content-block">
-            <strong><?= $project['stateName'] ?></strong> (<?= trim(foProjects::downcounter($project['time'])) ?>)
-            <p>Проекты: <?= implode(', ', $project['projects']) ?></p>
+            <strong><?= $item['stateName'] ?></strong> (<?= trim(foProjects::downcounter($item['time'])) ?>)
+            <p>Проекты: <?= implode(', ', $item['projects']) ?></p>
         </td>
     </tr>
     <?php endforeach; ?>

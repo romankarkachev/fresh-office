@@ -31,7 +31,12 @@ if ($customer) {
     </tr>
     <tr>
         <td style="padding-top: 600px;"></td>
-        <td><?= $customerName ?><br /><?= !empty($cp->address->address_m) ? $cp->address->address_m : $cp->address->src_address ?></td>
+        <td>
+            <?= $customerName ?>
+            <?php if (!empty($cp->contact_person)): ?><br /><?= $cp->contact_person ?><?php endif; ?>
+            <br /><?= !empty($cp->address->address_m) ? $cp->address->address_m : $cp->address->src_address ?>
+            <?php if (!empty($cp->address->zip_code)): ?><br /><?= $cp->address->zip_code ?><?php endif; ?>
+        </td>
     </tr>
 </table>
 <?php $this->endBody() ?>

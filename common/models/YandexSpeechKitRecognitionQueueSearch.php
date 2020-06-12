@@ -50,7 +50,7 @@ class YandexSpeechKitRecognitionQueueSearch extends YandexSpeechKitRecognitionQu
             ],
             'sort' => [
                 //'route' => $route,
-                'defaultOrder' => ['created_at' => SORT_DESC],
+                'defaultOrder' => ['check_after' => SORT_DESC, 'created_at' => SORT_DESC],
                 'attributes' => [
                     'id',
                     'created_at',

@@ -7,6 +7,7 @@ use kartik\select2\Select2;
 use kartik\typeahead\Typeahead;
 use common\models\ProjectsStates;
 use common\models\PostDeliveryKinds;
+use common\models\CorrespondencePackages;
 use common\models\CorrespondencePackagesStates;
 
 /* @var $this yii\web\View */
@@ -14,7 +15,7 @@ use common\models\CorrespondencePackagesStates;
 /* @var $contactEmails array массив E-mail'ов для уведомлений заказчика о состоянии почтового отправления */
 /* @var $form yii\bootstrap\ActiveForm */
 
-$inputGroupTemplate = "{label}\n<div class=\"input-group\">\n{input}\n<span class=\"input-group-btn\"><button class=\"btn btn-default\" type=\"button\" id=\"btnTrackNumber\"><i class=\"fa fa-search\" aria-hidden=\"true\"></i> Отследить</button></span></div>\n{error}";
+$inputGroupTemplate = CorrespondencePackages::FORM_FIELD_TRACK_TEMPLATE;
 $pdDisabled = false;
 if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > CorrespondencePackagesStates::STATE_СОГЛАСОВАНИЕ) $pdDisabled = true;
 ?>
@@ -126,7 +127,7 @@ if (Yii::$app->user->can('sales_department_manager') && $model->cps_id > Corresp
                     <?= $form->field($model, 'stateName')->textInput(['disabled' => true, 'title' => $model->stateName]) ?>
 
                     <?php else: ?>
-                    <?= $form->field($model, 'state_id')->widget(Select2::className(), [
+                    <?= $form->field($model, 'state_id')->widget(Select2::class, [
                         'data' => ProjectsStates::arrayMapForSelect2(),
                         'theme' => Select2::THEME_BOOTSTRAP,
                         'options' => ['placeholder' => '- выберите -'],

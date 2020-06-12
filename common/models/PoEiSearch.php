@@ -73,11 +73,11 @@ class PoEiSearch extends PoEi
 
         // grid filtering conditions
         $query->andFilterWhere([
-            'id' => $this->id,
+            self::tableName() . '.`id`' => $this->id,
             'group_id' => $this->group_id,
         ]);
 
-        $query->andFilterWhere(['like', 'name', $this->name]);
+        $query->andFilterWhere(['like', self::tableName() . '.`name`', $this->name]);
 
         return $dataProvider;
     }

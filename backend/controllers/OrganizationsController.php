@@ -2,6 +2,7 @@
 
 namespace backend\controllers;
 
+use moonland\phpexcel\Excel;
 use Yii;
 use common\models\Organizations;
 use common\models\OrganizationsSearch;
@@ -200,6 +201,8 @@ class OrganizationsController extends Controller
                     'modelRep' => $model->name,
                     'buttonCaption' => self::ROOT_LABEL,
                     'buttonUrl' => self::ROOT_URL_AS_ARRAY,
+                    'action1' => 'удалить',
+                    'action2' => 'удален',
                 ],
             ]);
 

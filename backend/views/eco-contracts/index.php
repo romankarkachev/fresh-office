@@ -14,6 +14,7 @@ use backend\controllers\EcoContractsController;
 $this->title = EcoContractsController::ROOT_LABEL . ' | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = EcoContractsController::ROOT_LABEL;
 
+$dataTableId = 'gw-contracts';
 $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span class="sr-only">Подождите...</span>';
 ?>
 <div class="eco-mc-list">
@@ -23,7 +24,12 @@ $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span cla
         <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
     </p>
+    <div id="header"></div>
     <?= GridView::widget([
+        'tableOptions' => [
+            'id' => $dataTableId,
+            'class' => 'table table-striped table-hover table-responsive',
+        ],
         'dataProvider' => $dataProvider,
         'columns' => ArrayHelper::merge(ArrayHelper::merge([
             [
@@ -40,12 +46,21 @@ $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span cla
             ],
             [
                 'attribute' => 'fo_ca_id',
+                'label' => 'Контрагент',
                 'format' => 'raw',
                 'value' => function($model, $key, $index, $column) use ($preloader) {
                     /* @var $model \common\models\EcoMc */
                     /* @var $column \yii\grid\DataColumn */
 
-                    return Html::tag('span', $preloader, ['id' => 'focaName' . $model->id, 'data-focaid' => $model->fo_ca_id]);
+                    if (!empty(trim($model->comment))) {
+                        return Html::tag('abbr', $preloader, ['id' => 'focaName' . $model->id, 'data-focaid' => $model->fo_ca_id, 'title' => $model->comment]);
+                    }
+                    else {
+                        return Html::tag('span', $preloader, ['id' => 'focaName' . $model->id, 'data-focaid' => $model->fo_ca_id]);
+                    }
+
+                    // до 16.12.19 было так:
+                    //return Html::tag('span', $preloader, ['id' => 'focaName' . $model->id, 'data-focaid' => $model->fo_ca_id]);
                 },
             ],
             'managerProfileName',
@@ -73,6 +88,7 @@ $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span cla
                 'options' => ['width' => '130'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
+                'visible' => false,
             ],
             [
                 'attribute' => 'date_finish',
@@ -81,6 +97,7 @@ $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span cla
                 'options' => ['width' => '130'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
+                'visible' => false,
             ],
             //'comment:ntext',
         ], $reportsColumns), [
@@ -93,20 +110,27 @@ $preloader = '<i class="fa fa-spinner fa-pulse fa-fw text-primary"></i><span cla
 $urlEvaluateNames = Url::to(EcoContractsController::URL_EVALUATE_CA_NAMES_AS_ARRAY);
 $urlSubmitReport = Url::to(EcoContractsController::URL_SUBMIT_REPORT_AS_ARRAY);
 
+$this->registerJsFile('https://unpkg.com/sticky-table-headers', ['depends' => 'yii\web\JqueryAsset', 'position' => \yii\web\View::POS_END]);
+$this->registerCss(<<<CSS
+.tableFloatingHeaderOriginal { background-color: #eaeaea; }
+.tableFloatingHeaderOriginal th { vertical-align: middle !important; }
+CSS
+);
+
 $this->registerJs(<<<JS
 // Функция вычисляет наименования контрагентов, выведенных на экране и подставляет их в соответствующие месте на странице.
 //
 function evaluateCaNames() {
     var focas = [];
 
-    $("span[id^='focaName']").each(function(index) {
+    $("[id^='focaName']").each(function(index) {
         var fo_ca_id = $(this).attr("data-focaid");
         if ($.inArray(fo_ca_id, focas) === -1) focas.push(fo_ca_id);
     });
 
     $.get("$urlEvaluateNames?ids=" + focas, function(response) {
         $.each(response, function(index, element) {
-            $("span[data-focaid='" + element.id + "']").replaceWith(element.name);
+            $("[data-focaid='" + element.id + "']").text(element.name);
         });
     });
 } // evaluateCaNames()
@@ -134,7 +158,18 @@ function submitDate(id, date) {
     });
 } // submitDateOnChange()
 
+// Обработчик изменения даты в любой строке таблицы (для быстрой установки даты сдачи отчета).
+//
+function submitDateOnChange(e, id) {
+    if (confirm("Будет установлена дата фактической подачи отчета в контролирующие органы. Продолжить?")) submitDate(id, e.format("yyyy-mm-dd"));
+} // submitDateOnChange()
+
+// вычисляем наименования контрагентов
 evaluateCaNames();
+
+// применяем компонент для фиксации заголовка таблицы при прокручивании страницы
+\$dataTable = $("#$dataTableId");
+\$dataTable.stickyTableHeaders({fixedOffset: $("#navbar-collapse"), cacheHeaderHeight: true});
 
 $(document).on("click", "a[id ^= 'submitReport']", submitReportOnClick);
 JS

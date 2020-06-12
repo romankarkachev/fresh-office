@@ -19,8 +19,10 @@ class PaymentOrdersSearch extends PaymentOrders
     const CLAUSE_STATES_GROUP_ACCOUNTANT_DEFAULT = 999901;
     const CLAUSE_STATES_GROUP_ACCOUNTANT_PAID = 999902;
     const CLAUSE_STATES_GROUP_ACCOUNTANT_ALL = 999903;
+    const CLAUSE_STATES_GROUP_FERRYMAN = 999904;
 
     const CLAUSE_STATES_GROUP_ROOT_LOGIST_ALL = 999911;
+    const CLAUSE_STATES_GROUP_ADVANCE_REPORTS = 999922;
 
     /**
      * @var string поле отбора, определяющее начало периода даты оплаты
@@ -38,12 +40,29 @@ class PaymentOrdersSearch extends PaymentOrders
     public $searchGroupStates;
 
     /**
+     * @var integer поле для отбора по скану акта
+     */
+    public $searchCcp;
+
+    /**
+     * @var integer поле для отбора по оригиналу акта
+     */
+    public $searchOrp;
+
+    /**
+     * Количество записей на странице.
+     * По-умолчанию - false.
+     * @var integer
+     */
+    public $searchPerPage;
+
+    /**
      * @inheritdoc
      */
     public function rules()
     {
         return [
-            [['id', 'created_at', 'created_by', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'searchGroupStates'], 'integer'],
+            [['id', 'created_at', 'created_by', 'state_id', 'ferryman_id', 'pd_type', 'pd_id', 'searchGroupStates', 'searchCcp', 'searchOrp', 'searchPerPage'], 'integer'],
             [['projects', 'payment_date', 'comment', 'searchPaymentDateStart', 'searchPaymentDateEnd'], 'safe'],
         ];
     }
@@ -57,7 +76,54 @@ class PaymentOrdersSearch extends PaymentOrders
             'searchPaymentDateStart' => 'Начало периода',
             'searchPaymentDateEnd' => 'Конец периода',
             'searchGroupStates' => 'Группы статусов',
+            'searchCcp' => 'Скан акта',
+            'searchOrp' => 'Оригинал акта',
+            'searchPerPage' => 'Записей', // на странице
         ]);
+    }
+
+    /**
+     * Возвращает массив возможных значения для поля отбора по пометке наличию скана акта выполненных работ.
+     * @return array
+     */
+    public static function fetchIsCcpValues()
+    {
+        return [
+            [
+                'id' => PoSearch::IS_DELETED_VALUE_NA,
+                'name' => 'Не важно',
+            ],
+            [
+                'id' => PoSearch::IS_DELETED_VALUE_TRUE,
+                'name' => 'Скан есть',
+            ],
+            [
+                'id' => PoSearch::IS_DELETED_VALUE_FALSE,
+                'name' => 'Скана нет',
+            ],
+        ];
+    }
+
+    /**
+     * Возвращает массив возможных значения для поля отбора по пометке наличию оригинала акта выполненных работ.
+     * @return array
+     */
+    public static function fetchIsOrpValues()
+    {
+        return [
+            [
+                'id' => PoSearch::IS_DELETED_VALUE_NA,
+                'name' => 'Не важно',
+            ],
+            [
+                'id' => PoSearch::IS_DELETED_VALUE_TRUE,
+                'name' => 'Оригинал есть',
+            ],
+            [
+                'id' => PoSearch::IS_DELETED_VALUE_FALSE,
+                'name' => 'Оригинала нет',
+            ],
+        ];
     }
 
     /**
@@ -96,7 +162,27 @@ class PaymentOrdersSearch extends PaymentOrders
                 'id' => self::CLAUSE_STATES_GROUP_ROOT_LOGIST_ALL,
                 'name' => 'Все',
             ],
-        ], PaymentOrdersStates::find()->asArray()->all());
+        ], PaymentOrdersStates::find()->where(['not in', 'id', PaymentOrdersStates::PAYMENT_STATES_SET_АВАНСОВЫЕ_ОТЧЕТЫ])->asArray()->all());
+    }
+
+    /**
+     * Делает выборку значений для поля отбора по скану акта и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfCcpForSelect2()
+    {
+        return ArrayHelper::map(self::fetchIsCcpValues(), 'id', 'name');
+    }
+
+    /**
+     * Делает выборку значений для поля отбора по оригиналу акта и возвращает в виде массива.
+     * Применяется для вывода в виджетах Select2.
+     * @return array
+     */
+    public static function arrayMapOfOrpForSelect2()
+    {
+        return ArrayHelper::map(self::fetchIsOrpValues(), 'id', 'name');
     }
 
     /**
@@ -118,6 +204,7 @@ class PaymentOrdersSearch extends PaymentOrders
      */
     public function search($params, $route = 'payment-orders', $calculateTotalAmount = null)
     {
+        $tableName = self::tableName();
         $query = PaymentOrders::find()->select([
             '{{payment_orders}}.*',
             'paymentOrdersFilesCount' => 'COUNT({{payment_orders_files}}.id)',
@@ -144,6 +231,12 @@ class PaymentOrdersSearch extends PaymentOrders
                     'pd_type',
                     'pd_id',
                     'payment_date',
+                    'emf_sent_at',
+                    'approved_at',
+                    'ccp_at',
+                    'or_at',
+                    'imt_num',
+                    'imt_state',
                     'comment',
                     'createdByProfileName' => [
                         'asc' => ['profile.name' => SORT_ASC],
@@ -170,25 +263,94 @@ class PaymentOrdersSearch extends PaymentOrders
             return $dataProvider;
         }
 
-        // дополним условием отбора за период по дате оплаты
-        if (!empty($this->searchPaymentDateStart) || !empty($this->searchPaymentDateEnd)) {
-            if (!empty($this->searchPaymentDateStart) && !empty($this->searchPaymentDateEnd)) {
-                // если указаны обе даты
-                $query->andFilterWhere(['between', 'payment_orders.payment_date', $this->searchPaymentDateStart . ' 00:00:00', $this->searchPaymentDateEnd . ' 23:59:59']);
-            } else if (!empty($this->searchPaymentDateStart) && empty($this->searchPaymentDateEnd)) {
-                // если указано только начало периода
-                $query->andFilterWhere(['>=', 'payment_orders.payment_date', $this->searchPaymentDateStart . ' 00:00:00']);
-            } else if (empty($this->searchPaymentDateStart) && !empty($this->searchPaymentDateEnd)) {
-                // если указан только конец периода
-                $query->andFilterWhere(['<=', 'payment_orders.payment_date', $this->searchPaymentDateEnd . ' 23:59:59']);
-            };
+        // значение по умолчанию для поля скана акта
+        if (empty($this->searchCcp)) {
+            $this->searchCcp = PoSearch::IS_DELETED_VALUE_NA;
         }
 
-        if ($this->searchGroupStates == null)
+        // значение по умолчанию для поля оригинала акта
+        if (empty($this->searchOrp)) {
+            $this->searchOrp = PoSearch::IS_DELETED_VALUE_NA;
+        }
+
+        // дополним текст запроса условием отбора по полю скана акта
+        if (!empty($this->searchCcp)) {
+            switch ($this->searchCcp) {
+                case PoSearch::IS_DELETED_VALUE_TRUE:
+                    // только есть скан акта
+                    $condition = ['is not ', $tableName . '.`ccp_at`', null];
+                    break;
+                case PoSearch::IS_DELETED_VALUE_FALSE:
+                    // только нет скана акта
+                    $condition = ['is', $tableName . '.`ccp_at`', null];
+                    break;
+            }
+            if (!empty($condition)) {
+                $query->andWhere($condition);
+            }
+            unset($condition);
+        }
+        else {
+            $query->andFilterWhere([
+                $tableName . '.`ccp_at`' => $this->ccp_at,
+            ]);
+        }
+
+        // дополним текст запроса условием отбора по полю оригинала акта
+        if (!empty($this->searchOrp)) {
+            switch ($this->searchOrp) {
+                case PoSearch::IS_DELETED_VALUE_TRUE:
+                    // только есть оригинал акта
+                    $condition = ['is not ', $tableName . '.`or_at`', null];
+                    break;
+                case PoSearch::IS_DELETED_VALUE_FALSE:
+                    // только нет оригинала акта
+                    $condition = ['is', $tableName . '.`or_at`', null];
+                    break;
+            }
+            if (!empty($condition)) {
+                $query->andWhere($condition);
+            }
+            unset($condition);
+        }
+        else {
+            $query->andFilterWhere([
+                $tableName . '.`or_at`' => $this->or_at,
+            ]);
+        }
+
+        // дополним условием отбора за период по дате оплаты
+        /*
+        if (empty($this->searchPaymentDateStart) && empty($this->searchPaymentDateEnd)) {
+            // если отбор по дате вообще не выполняется, то принудительно показываем только за текущий год
+            $this->searchPaymentDateStart = date('Y') . '-01-01';
+            $query->andFilterWhere(['>=', $tableName . '.payment_date', $this->searchPaymentDateStart . ' 00:00:00']);
+        }
+        else*/if (!empty($this->searchPaymentDateStart) || !empty($this->searchPaymentDateEnd)) {
+            if (!empty($this->searchPaymentDateStart) && !empty($this->searchPaymentDateEnd)) {
+                // если указаны обе даты
+                $query->andFilterWhere(['between', $tableName . '.payment_date', $this->searchPaymentDateStart . ' 00:00:00', $this->searchPaymentDateEnd . ' 23:59:59']);
+            }
+            elseif (!empty($this->searchPaymentDateStart) && empty($this->searchPaymentDateEnd)) {
+                // если указано только начало периода
+                $query->andFilterWhere(['>=', $tableName . '.payment_date', $this->searchPaymentDateStart . ' 00:00:00']);
+            }
+            elseif (empty($this->searchPaymentDateStart) && !empty($this->searchPaymentDateEnd)) {
+                // если указан только конец периода
+                $query->andFilterWhere(['<=', $tableName . '.payment_date', $this->searchPaymentDateEnd . ' 23:59:59']);
+            }
+        }
+
+        if ($this->searchGroupStates == null) {
             if (Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b'))
                 $this->searchGroupStates = self::CLAUSE_STATES_GROUP_ACCOUNTANT_DEFAULT;
-            elseif (Yii::$app->user->can('logist') || Yii::$app->user->can('root'))
+            elseif (Yii::$app->user->can('logist') || Yii::$app->user->can('root')) {
                 $this->searchGroupStates = self::CLAUSE_STATES_GROUP_ROOT_LOGIST_ALL;
+            }
+            elseif (Yii::$app->user->can(AuthItem::ROLE_FERRYMAN)) {
+                $this->searchGroupStates = self::CLAUSE_STATES_GROUP_FERRYMAN;
+            }
+        }
 
         if ($this->searchGroupStates != null) switch ($this->searchGroupStates) {
             case self::CLAUSE_STATES_GROUP_ACCOUNTANT_DEFAULT:
@@ -196,27 +358,31 @@ class PaymentOrdersSearch extends PaymentOrders
                 if (Yii::$app->user->can('accountant')) {
                     $states = ArrayHelper::merge($states, [PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК]);
                 }
-                $query->andWhere(['in', 'payment_orders.state_id', $states]);
+                $query->andWhere(['in', $tableName . '.state_id', $states]);
                 unset($states);
 
                 break;
             case self::CLAUSE_STATES_GROUP_ACCOUNTANT_PAID:
-                $query->andWhere(['in', 'payment_orders.state_id', PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_PAID]);
+                $query->andWhere(['in', $tableName . '.state_id', PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_PAID]);
                 break;
             case self::CLAUSE_STATES_GROUP_ACCOUNTANT_ALL:
                 $states = PaymentOrdersStates::PAYMENT_STATES_SET_ACCOUNTANT_ALL;
                 if (Yii::$app->user->can('accountant')) {
                     $states = ArrayHelper::merge($states, [PaymentOrdersStates::PAYMENT_STATE_ЧЕРНОВИК]);
                 }
-                $query->andWhere(['in', 'payment_orders.state_id', $states]);
+                $query->andWhere(['in', $tableName . '.state_id', $states]);
                 unset($states);
 
                 break;
             case self::CLAUSE_STATES_GROUP_ROOT_LOGIST_ALL:
                 // нет условия, все записи (без отбора по этому полю)
                 break;
+            case self::CLAUSE_STATES_GROUP_FERRYMAN:
+                // набор статусов для просмотра платежных ордеров из личного кабинета перевозичка
+                $query->andWhere([$tableName . '.state_id' => [PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН, PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН]]);
+                break;
             default:
-                $query->andWhere(['payment_orders.state_id' => $this->searchGroupStates]);
+                $query->andWhere([$tableName . '.state_id' => $this->searchGroupStates]);
                 break;
         }
 
@@ -236,12 +402,14 @@ class PaymentOrdersSearch extends PaymentOrders
             ->andFilterWhere(['like', 'payment_orders.comment', $this->comment]);
 
         $totalAmount = $query->sum('amount');
-        if ($calculateTotalAmount === true)
+        if ($calculateTotalAmount === true) {
             return [
                 $dataProvider,
                 $totalAmount,
             ];
-        else
+        }
+        else {
             return $dataProvider;
+        }
     }
 }

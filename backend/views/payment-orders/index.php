@@ -1,16 +1,16 @@
 <?php
 
 use backend\controllers\PaymentOrdersController;
-use common\models\PaymentOrders;
 use yii\helpers\Html;
 use yii\helpers\Url;
 use backend\components\grid\GridView;
-use backend\components\TotalsColumn;
+use backend\components\grid\TotalAmountColumn;
 use common\models\PaymentOrdersStates;
 
 /* @var $this yii\web\View */
 /* @var $searchModel common\models\PaymentOrdersSearch */
 /* @var $dataProvider yii\data\ActiveDataProvider */
+/* @var $queryString string */
 
 $this->title = 'Платежные ордеры | ' . Yii::$app->name;
 $this->params['breadcrumbs'][] = 'Платежные ордеры';
@@ -26,20 +26,26 @@ else {
 <div class="payment-orders-list">
     <?= $this->render('_search', ['model' => $searchModel]); ?>
 
-    <p>
-        <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
+    <div class="row">
+        <div class="col-md-6">
+            <?= Html::a('<i class="fa fa-plus-circle"></i> Создать', ['create'], ['class' => 'btn btn-success']) ?>
 
-        <?= Html::a('<i class="fa fa-file-excel-o"></i> Импорт ордеров', ['import'], ['class' => 'btn btn-default pull-right']) ?>
+        </div>
+        <div class="col-md-6 text-right">
+            <?= Html::a('<i class="fa fa-file-excel-o"></i> Импорт ордеров', ['import'], ['class' => 'btn btn-default']) ?>
 
-        <?= Html::a('<i class="fa fa-close"></i> Удалить черновики', ['drop-drafts'], [
-            'class' => 'btn btn-danger pull-right',
-            'data' => [
-                'confirm' => 'Вы действительно хотите удалить все черновые платежные ордеры из системы?',
-                'method' => 'post',
-            ]
-        ]) ?>
+            <?= Html::a('<i class="fa fa-close"></i> Удалить черновики', ['drop-drafts'], [
+                'class' => 'btn btn-danger',
+                'data' => [
+                    'confirm' => 'Вы действительно хотите удалить все черновые платежные ордеры из системы?',
+                    'method' => 'post',
+                ]
+            ]) ?>
 
-    </p>
+            <?= Html::a('<i class="fa fa-file-excel-o" aria-hidden="true"></i> Экспорт в Excel', PaymentOrdersController::ROOT_URL_FOR_SORT_PAGING . '?export=true' . $queryString, ['class' => 'btn btn-default']) ?>
+
+        </div>
+    </div>
     <?= GridView::widget([
         'dataProvider' => $dataProvider,
         'rowOptions' => function ($model, $key, $index, $grid) use ($days) {
@@ -67,7 +73,6 @@ else {
 
             return $options;
         },
-        'layout' => '{items}{pager}',
         'tableOptions' => ['class' => 'table table-striped table-hover'],
         'showFooter' => true,
         'footerRowOptions' => ['class' => 'text-right'],
@@ -94,7 +99,7 @@ else {
                     /* @var $column \yii\grid\DataColumn */
 
                     $result = ['class' => 'text-center'];
-                    if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН && empty($model->ccp_at)) {
+                    if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН && empty($model->or_at)) {
                         // если поле "Дата и время загрузки в систему Акта выполненных работ" заполнено, то отметим
                         $result['style'] = 'background-color:#f38f8f;color:#f9f9f9;';
                         $result['title'] = 'К платежному ордеру не прикреплен акт выполненных работ!';
@@ -112,10 +117,15 @@ else {
                     /* @var $model \common\models\PaymentOrders */
                     /* @var $column \yii\grid\DataColumn */
 
+                    $addon = '';
+                    if (!empty($model->imt_state)) {
+                        $addon = '<br><span class="text-muted small" title="Статус входящего почтового отправления">' . $model->trackStateName . '</span>';
+                    }
+
                     if ($model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОТКАЗ)
-                        return Html::tag('abbr', $model->{$column->attribute}, ['title' => $model->comment]);
+                        return Html::tag('abbr', $model->{$column->attribute}, ['title' => $model->comment]) . $addon;
                     else
-                        return $model->{$column->attribute};
+                        return $model->{$column->attribute} . $addon;
                 },
             ],
             [
@@ -150,9 +160,15 @@ else {
                 'footerOptions' => ['class' => 'text-right'],
             ],
             [
-                'class' => TotalsColumn::className(),
+                'class' => TotalAmountColumn::class,
                 'attribute' => 'amount',
-                'format' => 'currency',
+                'format' => 'raw',
+                'value' => function ($model, $key, $index, $column) {
+                    /* @var $model \common\models\PaymentOrders */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    return \common\models\FinanceTransactions::getPrettyAmount($model->{$column->attribute}, 'html');
+                },
                 'options' => ['width' => '130'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-right'],
@@ -189,12 +205,37 @@ else {
                         ]);
 
                     // кнопки бухгалтера
-                    if ((Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b')) && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН)
-                        $buttons = Html::a('Отметить оплаченным', '#', [
-                            'class' => 'btn btn-success btn-xs',
-                            'id' => 'changeOnTheFly' . PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН . $model->id,
-                            'data-id' => $model->id, 'data-state' => PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН,
-                        ]);
+                    if ((Yii::$app->user->can('accountant') || Yii::$app->user->can('accountant_b'))) {
+                        switch ($model->state_id) {
+                            case PaymentOrdersStates::PAYMENT_STATE_УТВЕРЖДЕН:
+                                $buttons .= Html::a('Отметить оплаченным', '#', [
+                                    'class' => 'btn btn-success btn-xs',
+                                    'id' => 'changeOnTheFly' . PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН . $model->id,
+                                    'data-id' => $model->id, 'data-state' => PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН,
+                                ]);
+                                break;
+                            case PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН:
+                                if (empty($model->ccp_at)) {
+                                    $buttons .= Html::a('<i class="fa fa-file-image-o text-warning"></i> скан', '#', [
+                                        'id' => 'btnSetCcProvidedOnTheFly' . $model->id,
+                                        'data-id' => $model->id,
+                                        'title' => 'Установить отметку наличия скана акта выполненных работ',
+                                        'class' => 'btn btn-default btn-xs',
+                                    ]);
+                                }
+
+                                if (empty($model->or_at)) {
+                                    $buttons .= Html::a('<i class="fa fa-envelope-open-o text-warning"></i> оригинал', '#', [
+                                        'id' => 'btnSetOrProvidedOnTheFly' . $model->id,
+                                        'data-id' => $model->id,
+                                        'title' => 'Установить отметку наличия оригинала акта выполненных работ',
+                                        'class' => 'btn btn-default btn-xs',
+                                    ]);
+                                }
+
+                                break;
+                        }
+                    }
 
                     return '<div id="block-state' . $model->id . '">' . $buttons . '</div>';
                 },
@@ -203,18 +244,8 @@ else {
             [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
-                'template' => '{cc_provided} {update} {delete}',
+                'template' => '{update} {delete}',
                 'buttons' => [
-                    'cc_provided' => function ($url, $model) {
-                        /* @var $model \common\models\PaymentOrders */
-
-                        if (empty($model->ccp_at) && $model->state_id == PaymentOrdersStates::PAYMENT_STATE_ОПЛАЧЕН && $model->paymentOrdersFilesCount >= 2) {
-                            return Html::a('<i class="fa fa-certificate text-warning"></i>', '#', ['id' => 'btnSetCcProvidedOnTheFly' . $model->id, 'data-id' => $model->id, 'title' => 'Установить отметку наличия Акта выполненных работ', 'class' => 'btn btn-default btn-xs']);
-                        }
-                        else {
-                            return '';
-                        }
-                    },
                     'update' => function ($url, $model) {
                         return Html::a('<i class="fa fa-pencil"></i>', $url, ['title' => Yii::t('yii', 'Редактировать'), 'class' => 'btn btn-default btn-xs']);
                     },
@@ -225,7 +256,7 @@ else {
                 'visibleButtons' => [
                     'delete' => Yii::$app->user->can('root'),
                 ],
-                'options' => ['width' => '90'],
+                'options' => ['width' => '110'],
                 'headerOptions' => ['class' => 'text-center'],
                 'contentOptions' => ['class' => 'text-center'],
             ],
@@ -236,6 +267,7 @@ else {
 <?php
 $url = Url::to(['/payment-orders/change-state-on-the-fly']);
 $urlCcProvided = Url::to(PaymentOrdersController::URL_SET_CCP_ON_THE_FLY_AS_ARRAY);
+$urlOrProvided = Url::to(PaymentOrdersController::URL_SET_OR_ON_THE_FLY_AS_ARRAY);
 
 $this->registerJs(<<<JS
 // Функция-обработчик изменения даты в любом из соответствующих полей.
@@ -272,12 +304,12 @@ function btnchangeOnTheFlyOnClick() {
     return false;
 } // btnchangeOnTheFlyOnClick()
 
-// Обработчик щелчка по кнопкам, позволяющим отметить признак наличия актов выполненных работ.
+// Обработчик щелчка по кнопкам, позволяющим отметить признак наличия сканов актов выполненных работ.
 //
 function btnSetCcProvidedOnTheFlyOnClick() {
     \$button = $(this);
     id = $(this).attr("data-id");
-    if (id) {
+    if (id && confirm("Вы действительно хотите отметить наличие скан-копии акта выполненных работ?")) {
         $.post("$urlCcProvided?id=" + id, function(data) {
             var response = jQuery.parseJSON(data);
             if (response != false) {
@@ -292,8 +324,29 @@ function btnSetCcProvidedOnTheFlyOnClick() {
     return false;
 } // btnSetCcProvidedOnTheFlyOnClick()
 
+// Обработчик щелчка по кнопкам, позволяющим отметить признак наличия оригиналов актов выполненных работ.
+//
+function btnSetOrProvidedOnTheFlyOnClick() {
+    \$button = $(this);
+    id = $(this).attr("data-id");
+    if (id && confirm("Вы действительно хотите отметить наличие оригинала акта выполненных работ?")) {
+        $.post("$urlOrProvided?id=" + id, function(data) {
+            var response = jQuery.parseJSON(data);
+            if (response != false) {
+                \$button.remove();
+                $("tr[data-key='" + id + "'] > td").first().removeAttr("style");
+            }
+            else
+                \$button.html('<i class="fa fa-times text-danger"></i>');
+        });
+    }
+
+    return false;
+} // btnSetOrProvidedOnTheFlyOnClick()
+
 $(document).on("click", "a[id ^= 'changeOnTheFly']", btnchangeOnTheFlyOnClick);
 $(document).on("click", "a[id ^= 'btnSetCcProvidedOnTheFly']", btnSetCcProvidedOnTheFlyOnClick);
+$(document).on("click", "a[id ^= 'btnSetOrProvidedOnTheFly']", btnSetOrProvidedOnTheFlyOnClick);
 JS
 , yii\web\View::POS_READY);
 ?>

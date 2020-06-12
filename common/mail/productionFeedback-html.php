@@ -16,7 +16,7 @@
 
         </td>
     </tr>
-    <?php if (is_array($mismatches) && count($mismatches) > 0): ?>
+    <?php if (isset($mismatches) && is_array($mismatches) && !empty($mismatches)): ?>
     <tr>
         <td class="content-block">
             <table class="invoice">

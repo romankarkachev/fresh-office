@@ -6,7 +6,6 @@ use Yii;
 use yii\bootstrap\ActiveForm;
 use yii\helpers\Json;
 use yii\web\Controller;
-use yii\web\Response;
 use yii\filters\AccessControl;
 use yii\filters\VerbFilter;
 use backend\models\CustomerInvitationForm;
@@ -89,9 +88,7 @@ class InviteCustomerController extends Controller
         $model = new CustomerInvitationForm();
 
         if (Yii::$app->request->isAjax && $model->load(Yii::$app->request->post())) {
-            Yii::$app->response->format = Response::FORMAT_JSON;
-            echo Json::encode(ActiveForm::validate($model));
-            Yii::$app->end();
+            return Json::encode(\yii\widgets\ActiveForm::validate($model));
         }
     }
 }

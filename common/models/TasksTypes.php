@@ -71,6 +71,6 @@ class TasksTypes extends \yii\db\ActiveRecord
      */
     public function getTasks()
     {
-        return $this->hasMany(Tasks::className(), ['type_id' => 'id']);
+        return $this->hasMany(Tasks::class, ['type_id' => 'id']);
     }
 }

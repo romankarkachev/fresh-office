@@ -15,6 +15,7 @@ use dektrium\user\models\Profile as BaseProfile;
  * @property int $limit_cp_me Лимит отправок через курьерскую службу Major Express
  * @property int $notify_when_cp Признак необходимости отправлять уведомление менеджеру, когда для него создается пакет корреспонденции
  * @property float $po_maa Максимальная сумма платежного ордера, которая может быть согласована пользователем без руководства
+ * @property int $can_fod Возможность делегировать свои финансовые обязательства другому подотчетному лицу
  *
  * @property array $departments
  * @property array $poEis
@@ -45,7 +46,9 @@ class Profile extends BaseProfile
     public function rules()
     {
         return ArrayHelper::merge(parent::rules(), [
-            [['fo_id', 'limit_cp_me', 'notify_when_cp'], 'integer'],
+            [['name'], 'trim'],
+            [['fo_id', 'limit_cp_me', 'can_fod'], 'integer'],
+            ['notify_when_cp', 'boolean'],
             [['po_maa'], 'number'],
             [['departments', 'poEis', 'poEiForApproving'], 'safe'],
         ]);
@@ -61,6 +64,7 @@ class Profile extends BaseProfile
             'limit_cp_me' => 'Лимит отправок Major Express',
             'notify_when_cp' => 'Уведомлять при создании пакета корр.',
             'po_maa' => 'Максимальная сумма платежного ордера, которая может быть согласована пользователем без руководства',
+            'can_fod' => 'Возможность делегировать свои финансовые обязательства другому подотчетному лицу',
             // виртуальные поля
             'departments' => 'Отделы',
             'poEis' => 'Статьи бюджета для создания',

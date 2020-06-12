@@ -100,6 +100,24 @@ $this->params['breadcrumbs'][] = 'Водители';
                 }
             ],
             [
+                'label' => 'ДОПОГ',
+                'format' => 'raw',
+                'value' => function($model, $key, $index, $column) {
+                    /* @var $model \common\models\Drivers */
+                    /* @var $column \yii\grid\DataColumn */
+
+                    $options = ['disabled' => true];
+                    if (!empty($model->is_dopog)) {
+                        $options['checked'] = 'checked';
+                    }
+
+                    return Html::input('checkbox', 'Drivers[is_dopog]', 1, $options);
+                },
+                'options' => ['width' => '30'],
+                'headerOptions' => ['class' => 'text-center'],
+                'contentOptions' => ['class' => 'text-center'],
+            ],
+            [
                 'class' => 'yii\grid\ActionColumn',
                 'header' => 'Действия',
                 'template' => '{checkDriversLicense} {checkPassport} {instructings} {update} {delete}',
@@ -159,3 +177,9 @@ $this->params['breadcrumbs'][] = 'Водители';
         ],
     ]); ?>
 </div>
+<?php
+$this->registerJs(<<<JS
+$("input[type='checkbox']").iCheck({checkboxClass: "icheckbox_square-green"});
+JS
+, \yii\web\View::POS_READY);
+?>

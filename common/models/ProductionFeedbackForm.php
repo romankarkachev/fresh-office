@@ -2,6 +2,7 @@
 
 namespace common\models;
 
+use Imagine\Image\ManipulatorInterface;
 use Yii;
 use yii\base\Model;
 use yii\helpers\FileHelper;
@@ -136,7 +137,7 @@ class ProductionFeedbackForm extends Model
                 $thumbFfp = $pifp . '/' . $thumbFn;
 
                 if ($file->saveAs($fileAttached_ffp) &&
-                    Image::thumbnail($fileAttached_ffp, 800, 600)->save($fileAttached_ffp, ['quality' => 90]) &&
+                    Image::resize($fileAttached_ffp, 800, 600)->save($fileAttached_ffp, ['quality' => 90]) &&
                     Image::thumbnail($fileAttached_ffp, 160, 120)->save($thumbFfp, ['quality' => 80])
                 ) {
                     // заполняем поля записи в базе о загруженном успешно файле
@@ -161,5 +162,4 @@ class ProductionFeedbackForm extends Model
 
         return false;
     }
-
 }

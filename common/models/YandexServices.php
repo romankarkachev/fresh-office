@@ -13,6 +13,22 @@ class YandexServices extends Model
     const API_URL = 'https://geocode-maps.yandex.ru/1.x/';
 
     /**
+     * URL для отправки файлов в хранилище
+     */
+    const URL_CLOUD_STORAGE = 'storage.yandexcloud.net';
+
+    /**
+     * Ключ для работы с API SpeechKit
+     */
+    const SPEECHKIT_API_KEY = 'AQVNyyn6FCwYKpNIYEkg6UFq-wYn_L5ocLKzp7F6';
+
+    /**
+     * Данные сервисного аккаунта - идентификатор и секретный ключ
+     */
+    const SPEECHKIT_SERVICE_ACCOUNT_ID = 'excC5vZWFMITy6Hsq_P9';
+    const SPEECHKIT_SERVICE_ACCOUNT_KEY = 'BD04-kXYEYsOtH_wuhqE_5em1oPApHHFvm6-FYmR';
+
+    /**
      * Отправка на распознавание длинных аудио
      */
     const URL_SPEECHKIT_RECOGNITION_RUN_LONG = 'https://transcribe.api.cloud.yandex.net/speech/stt/v2/longRunningRecognize';
